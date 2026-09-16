@@ -17,6 +17,12 @@ const DETAIL_COPY = {
     removeTagAria: "Retirer l'étiquette {label}",
     addTag: "Ajouter une étiquette",
     actionsMenu: "Actions sur le contact",
+    subscribe: {
+      subscribe: "S’abonner aux notifications",
+      unsubscribe: "Se désabonner",
+      subscribedToast: "Abonnement activé",
+      unsubscribedToast: "Abonnement retiré"
+    },
     editContact: "Éditer le contact",
     copyCard: "Copier la fiche",
     shareCard: "Partager la fiche",
@@ -345,6 +351,12 @@ const DETAIL_COPY = {
     removeTagAria: "Remove tag {label}",
     addTag: "Add a tag",
     actionsMenu: "Contact actions",
+    subscribe: {
+      subscribe: "Subscribe to notifications",
+      unsubscribe: "Unsubscribe",
+      subscribedToast: "Subscription enabled",
+      unsubscribedToast: "Subscription removed"
+    },
     editContact: "Edit contact",
     copyCard: "Copy record",
     shareCard: "Share record",
@@ -673,6 +685,12 @@ const DETAIL_COPY = {
     removeTagAria: "Tag {label} entfernen",
     addTag: "Tag hinzufügen",
     actionsMenu: "Kontaktaktionen",
+    subscribe: {
+      subscribe: "Benachrichtigungen abonnieren",
+      unsubscribe: "Abo beenden",
+      subscribedToast: "Abo aktiviert",
+      unsubscribedToast: "Abo entfernt"
+    },
     editContact: "Kontakt bearbeiten",
     copyCard: "Datensatz kopieren",
     shareCard: "Datensatz teilen",
@@ -996,6 +1014,12 @@ const DETAIL_COPY = {
     removeTagAria: "Rimuovi etichetta {label}",
     addTag: "Aggiungi etichetta",
     actionsMenu: "Azioni sul contatto",
+    subscribe: {
+      subscribe: "Iscriviti alle notifiche",
+      unsubscribe: "Annulla iscrizione",
+      subscribedToast: "Iscrizione attivata",
+      unsubscribedToast: "Iscrizione rimossa"
+    },
     editContact: "Modifica contatto",
     copyCard: "Copia scheda",
     shareCard: "Condividi scheda",
@@ -1319,6 +1343,12 @@ const DETAIL_COPY = {
     removeTagAria: "Quitar etiqueta {label}",
     addTag: "Añadir etiqueta",
     actionsMenu: "Acciones del contacto",
+    subscribe: {
+      subscribe: "Suscribirse a notificaciones",
+      unsubscribe: "Cancelar suscripción",
+      subscribedToast: "Suscripción activada",
+      unsubscribedToast: "Suscripción eliminada"
+    },
     editContact: "Editar contacto",
     copyCard: "Copiar ficha",
     shareCard: "Compartir ficha",

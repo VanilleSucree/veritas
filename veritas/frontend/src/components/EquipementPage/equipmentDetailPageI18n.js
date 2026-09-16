@@ -49,6 +49,12 @@ const FR = {
     active: "Actif",
     inactive: "Inactif"
   },
+  subscribe: {
+    subscribe: "S’abonner aux notifications",
+    unsubscribe: "Se désabonner",
+    subscribedToast: "Abonnement activé",
+    unsubscribedToast: "Abonnement retiré"
+  },
   specs: {
     title: "Fiche matériel",
     empty: "Aucune information renseignée pour cet équipement.",
@@ -743,6 +749,12 @@ const EN = {
     createdInVeritas: "Created {date}",
     active: "Active",
     inactive: "Inactive"
+  },
+  subscribe: {
+    subscribe: "Subscribe to notifications",
+    unsubscribe: "Unsubscribe",
+    subscribedToast: "Subscription enabled",
+    unsubscribedToast: "Subscription removed"
   },
   specs: {
     title: "Hardware record",

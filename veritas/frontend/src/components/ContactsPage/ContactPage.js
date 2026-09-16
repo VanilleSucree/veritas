@@ -7,6 +7,7 @@ import styles from "./ContactPage.module.css";
 import { FaTimes, FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
 import { Icon } from "@iconify/react";
 import SmartTooltip from "../SmartTooltip";
+import StatusDot from "../shared/StatusDot/StatusDot";
 import ContactModal from "./ContactModal";
 import ContactBulkEditModal from "./ContactBulkEditModal";
 import ContactBulkDeleteModal from "./ContactBulkDeleteModal";
@@ -33,6 +34,7 @@ import mspStyles from "../CybersecuritePage/CybersecuritePage.module.css";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
 import { usePermissions } from "../../contexts/PermissionsContext";
 import { createTrackedAbortController } from "../../utils/pageLoadAbort";
+import { collectTagSearchValues, matchesSearchQuery } from "../../utils/tableSearch";
 
 const CONTACTS_PAGE_SCOPE = "contacts";
 const CONTACTS_FAVORITES_SETTING = "contacts_favorites";
@@ -376,18 +378,44 @@ export default function ContactPage({
       } : c);
     });
   };
-  const matchesSearch = (contact, query) => {
+  const matchesSearch = useCallback((contact, query) => {
+    const companyLabel = formatClientDisplay(getContactCompaniesLabel(contact, pageCopy.getClientLabel));
     const companyNames = (Array.isArray(contact?.clients) ? contact.clients : []).map(row => row?.name || row?.client_name).filter(Boolean);
-    return [contact.nom, contact.prenom, contact.email, contact.telephone, contact.poste, contact.client_name, ...companyNames].filter(Boolean).some(field => String(field).toLowerCase().includes(query));
-  };
+    const communicationValues = (Array.isArray(contact?.communications) ? contact.communications : []).map(entry => entry?.value).filter(Boolean);
+    const contactSexe = normalizeContactSexe(contact.sexe);
+    const status = pageCopy.getContactStatus(contact.statut);
+    const portalStatus = getPortalStatusFromContact(contact);
+    const portalLabel = portalStatus === "active"
+      ? pageCopy.portal.active
+      : portalStatus === "inactive"
+        ? pageCopy.portal.inactive
+        : pageCopy.portal.none;
+    return matchesSearchQuery(query, [
+      contact.nom,
+      contact.prenom,
+      getContactDisplayName(contact),
+      getContactEmailValue(contact),
+      getContactPhoneValue(contact),
+      contact.email,
+      contact.telephone,
+      contact.poste,
+      contact.client_name,
+      companyLabel,
+      contactSexe ? getContactSexeLabelLocalized(contactSexe, locale) : "",
+      status.label,
+      portalLabel,
+      ...companyNames,
+      ...communicationValues,
+      ...collectTagSearchValues(contact.tags)
+    ]);
+  }, [locale, pageCopy]);
   const filteredForStats = useMemo(() => {
     let filtered = [...contacts];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(c => matchesSearch(c, q));
+      filtered = filtered.filter(c => matchesSearch(c, searchQuery));
     }
     return filtered;
-  }, [contacts, searchQuery]);
+  }, [contacts, searchQuery, matchesSearch]);
   const statusCounts = useMemo(() => {
     const counts = {
       active: 0,
@@ -407,8 +435,7 @@ export default function ContactPage({
   const filteredAndSortedContacts = useMemo(() => {
     let filtered = [...contacts];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(c => matchesSearch(c, q));
+      filtered = filtered.filter(c => matchesSearch(c, searchQuery));
     }
     if (statusFilters.size > 0) {
       filtered = filtered.filter(c => statusFilters.has(normalizeContactStatusKey(c.statut)));
@@ -441,7 +468,7 @@ export default function ContactPage({
       return 0;
     });
     return filtered;
-  }, [contacts, searchQuery, statusFilters, portalFilter, sortBy, sortOrder, pageCopy, isFavorite]);
+  }, [contacts, searchQuery, statusFilters, portalFilter, sortBy, sortOrder, pageCopy, isFavorite, matchesSearch]);
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedContacts.length / pageSize));
   const paginatedContacts = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -633,24 +660,8 @@ export default function ContactPage({
   };
   const renderContactStatus = contact => {
     const status = pageCopy.getContactStatus(contact.statut);
-    if (status.key === "active") {
-      return <SmartTooltip content={status.label}>
-          <span className={`${styles.portalStatusIcon} ${styles.portalStatusActive}`} aria-label={status.label}>
-            <Icon icon="mdi:account-check" aria-hidden />
-          </span>
-        </SmartTooltip>;
-    }
-    if (status.key === "inactive") {
-      return <SmartTooltip content={status.label}>
-          <span className={`${styles.portalStatusIcon} ${styles.portalStatusNone}`} aria-label={status.label}>
-            <Icon icon="mdi:account-off-outline" aria-hidden />
-          </span>
-        </SmartTooltip>;
-    }
     return <SmartTooltip content={status.label}>
-        <span className={`${styles.portalStatusIcon} ${styles.portalStatusNone}`} aria-label={status.label}>
-          <Icon icon="mdi:account-question-outline" aria-hidden />
-        </span>
+        <StatusDot active={status.key === "active"} label={status.label} />
       </SmartTooltip>;
   };
   return <div className={`${mspStyles.mspPage} ${layout.page} msp-page-grid`}>

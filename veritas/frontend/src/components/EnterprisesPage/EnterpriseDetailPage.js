@@ -23,6 +23,8 @@ import { getClientInitials, getClientNumber, getClientNameWithoutCode } from "..
 import { getClientOnboardingInfo } from "../../utils/clientOnboarding";
 import API_BASE_URL from "../../config";
 import SmartTooltip from "../SmartTooltip";
+import StatusDot from "../shared/StatusDot/StatusDot";
+import SubscribeBellButton from "../shared/SubscribeBellButton/SubscribeBellButton";
 import PlanningEventModalBridge from "../PlanningPage/PlanningEventModalBridge";
 import SitesModal from "./SitesModal";
 import DomainsModal from "./DomainsModal";
@@ -3108,11 +3110,13 @@ export default function ClientDetailPage({
                 <span>{clientNameWithoutCode}</span>
               </h1>
               <div className={styles.heroMeta} aria-label={copy.heroMetaAria}>
-                {companyStatusKey === "inactive" ? <span className={`${styles.contractBadge} ${styles.contractBadge_suspended}`}>
-                    {companyStatusLabel}
-                  </span> : <span className={`${styles.contractBadge} ${styles[`contractBadge_${contractStatus.status}`] || styles.contractBadge_unknown}`}>
+                <span className={`${styles.statusChip} ${companyStatusKey === "active" ? styles.statusChipActive : styles.statusChipInactive}`}>
+                  <StatusDot active={companyStatusKey === "active"} />
+                  {companyStatusLabel}
+                </span>
+                {companyStatusKey === "active" ? <span className={`${styles.contractBadge} ${styles[`contractBadge_${contractStatus.status}`] || styles.contractBadge_unknown}`}>
                     {contractStatus.label}
-                  </span>}
+                  </span> : null}
                 {commercialLabel && <span className={styles.heroMetaItem}>
                     <Icon icon="mdi:account-tie-outline" aria-hidden />
                     {commercialLabel}
@@ -3171,6 +3175,14 @@ export default function ClientDetailPage({
                   </span>
                 </div>
               </div> : null}
+            <SubscribeBellButton
+              entityType="enterprise"
+              entityId={client?.id}
+              subscribeLabel={copy.subscribe?.subscribe || "S’abonner aux notifications"}
+              unsubscribeLabel={copy.subscribe?.unsubscribe || "Se désabonner"}
+              subscribedToast={copy.subscribe?.subscribedToast || "Abonnement activé"}
+              unsubscribedToast={copy.subscribe?.unsubscribedToast || "Abonnement retiré"}
+            />
             {canEditClient || canReversibility ? <>
                 <SmartTooltip content={copy.actionsMenuTooltip}>
                   <button type="button" className={styles.heroMenuBtn} onClick={() => setClientActionsMenuOpen(open => !open)} aria-expanded={clientActionsMenuOpen} aria-haspopup="menu" aria-label={copy.actionsMenu} disabled={deletingClient}>

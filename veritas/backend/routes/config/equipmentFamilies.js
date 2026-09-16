@@ -1,7 +1,7 @@
 import express from "express";
 import { body, param, validationResult } from "express-validator";
 import verifyJWT from "../../middleware/auth.js";
-import { requirePermission } from "../../middleware/permissions.js";
+import { requirePermission, requireAnyPermission } from "../../middleware/permissions.js";
 import { createEquipmentFamily, deleteEquipmentFamily, getEquipmentMapStyle, listEquipmentFamilies, listSystemFamilyExtensions, listSystemFamilyExtensionsByKey, listSystemFamilyLayouts, replaceSystemFamilyExtensions, updateEquipmentFamily, upsertEquipmentMapStyle, upsertSystemFamilyLayouts } from "../../utils/equipmentFamilies.js";
 const router = express.Router();
 router.use(verifyJWT);
@@ -99,7 +99,7 @@ router.put("/extensions/:familyKey", verifyJWT, requirePermission("admin_panel.e
     handleError(res, err, "PUT /equipment-families/extensions/:familyKey");
   }
 });
-router.get("/admin", verifyJWT, requirePermission("admin_panel.equipment_families"), async (_req, res) => {
+router.get("/admin", verifyJWT, requireAnyPermission("admin_panel.equipment_families", "admin_panel.injection"), async (_req, res) => {
   try {
     const families = await listEquipmentFamilies({
       includeDisabled: true,

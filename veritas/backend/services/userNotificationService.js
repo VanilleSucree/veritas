@@ -3,6 +3,7 @@ import { loadNotificationSettingsRaw } from "./ticketAutomationConfigStore.js";
 import { normalizeSystemNotifications, renderSystemTemplate } from "./systemNotificationCatalog.js";
 import { upsertUserSetting } from "../utils/userSettingsStore.js";
 import { getTestNotificationSample } from "../utils/inAppNotificationI18n.js";
+import { listTicketSubscriberUserIds } from "./entitySubscriptionService.js";
 export const IN_APP_USER_SETTINGS_KEY = "in_app_notification_settings";
 export const DEFAULT_IN_APP_SETTINGS = {
   enabled: false,
@@ -225,7 +226,8 @@ async function resolveAuthorName(authorUserId) {
 }
 export async function getTicketRecipientIds(ticketId, {
   notifyAssignees = true,
-  notifyWatchers = true
+  notifyWatchers = true,
+  notifySubscribers = true
 } = {}) {
   const ids = new Set();
   const ticket = await resolveTicketContext(ticketId);
@@ -244,6 +246,10 @@ export async function getTicketRecipientIds(ticketId, {
     watchersResult.rows.forEach(row => {
       if (row?.user_id) ids.add(String(row.user_id));
     });
+  }
+  if (notifySubscribers) {
+    const subscriberIds = await listTicketSubscriberUserIds(ticketId, { channel: "inapp" }).catch(() => []);
+    subscriberIds.forEach(id => ids.add(String(id)));
   }
   return [...ids];
 }

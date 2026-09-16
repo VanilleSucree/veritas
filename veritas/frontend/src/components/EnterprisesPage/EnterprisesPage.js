@@ -6,6 +6,7 @@ import styles from "./EnterprisesPage.module.css";
 import { FaTimes, FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
 import { Icon } from "@iconify/react";
 import SmartTooltip from "../SmartTooltip";
+import StatusDot from "../shared/StatusDot/StatusDot";
 import ClientModal from "../AdminPage/ClientSkeleton/ClientModal";
 import TicketColumnsModal from "../TicketPage/TicketColumnsModal";
 import EnterpriseBulkEditModal from "./EnterpriseBulkEditModal";
@@ -31,6 +32,7 @@ import mspStyles from "../CybersecuritePage/CybersecuritePage.module.css";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
 import { usePermissions } from "../../contexts/PermissionsContext";
 import { createTrackedAbortController } from "../../utils/pageLoadAbort";
+import { collectTagSearchValues, matchesSearchQuery } from "../../utils/tableSearch";
 
 const ENTERPRISES_PAGE_SCOPE = "enterprises";
 const ENTERPRISES_FAVORITES_SETTING = "enterprises_favorites";
@@ -301,11 +303,36 @@ export default function EnterprisesPage({
     return String(name).trim().toLowerCase();
   };
   const getTabDisplayName = client => formatClientTabLabel(client);
+  const matchesSearch = useCallback((client, query) => {
+    const modulesObj = client.options || client.contrat?.modules || {};
+    const activeModuleKeys = getAllActiveModuleKeys(modulesObj, contractModules);
+    const moduleLabels = activeModuleKeys.map(key => resolveModuleLabel(key));
+    const companyStatus = copy.getCompanyStatus(client.statut);
+    const contractStatus = getContractStatus(client.contrat?.expiration, client.contrat?.suspendu);
+    const onboarding = getClientOnboardingInfo(client);
+    return matchesSearchQuery(query, [
+      client.name,
+      getClientNumber(client),
+      getClientNameWithoutCode(client),
+      formatClientTabLabel(client),
+      client.email,
+      client.phone,
+      client.commercial,
+      client.primaryContactName,
+      companyStatus.label,
+      contractStatus.label,
+      formatters.formatDate(client.contrat?.expiration),
+      activeModuleKeys.length === 0 ? copy.noModuleOptions : "",
+      onboarding ? copy.onboardingBadge : "",
+      ...activeModuleKeys,
+      ...moduleLabels,
+      ...collectTagSearchValues(client.tags)
+    ]);
+  }, [contractModules, copy, formatters, getContractStatus, resolveModuleLabel]);
   const kpiFilteredClients = useMemo(() => {
     let base = [...clients];
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      base = base.filter(client => client.name?.toLowerCase().includes(query) || getClientNumber(client).toLowerCase().includes(query) || getClientNameWithoutCode(client).toLowerCase().includes(query) || client.email?.toLowerCase().includes(query) || client.phone?.toLowerCase().includes(query) || client.commercial?.toLowerCase().includes(query) || client.primaryContactName?.toLowerCase().includes(query) || (client.tags || []).some(tag => tag.label?.toLowerCase().includes(query)));
+      base = base.filter(client => matchesSearch(client, searchQuery));
     }
     if (statusFilters.size > 0) {
       base = base.filter(client => {
@@ -317,7 +344,7 @@ export default function EnterprisesPage({
       base = base.filter(client => companyStatusFilters.has(normalizeCompanyStatusKey(client.statut)));
     }
     return base;
-  }, [clients, searchQuery, statusFilters, companyStatusFilters, copy]);
+  }, [clients, searchQuery, statusFilters, companyStatusFilters, matchesSearch]);
   const filteredAndSortedClients = useMemo(() => {
     const filtered = [...kpiFilteredClients];
     filtered.sort((a, b) => {
@@ -572,17 +599,8 @@ export default function EnterprisesPage({
   const sortIndicator = column => sortBy === column ? sortOrder === "asc" ? " ▲" : " ▼" : "";
   const renderCompanyStatus = client => {
     const status = copy.getCompanyStatus(client.statut);
-    if (status.key === "active") {
-      return <SmartTooltip content={status.label}>
-          <span className={`${styles.portalStatusIcon} ${styles.portalStatusActive}`} aria-label={status.label}>
-            <Icon icon="mdi:domain" aria-hidden />
-          </span>
-        </SmartTooltip>;
-    }
     return <SmartTooltip content={status.label}>
-        <span className={`${styles.portalStatusIcon} ${styles.portalStatusNone}`} aria-label={status.label}>
-          <Icon icon="mdi:domain-off-outline" aria-hidden />
-        </span>
+        <StatusDot active={status.key === "active"} label={status.label} />
       </SmartTooltip>;
   };
   const ThSort = ({

@@ -92,6 +92,7 @@ export function buildTicketListWhere({
     hasRequesterContact: Boolean(schema.hasRequesterContact),
     hasTicketAssignees: Boolean(schema.hasTicketAssignees),
     hasValidationRequests: Boolean(schema.hasValidationRequests),
+    hasTicketTags: Boolean(schema.hasTicketTags),
     currentUserId: currentUserId || null
   };
   appendLifecycleFilters(where, {

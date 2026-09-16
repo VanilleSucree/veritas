@@ -10,6 +10,8 @@ import styles from "../EnterprisesPage/EnterpriseDetailPage.module.css";
 import pageLayout from "../EnterprisesPage/EnterprisesPage.module.css";
 import contactStyles from "./ContactDetailPage.module.css";
 import SmartTooltip from "../SmartTooltip";
+import StatusDot from "../shared/StatusDot/StatusDot";
+import SubscribeBellButton from "../shared/SubscribeBellButton/SubscribeBellButton";
 import ClientTicketBookmarks from "./ClientTicketBookmarks";
 import { getClientNumber, getClientNameWithoutCode } from "../../utils/clientDisplay";
 import { getContactSexeIcon, normalizeContactSexe } from "../../utils/contactSexe";
@@ -723,7 +725,8 @@ export default function ContactDetailPage({
                 <span>{displayName}</span>
               </h1>
               <div className={styles.heroMeta} aria-label={copy.heroMetaAria}>
-                <span className={`${styles.contractBadge} ${styles[`contractBadge_${contactStatus.status}`] || styles.contractBadge_unknown}`}>
+                <span className={`${styles.statusChip} ${contactStatus.status === "active" ? styles.statusChipActive : styles.statusChipInactive}`}>
+                  <StatusDot active={contactStatus.status === "active"} />
                   {contactStatus.label}
                 </span>
                 {formData.poste && <span className={styles.heroMetaItem}>
@@ -787,6 +790,14 @@ export default function ContactDetailPage({
           </div>
 
           <div className={styles.heroActions} ref={contactActionsMenuRef} data-guide="contact-hero-actions">
+            <SubscribeBellButton
+              entityType="contact"
+              entityId={contact?.id || formData?.id}
+              subscribeLabel={copy.subscribe?.subscribe || "S’abonner aux notifications"}
+              unsubscribeLabel={copy.subscribe?.unsubscribe || "Se désabonner"}
+              subscribedToast={copy.subscribe?.subscribedToast || "Abonnement activé"}
+              unsubscribedToast={copy.subscribe?.unsubscribedToast || "Abonnement retiré"}
+            />
             <SmartTooltip content={copy.actionsMenu}>
               <button type="button" className={styles.heroMenuBtn} onClick={() => setContactActionsMenuOpen(open => !open)} aria-expanded={contactActionsMenuOpen} aria-haspopup="menu" aria-label={copy.actionsMenu}>
                 <Icon icon="mdi:dots-horizontal" aria-hidden />

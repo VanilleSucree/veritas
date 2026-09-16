@@ -5,6 +5,16 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.15",
+    date: "2026-09-16",
+    highlights: [
+      "Abonnements : cloche sur fiches entreprise/contact/périphérique, gestion dans Mon profil, notifications in-app/email via le pipeline existant.",
+      "Statut actif/inactif unifié (pastille verte/grise) sur les listes et fiches entreprise, contact et prestataire.",
+      "Lieux entreprise : renommer un lieu met à jour les périphériques rattachés (plus d'ancien nom orphelin).",
+      "Injection : un agent avec le droit Injection peut charger les familles custom sans le droit Familles matériel."
+    ]
+  },
+  {
     version: "1.0.14",
     date: "2026-09-09",
     highlights: [

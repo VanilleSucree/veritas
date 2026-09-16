@@ -1,33 +1,3 @@
-.portalStatusIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 999px;
-  font-size: 1rem;
-}
-
-.portalStatusActive {
-  color: #15803d;
-  background: rgba(22, 163, 74, 0.12);
-}
-
-.portalStatusNone {
-  color: #6b7280;
-  background: rgba(107, 114, 128, 0.12);
-}
-
-:global(html.dark) .portalStatusActive {
-  color: #86efac;
-  background: rgba(74, 222, 128, 0.18);
-}
-
-:global(html.dark) .portalStatusNone {
-  color: #d1d5db;
-  background: rgba(156, 163, 175, 0.18);
-}
-
 .colName {
   min-width: 10rem;
 }

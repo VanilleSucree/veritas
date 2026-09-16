@@ -1201,7 +1201,7 @@ export default function MainApp() {
       case "ReportBug":
         return <ReportBugForm />;
       case "User":
-        return <UserProfile user={user} />;
+        return <UserProfile user={user} onNavigate={handleDocSelect} />;
       case "PatchNotes":
         return <PatchNotesPage />;
       case "TabLauncher":

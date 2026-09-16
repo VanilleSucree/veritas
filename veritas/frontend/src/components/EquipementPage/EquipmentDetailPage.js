@@ -5,6 +5,7 @@ import { FaServer, FaNetworkWired, FaWifi, FaShieldAlt, FaHdd, FaGlobe, FaCamera
 import styles from "./EquipmentDetailPage.module.css";
 import enterpriseDetailStyles from "../EnterprisesPage/EnterpriseDetailPage.module.css";
 import SmartTooltip from "../SmartTooltip";
+import SubscribeBellButton from "../shared/SubscribeBellButton/SubscribeBellButton";
 import EquipmentFormModal from "./EquipmentFormModal";
 import CustomEquipmentModal from "../EnterprisesPage/CustomEquipmentModal";
 import { fetchClientGeneral, fetchClientCustomEquipment } from "../../api/clients";
@@ -1420,6 +1421,14 @@ export default function EquipmentDetailPage({
                 <Icon icon="mdi:calendar-plus-outline" aria-hidden />
               </button>
             </SmartTooltip>
+            <SubscribeBellButton
+              entityType="equipment"
+              entityId={equipmentDbId}
+              subscribeLabel={copy.subscribe?.subscribe || "S’abonner aux notifications"}
+              unsubscribeLabel={copy.subscribe?.unsubscribe || "Se désabonner"}
+              subscribedToast={copy.subscribe?.subscribedToast || "Abonnement activé"}
+              unsubscribedToast={copy.subscribe?.unsubscribedToast || "Abonnement retiré"}
+            />
             {alertSettings.available ? <SmartTooltip content={interpolate(copy.hero.alertsTooltip, {
             status: alertSettings.loading ? "…" : alertSettings.statusLabel
           })}>

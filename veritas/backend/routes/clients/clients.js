@@ -20,6 +20,7 @@ import { fetchEquipmentFleetList } from '../../utils/equipmentFleetList.js';
 import { fetchEquipmentFleetIssues } from '../../utils/equipmentFleetIssues.js';
 import { userHasAllPermissions } from '../../services/permissionService.js';
 import { addMembership, fetchPrimaryContactNamesByClientId, sqlContactLinkedToClientAsync, attachMembershipsToContacts } from '../../services/contactClientLinks.js';
+import { propagateClientSiteRenames } from '../../services/propagateClientSiteRenames.js';
 const router = express.Router();
 router.use(requireProForClientInfra);
 router.use(verifyJWT);
@@ -2977,6 +2978,15 @@ router.put('/:id', verifyJWT, requireClientUpdatePermissions, async (req, res) =
         WHERE id = $${idParamIndex}
       `;
       await pool.query(updateQuery, updateValues);
+      if (sites !== undefined && hasClientColumn("sites")) {
+        await propagateClientSiteRenames(
+          req.params.id,
+          previousClientSnapshot?.sites,
+          sites || []
+        ).catch(err => {
+          console.error("[clients] site rename propagation failed:", err?.message || err);
+        });
+      }
       await logClientUpdate({
         req,
         updateFields,
@@ -3218,6 +3228,15 @@ router.put('/general/:id', verifyJWT, requireClientUpdatePermissions, async (req
       WHERE id = $${paramIndex}
     `;
     await pool.query(updateQuery, updateValues);
+    if (sites !== undefined && hasClientColumn("sites")) {
+      await propagateClientSiteRenames(
+        req.params.id,
+        previousClientSnapshot?.sites,
+        sites || []
+      ).catch(err => {
+        console.error("[clients/general] site rename propagation failed:", err?.message || err);
+      });
+    }
     await logClientUpdate({
       req,
       updateFields,

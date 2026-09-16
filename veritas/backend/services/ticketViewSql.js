@@ -457,12 +457,71 @@ export function appendSearchWhere(search, where, values, ctx) {
   const term = String(search || "").trim().toLowerCase();
   if (!term) return;
   const param = pushParam(values, `%${term}%`);
-  const parts = [`LOWER(COALESCE(t.title, '')) LIKE ${param}`, `LOWER(COALESCE(t.description, '')) LIKE ${param}`, `LOWER(COALESCE(t.ticket_number::text, '')) LIKE ${param}`, `LOWER(COALESCE(t.channel, '')) LIKE ${param}`, `LOWER(COALESCE(c.name, '')) LIKE ${param}`, `LOWER(COALESCE(ass_u.email, '')) LIKE ${param}`, `LOWER(COALESCE(req_u.email, '')) LIKE ${param}`, `LOWER(CASE WHEN t.status = 'open' THEN 'new' ELSE COALESCE(t.status, '') END) LIKE ${param}`, `LOWER(COALESCE(t.priority, '')) LIKE ${param}`, `LOWER(CASE WHEN t.type = 'request' THEN 'demande' ELSE COALESCE(t.type, '') END) LIKE ${param}`, `${buildRequesterExpr(ctx)} LIKE ${param}`, `${buildAssignedExpr(ctx)} LIKE ${param}`, `LOWER(COALESCE((
-      SELECT STRING_AGG(LOWER(u.email), ' ')
+  const parts = [
+    `LOWER(COALESCE(t.title, '')) LIKE ${param}`,
+    `LOWER(COALESCE(t.description, '')) LIKE ${param}`,
+    `LOWER(COALESCE(t.ticket_number::text, '')) LIKE ${param}`,
+    `LOWER('#' || COALESCE(t.ticket_number::text, '')) LIKE ${param}`,
+    `LOWER(COALESCE(t.category, '')) LIKE ${param}`,
+    `LOWER(COALESCE(t.channel, '')) LIKE ${param}`,
+    `LOWER(CASE LOWER(COALESCE(t.channel, ''))
+      WHEN 'web' THEN 'web'
+      WHEN 'phone' THEN 'phone telephone téléphone telefon telefono teléfono'
+      WHEN 'email' THEN 'email e-mail'
+      WHEN 'chat' THEN 'chat'
+      WHEN 'api' THEN 'api'
+      WHEN 'whatsapp' THEN 'whatsapp'
+      ELSE COALESCE(t.channel, '')
+    END) LIKE ${param}`,
+    `LOWER(COALESCE(c.name, '')) LIKE ${param}`,
+    `LOWER(COALESCE(c.client_number, '')) LIKE ${param}`,
+    `LOWER(COALESCE(ass_u.email, '')) LIKE ${param}`,
+    `LOWER(COALESCE(ass_u.username, '')) LIKE ${param}`,
+    `LOWER(COALESCE(req_u.email, '')) LIKE ${param}`,
+    `LOWER(COALESCE(req_u.username, '')) LIKE ${param}`,
+    `LOWER(CASE WHEN t.status IN ('open', 'new') THEN 'new nouveau nouveaux new neu nuovo nuevo'
+      WHEN t.status = 'in_progress' THEN 'in_progress en cours in progress in bearbeitung in corso en curso'
+      WHEN t.status = 'pending' THEN 'pending en attente wartend in attesa en espera'
+      WHEN t.status = 'resolved' THEN 'resolved resolu résolu gelöst risolto resuelto'
+      WHEN t.status = 'closed' THEN 'closed clos geschlossen chiuso cerrado'
+      ELSE COALESCE(t.status, '')
+    END) LIKE ${param}`,
+    `LOWER(CASE LOWER(COALESCE(t.priority, ''))
+      WHEN 'low' THEN 'low basse niedrig bassa baja'
+      WHEN 'normal' THEN 'normal normale'
+      WHEN 'high' THEN 'high haute hoch alta'
+      WHEN 'urgent' THEN 'urgent urgente dringend'
+      ELSE COALESCE(t.priority, '')
+    END) LIKE ${param}`,
+    `LOWER(CASE
+      WHEN t.type IN ('request', 'demande') THEN 'demande request anfrage richiesta solicitud'
+      WHEN t.type IN ('probleme', 'problem') THEN 'probleme problème problem problema'
+      WHEN t.type IN ('changement', 'change') THEN 'changement change änderung cambio modifica'
+      WHEN t.type = 'incident' THEN 'incident vorfall incidente'
+      ELSE COALESCE(t.type, '')
+    END) LIKE ${param}`,
+    `${buildRequesterExpr(ctx)} LIKE ${param}`,
+    `${buildAssignedExpr(ctx)} LIKE ${param}`,
+    `TO_CHAR(t.created_at, 'YYYY-MM-DD') LIKE ${param}`,
+    `TO_CHAR(t.created_at, 'DD/MM/YYYY') LIKE ${param}`,
+    `TO_CHAR(t.updated_at, 'YYYY-MM-DD') LIKE ${param}`,
+    `TO_CHAR(t.updated_at, 'DD/MM/YYYY') LIKE ${param}`,
+    `LOWER(COALESCE((
+      SELECT STRING_AGG(LOWER(TRIM(COALESCE(u.email, '') || ' ' || COALESCE(u.username, ''))), ' ')
       FROM v_b_ticket_watchers w
       JOIN v_b_users u ON u.id = w.user_id
       WHERE w.ticket_id = t.id
-    ), '')) LIKE ${param}`];
+    ), '')) LIKE ${param}`
+  ];
+  if (ctx?.hasTicketTags) {
+    parts.push(`EXISTS (
+      SELECT 1
+      FROM v_b_ticket_tag_links tl
+      JOIN v_b_ticket_tags tg ON tg.id = tl.tag_id
+      WHERE tl.ticket_id = t.id
+        AND LOWER(TRIM(tg.label)) LIKE ${param}
+    )`);
+  }
   where.push(`(${parts.join(" OR ")})`);
 }
 const SORT_COLUMNS = {

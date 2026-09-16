@@ -7,6 +7,7 @@ import { fetchClientsList } from "../../api/clients";
 import styles from "../EnterprisesPage/EnterpriseDetailPage.module.css";
 import localStyles from "./PrestataireDetailPage.module.css";
 import SmartTooltip from "../SmartTooltip";
+import StatusDot from "../shared/StatusDot/StatusDot";
 import { getClientNumber, getClientNameWithoutCode } from "../../utils/clientDisplay";
 import PrestataireFormModal from "./PrestataireFormModal";
 import { usePermissions } from "../../contexts/PermissionsContext";
@@ -258,7 +259,8 @@ export default function PrestataireDetailPage({
                 <span>{displayName}</span>
               </h1>
               <div className={styles.heroMeta} aria-label={copy.heroMetaAria}>
-                <span className={`${styles.contractBadge} ${styles[`contractBadge_${status.status}`] || styles.contractBadge_unknown}`}>
+                <span className={`${styles.statusChip} ${status.status === "active" ? styles.statusChipActive : styles.statusChipInactive}`}>
+                  <StatusDot active={status.status === "active"} />
                   {status.label}
                 </span>
                 {prestataire.type ? (

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { fetchCurrentUser, resetPassword, updateEmail, updateUsername } from "../../../api/users";
 import { saveUserSetting } from "../../../api/userSettings";
 import { fetchNotificationPreferences, saveNotificationPreferences } from "../../../api/notifications";
+import { fetchSubscriptions, removeSubscription, saveSubscription } from "../../../api/subscriptions";
 import { disableMfa, setupMfa, verifyMfa } from "../../../api/mfa";
 import { useAuthContext } from "../../../contexts/AuthContext";
 import { setUserLocaleOverride, useAppLocale } from "../../../hooks/useAppGeneralSettings";
@@ -61,7 +62,7 @@ function SectionPanel({
     </section>;
 }
 
-export default function UserProfile() {
+export default function UserProfile({ onNavigate } = {}) {
   const locale = useAppLocale();
   const t = useMemo(() => getUserProfileCopy(locale), [locale]);
   const notifEventOptions = useMemo(() => getLocalizedNotifEventOptions(locale), [locale]);
@@ -94,6 +95,9 @@ export default function UserProfile() {
   const [notifAdminDefaults, setNotifAdminDefaults] = useState(null);
   const [notifPreferences, setNotifPreferences] = useState(DEFAULT_USER_IN_APP_PREFERENCES);
   const [savingNotifPrefs, setSavingNotifPrefs] = useState(false);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
+  const [savingSubscriptionKey, setSavingSubscriptionKey] = useState("");
   const [appLocale, setAppLocale] = useState(locale);
   const [savingLocale, setSavingLocale] = useState(false);
   const [planningVisibility, setPlanningVisibility] = useState("public");
@@ -136,6 +140,90 @@ export default function UserProfile() {
   useEffect(() => {
     loadUser();
   }, [loadUser]);
+
+  const loadSubscriptions = useCallback(async () => {
+    setLoadingSubscriptions(true);
+    try {
+      const payload = await fetchSubscriptions();
+      setSubscriptions(Array.isArray(payload?.items) ? payload.items : []);
+    } catch (err) {
+      console.error("Error loading subscriptions:", err);
+      setSubscriptions([]);
+    } finally {
+      setLoadingSubscriptions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection !== "notifications") return undefined;
+    loadSubscriptions();
+    return undefined;
+  }, [activeSection, loadSubscriptions]);
+
+  const subscriptionTypeLabel = useCallback(type => {
+    if (type === "enterprise") return t.subscriptions.typeEnterprise;
+    if (type === "contact") return t.subscriptions.typeContact;
+    if (type === "equipment") return t.subscriptions.typeEquipment;
+    return type;
+  }, [t.subscriptions]);
+
+  const openSubscriptionTarget = useCallback(item => {
+    if (!onNavigate || !item) return;
+    if (item.entityType === "enterprise") {
+      onNavigate("ContratDetail", { clientId: item.entityId, id: item.entityId, name: item.label || undefined });
+      return;
+    }
+    if (item.entityType === "contact") {
+      onNavigate("ContactDetail", { contactId: item.entityId, id: item.entityId, name: item.label || undefined });
+      return;
+    }
+    if (item.entityType === "equipment") {
+      onNavigate("EquipmentDetail", {
+        id: item.entityId,
+        dbId: item.entityId,
+        clientId: item.meta?.clientId || null,
+        name: item.label || item.entityId,
+        type: item.meta?.family || null
+      });
+    }
+  }, [onNavigate]);
+
+  const handleSubscriptionChannelChange = useCallback(async (item, channel, value) => {
+    const key = `${item.entityType}:${item.entityId}`;
+    setSavingSubscriptionKey(key);
+    try {
+      const payload = await saveSubscription(item.entityType, item.entityId, {
+        notifyInapp: channel === "inapp" ? value : item.notifyInapp !== false,
+        notifyEmail: channel === "email" ? value : item.notifyEmail === true
+      });
+      const next = payload?.item;
+      setSubscriptions(prev => prev.map(row =>
+        row.entityType === item.entityType && String(row.entityId) === String(item.entityId)
+          ? { ...row, ...next, label: row.label, meta: row.meta }
+          : row
+      ));
+    } catch (err) {
+      toast.error(err.message || t.subscriptions.error);
+    } finally {
+      setSavingSubscriptionKey("");
+    }
+  }, [t.subscriptions.error]);
+
+  const handleUnsubscribe = useCallback(async item => {
+    const key = `${item.entityType}:${item.entityId}`;
+    setSavingSubscriptionKey(key);
+    try {
+      await removeSubscription(item.entityType, item.entityId);
+      setSubscriptions(prev => prev.filter(row =>
+        !(row.entityType === item.entityType && String(row.entityId) === String(item.entityId))
+      ));
+      toast.info(t.subscriptions.unsubscribedToast);
+    } catch (err) {
+      toast.error(err.message || t.subscriptions.error);
+    } finally {
+      setSavingSubscriptionKey("");
+    }
+  }, [t.subscriptions.error, t.subscriptions.unsubscribedToast]);
 
   const mfaStatus = useMemo(() => {
     const status = getMfaStatus(user, locale);
@@ -731,6 +819,34 @@ export default function UserProfile() {
                         </Btn>
                       </div>
                     </div>}
+                </SectionPanel>
+
+                <SectionPanel title={t.sections.subscriptions.title} description={t.sections.subscriptions.description} full>
+                  {loadingSubscriptions ? <p className={s.notifHint}>{t.subscriptions.loading}</p> : subscriptions.length === 0 ? <p className={s.notifHint}>{t.subscriptions.empty}</p> : <ul className={s.subscriptionList}>
+                      {subscriptions.map(item => {
+                  const rowKey = `${item.entityType}:${item.entityId}`;
+                  const busy = savingSubscriptionKey === rowKey;
+                  return <li key={rowKey} className={s.subscriptionRow}>
+                          <div className={s.subscriptionMain}>
+                            <span className={s.subscriptionType}>{subscriptionTypeLabel(item.entityType)}</span>
+                            <button type="button" className={s.subscriptionLabelBtn} onClick={() => openSubscriptionTarget(item)} disabled={!onNavigate}>
+                              {item.label || item.entityId}
+                            </button>
+                          </div>
+                          <div className={s.subscriptionChannels}>
+                            <div className={s.subscriptionChannel}>
+                              <span>{t.subscriptions.channelInapp}</span>
+                              <Switch checked={item.notifyInapp !== false} disabled={busy} onChange={value => handleSubscriptionChannelChange(item, "inapp", value)} />
+                            </div>
+                            <div className={s.subscriptionChannel}>
+                              <span>{t.subscriptions.channelEmail}</span>
+                              <Switch checked={item.notifyEmail === true} disabled={busy} onChange={value => handleSubscriptionChannelChange(item, "email", value)} />
+                            </div>
+                            <BtnIcon icon="mdi:bell-off-outline" title={t.subscriptions.unsubscribe} onClick={() => handleUnsubscribe(item)} disabled={busy} />
+                          </div>
+                        </li>;
+                })}
+                    </ul>}
                 </SectionPanel>
               </div>}
 

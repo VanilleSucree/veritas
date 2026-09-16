@@ -24,6 +24,12 @@ const DETAIL_COPY = {
     addTag: "Ajouter une étiquette",
     actionsMenu: "Actions sur le client",
     actionsMenuTooltip: "Actions sur le client",
+    subscribe: {
+      subscribe: "S’abonner aux notifications",
+      unsubscribe: "Se désabonner",
+      subscribedToast: "Abonnement activé",
+      unsubscribedToast: "Abonnement retiré"
+    },
     aiSummaryTooltip: "Résumé IA de l'entreprise",
     monitoringAlerts: "Alertes de supervision",
     monitoringAlertsTooltip: "Configurer les alertes de supervision",
@@ -426,6 +432,12 @@ const DETAIL_COPY = {
     addTag: "Add a tag",
     actionsMenu: "Client actions",
     actionsMenuTooltip: "Client actions",
+    subscribe: {
+      subscribe: "Subscribe to notifications",
+      unsubscribe: "Unsubscribe",
+      subscribedToast: "Subscription enabled",
+      unsubscribedToast: "Subscription removed"
+    },
     aiSummaryTooltip: "AI company summary",
     monitoringAlerts: "Monitoring alerts",
     monitoringAlertsTooltip: "Configure monitoring alerts",
@@ -830,6 +842,12 @@ const DETAIL_COPY = {
     addTag: "Tag hinzufügen",
     actionsMenu: "Kundenaktionen",
     actionsMenuTooltip: "Kundenaktionen",
+    subscribe: {
+      subscribe: "Benachrichtigungen abonnieren",
+      unsubscribe: "Abo beenden",
+      subscribedToast: "Abo aktiviert",
+      unsubscribedToast: "Abo entfernt"
+    },
     aiSummaryTooltip: "KI-Unternehmenszusammenfassung",
     monitoringAlerts: "Überwachungswarnungen",
     monitoringAlertsTooltip: "Überwachungswarnungen konfigurieren",
@@ -1229,6 +1247,12 @@ const DETAIL_COPY = {
     addTag: "Aggiungi etichetta",
     actionsMenu: "Azioni sul cliente",
     actionsMenuTooltip: "Azioni sul cliente",
+    subscribe: {
+      subscribe: "Iscriviti alle notifiche",
+      unsubscribe: "Annulla iscrizione",
+      subscribedToast: "Iscrizione attivata",
+      unsubscribedToast: "Iscrizione rimossa"
+    },
     aiSummaryTooltip: "Riepilogo AI dell'azienda",
     monitoringAlerts: "Avvisi di monitoraggio",
     monitoringAlertsTooltip: "Configura gli avvisi di monitoraggio",
@@ -1628,6 +1652,12 @@ const DETAIL_COPY = {
     addTag: "Añadir etiqueta",
     actionsMenu: "Acciones del cliente",
     actionsMenuTooltip: "Acciones del cliente",
+    subscribe: {
+      subscribe: "Suscribirse a notificaciones",
+      unsubscribe: "Cancelar suscripción",
+      subscribedToast: "Suscripción activada",
+      unsubscribedToast: "Suscripción eliminada"
+    },
     aiSummaryTooltip: "Resumen IA de la empresa",
     monitoringAlerts: "Alertas de supervisión",
     monitoringAlertsTooltip: "Configurar las alertas de supervisión",

@@ -7,6 +7,7 @@ import styles from "./PrestatairePage.module.css";
 import { FaTimes, FaChevronLeft, FaChevronRight, FaPlus } from "react-icons/fa";
 import { Icon } from "@iconify/react";
 import SmartTooltip from "../SmartTooltip";
+import StatusDot from "../shared/StatusDot/StatusDot";
 import PrestataireModal from "./PrestataireModal";
 import { useDefaultPageSize } from "../../hooks/useDefaultPageSize";
 import { useCommonCopy } from "../../hooks/useCommonCopy";
@@ -20,6 +21,7 @@ import { useBreakpoint } from "../../hooks/useBreakpoint";
 import { usePermissions } from "../../contexts/PermissionsContext";
 import { createTrackedAbortController } from "../../utils/pageLoadAbort";
 import { useEntityFavorites } from "../../hooks/useEntityFavorites";
+import { matchesSearchQuery } from "../../utils/tableSearch";
 
 function getContactLabel(prestataire) {
   const first = Array.isArray(prestataire?.contacts) ? prestataire.contacts[0] : null;
@@ -279,26 +281,31 @@ export default function PrestatairePage({
       c?.email,
       c?.telephone
     ]);
-    return [
+    const { email, telephone } = getPrimaryCoords(row);
+    return matchesSearchQuery(query, [
       row.nom,
       row.type,
+      pageCopy.getPrestataireStatus(row?.statut).label,
       row.contact_nom,
       row.contact_prenom,
+      getContactLabel(row),
       row.email,
       row.telephone,
+      email,
+      telephone,
+      getCompaniesLabel(row, pageCopy.getClientLabel),
       ...contactFields,
       ...companyNames
-    ].filter(Boolean).some(field => String(field).toLowerCase().includes(query));
+    ]);
   };
 
   const filteredForStats = useMemo(() => {
     let filtered = [...prestataires];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(p => matchesSearch(p, q));
+      filtered = filtered.filter(p => matchesSearch(p, searchQuery));
     }
     return filtered;
-  }, [prestataires, searchQuery]);
+  }, [prestataires, searchQuery, pageCopy]);
 
   const statusCounts = useMemo(() => {
     const counts = { active: 0, inactive: 0 };
@@ -312,8 +319,7 @@ export default function PrestatairePage({
   const filteredAndSorted = useMemo(() => {
     let filtered = [...prestataires];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(p => matchesSearch(p, q));
+      filtered = filtered.filter(p => matchesSearch(p, searchQuery));
     }
     if (statusFilters.size > 0) {
       filtered = filtered.filter(p => statusFilters.has(normalizePrestataireStatusKey(p.statut)));
@@ -404,20 +410,9 @@ export default function PrestatairePage({
 
   const renderStatus = row => {
     const status = pageCopy.getPrestataireStatus(row.statut);
-    if (status.key === "active") {
-      return (
-        <SmartTooltip content={status.label}>
-          <span className={`${styles.portalStatusIcon} ${styles.portalStatusActive}`} aria-label={status.label}>
-            <Icon icon="mdi:account-check" aria-hidden />
-          </span>
-        </SmartTooltip>
-      );
-    }
     return (
       <SmartTooltip content={status.label}>
-        <span className={`${styles.portalStatusIcon} ${styles.portalStatusNone}`} aria-label={status.label}>
-          <Icon icon="mdi:account-off-outline" aria-hidden />
-        </span>
+        <StatusDot active={status.key === "active"} label={status.label} />
       </SmartTooltip>
     );
   };

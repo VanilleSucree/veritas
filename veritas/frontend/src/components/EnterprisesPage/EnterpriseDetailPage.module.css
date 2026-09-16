@@ -132,6 +132,25 @@
   cursor: wait;
 }
 
+.heroSubscribeBtnActive {
+  border-color: #16a34a;
+  color: #15803d;
+  background: rgba(22, 163, 74, 0.12);
+}
+
+.heroSubscribeBtnActive:hover:not(:disabled) {
+  border-color: #15803d;
+  color: #166534;
+  background: rgba(22, 163, 74, 0.18);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.16);
+}
+
+:global(html.dark) .heroSubscribeBtnActive {
+  border-color: #4ade80;
+  color: #86efac;
+  background: rgba(74, 222, 128, 0.16);
+}
+
 .heroClientMenu {
   position: absolute;
   top: calc(100% + 8px);
@@ -273,6 +292,38 @@
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.statusChipActive {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.statusChipInactive {
+  background: rgba(107, 114, 128, 0.12);
+  color: #6b7280;
+}
+
+:global(html.dark) .statusChipActive {
+  background: rgba(74, 222, 128, 0.16);
+  color: #86efac;
+}
+
+:global(html.dark) .statusChipInactive {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
 }
 
 .contractBadge_active { background: rgba(43, 95, 171, 0.12); color: #2b5fab; }

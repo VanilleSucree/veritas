@@ -4,6 +4,7 @@ import { getPrimaryFrontendBaseUrl } from "../utils/envFile.js";
 import { loadNotificationSettingsRaw, saveNotificationLogsRaw } from "./ticketAutomationConfigStore.js";
 import { TICKET_REQUESTER_EMAIL_SQL } from "./ticketEmailThread.js";
 import { getTicketRecipientIds, loadInAppSettings } from "./userNotificationService.js";
+import { listTicketSubscriberUserIds } from "./entitySubscriptionService.js";
 import { getSystemNotificationDef, normalizeSystemNotifications, renderSystemTemplate } from "./systemNotificationCatalog.js";
 
 const MAX_LOGS = 500;
@@ -283,7 +284,8 @@ async function notifyTicketRecipients(key, {
   userIds = null,
   excludeUserId = null,
   extraContext = {},
-  watchersDefault = false
+  watchersDefault = false,
+  includeEmailSubscribers = true
 } = {}) {
   const def = getSystemNotificationDef(key);
   const ticket = await resolveTicketNotificationContext(ticketId);
@@ -296,8 +298,14 @@ async function notifyTicketRecipients(key, {
     const eventSettings = inApp.events?.[def?.inAppKey] || {};
     ids = await getTicketRecipientIds(ticketId, {
       notifyAssignees: eventSettings.notifyAssignees !== false,
-      notifyWatchers: eventSettings.notifyWatchers === true || watchersDefault && eventSettings.notifyWatchers !== false
+      notifyWatchers: eventSettings.notifyWatchers === true || watchersDefault && eventSettings.notifyWatchers !== false,
+      // Assignees/watchers only here; email-channel subscribers merged below.
+      notifySubscribers: false
     });
+    if (includeEmailSubscribers) {
+      const emailSubscribers = await listTicketSubscriberUserIds(ticketId, { channel: "email" }).catch(() => []);
+      ids = [...new Set([...(ids || []).map(String), ...emailSubscribers.map(String)])];
+    }
   }
   return sendSystemNotification(key, {
     userIds: ids,

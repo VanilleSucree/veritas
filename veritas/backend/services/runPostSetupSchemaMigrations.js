@@ -22,6 +22,7 @@ import { ensurePortalTicketRoleSchema } from "./ensurePortalTicketRoleSchema.js"
 import { ensureKnowledgeArticlesSchema } from "./ensureKnowledgeArticlesSchema.js";
 import { ensureAzureMfaSchema } from "./ensureAzureMfaSchema.js";
 import { ensurePrestatairesSchema } from "./ensurePrestatairesSchema.js";
+import { ensureEntitySubscriptionsSchema } from "./ensureEntitySubscriptionsSchema.js";
 import { runIncrementalAvrilMigrations } from "../utils/incrementalAvrilMigrations.js";
 export async function runPostSetupSchemaMigrations() {
   await ensureProfilesSchema();
@@ -31,6 +32,7 @@ export async function runPostSetupSchemaMigrations() {
   await ensureTicketViewsSchema();
   await ensureTicketTrashSchema();
   await ensureUserNotificationsSchema();
+  await ensureEntitySubscriptionsSchema();
   await ensureTicketEmailThreadSchema();
   await ensureTicketCommentUpdatedAtSchema();
   await ensureMailCollectSettingsSchema();
@@ -61,4 +63,5 @@ export async function runPostSetupSchemaMigrations() {
   await ensurePortalTicketRoleSchema();
   await ensureKnowledgeArticlesSchema();
   await ensurePrestatairesSchema();
+  await ensureEntitySubscriptionsSchema();
 }

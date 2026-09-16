@@ -143,7 +143,7 @@ const TICKETS_COPY = {
       expandPane: "Afficher les vues"
     },
     search: {
-      placeholder: "Ticket, client, demandeur, sujet…",
+      placeholder: "Ticket, client, demandeur, étiquette…",
       aria: "Rechercher un ticket",
       clear: "Effacer",
       filterType: "Filtrer par type",
@@ -415,7 +415,7 @@ const TICKETS_COPY = {
       expandPane: "Show views"
     },
     search: {
-      placeholder: "Ticket, client, requester, subject…",
+      placeholder: "Ticket, client, requester, tag…",
       aria: "Search for a ticket",
       clear: "Clear",
       filterType: "Filter by type",
@@ -687,7 +687,7 @@ const TICKETS_COPY = {
       expandPane: "Ansichten anzeigen"
     },
     search: {
-      placeholder: "Ticket, Kunde, Anfragender, Betreff…",
+      placeholder: "Ticket, Kunde, Anfragender, Tag…",
       aria: "Ticket suchen",
       clear: "Löschen",
       filterType: "Nach Typ filtern",
@@ -959,7 +959,7 @@ const TICKETS_COPY = {
       expandPane: "Mostra viste"
     },
     search: {
-      placeholder: "Ticket, cliente, richiedente, oggetto…",
+      placeholder: "Ticket, cliente, richiedente, etichetta…",
       aria: "Cerca un ticket",
       clear: "Cancella",
       filterType: "Filtra per tipo",
@@ -1231,7 +1231,7 @@ const TICKETS_COPY = {
       expandPane: "Mostrar vistas"
     },
     search: {
-      placeholder: "Ticket, cliente, solicitante, asunto…",
+      placeholder: "Ticket, cliente, solicitante, etiqueta…",
       aria: "Buscar un ticket",
       clear: "Borrar",
       filterType: "Filtrar por tipo",

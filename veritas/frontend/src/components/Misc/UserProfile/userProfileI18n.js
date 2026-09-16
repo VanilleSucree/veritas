@@ -93,6 +93,10 @@ const USER_PROFILE_COPY = {
         activeCount: "{count}/{total} types d'alertes actifs pour vous.",
         allDisabled: "Vous avez désactivé toutes les alertes in-app."
       },
+      subscriptions: {
+        title: "Abonnements",
+        description: "Entreprises, contacts et périphériques que vous suivez"
+      },
       planning: {
         title: "Visibilité du planning",
         description: "Contrôlez ce que les autres agents voient de vos événements"
@@ -200,6 +204,19 @@ const USER_PROFILE_COPY = {
           description: "Alerte quand votre demande de validation est acceptée ou refusée."
         }
       }
+    },
+    subscriptions: {
+      empty: "Aucun abonnement pour le moment. Utilisez la cloche sur une fiche entreprise, contact ou périphérique.",
+      loading: "Chargement des abonnements…",
+      typeEnterprise: "Entreprise",
+      typeContact: "Contact",
+      typeEquipment: "Périphérique",
+      channelInapp: "In-app",
+      channelEmail: "E-mail",
+      open: "Ouvrir",
+      unsubscribe: "Se désabonner",
+      unsubscribedToast: "Abonnement retiré",
+      error: "Impossible de mettre à jour l'abonnement"
     },
     mspModules: {
       contrat_enabled: "Entreprise",
@@ -381,6 +398,10 @@ const USER_PROFILE_COPY = {
         activeCount: "{count}/{total} alert types active for you.",
         allDisabled: "You have disabled all in-app alerts."
       },
+      subscriptions: {
+        title: "Subscriptions",
+        description: "Enterprises, contacts and devices you follow"
+      },
       planning: {
         title: "Planning visibility",
         description: "Control what other agents see of your events"
@@ -488,6 +509,19 @@ const USER_PROFILE_COPY = {
           description: "Alert when your validation request is approved or rejected."
         }
       }
+    },
+    subscriptions: {
+      empty: "No subscriptions yet. Use the bell on an enterprise, contact or device page.",
+      loading: "Loading subscriptions…",
+      typeEnterprise: "Enterprise",
+      typeContact: "Contact",
+      typeEquipment: "Device",
+      channelInapp: "In-app",
+      channelEmail: "Email",
+      open: "Open",
+      unsubscribe: "Unsubscribe",
+      unsubscribedToast: "Subscription removed",
+      error: "Unable to update subscription"
     },
     mspModules: {
       contrat_enabled: "Company",
@@ -669,6 +703,10 @@ const USER_PROFILE_COPY = {
         activeCount: "{count}/{total} aktive Alert-Typen für Sie.",
         allDisabled: "Sie haben alle In-App-Alerts deaktiviert."
       },
+      subscriptions: {
+        title: "Abonnements",
+        description: "Unternehmen, Kontakte und Geräte, denen Sie folgen"
+      },
       planning: {
         title: "Planungssichtbarkeit",
         description: "Steuern Sie, was andere Agenten von Ihren Terminen sehen"
@@ -776,6 +814,19 @@ const USER_PROFILE_COPY = {
           description: "Alert, wenn Ihre Validierungsanfrage genehmigt oder abgelehnt wird."
         }
       }
+    },
+    subscriptions: {
+      empty: "Noch keine Abonnements. Nutzen Sie die Glocke auf einer Unternehmens-, Kontakt- oder Geräteseite.",
+      loading: "Abonnements werden geladen…",
+      typeEnterprise: "Unternehmen",
+      typeContact: "Kontakt",
+      typeEquipment: "Gerät",
+      channelInapp: "In-App",
+      channelEmail: "E-Mail",
+      open: "Öffnen",
+      unsubscribe: "Abo beenden",
+      unsubscribedToast: "Abo entfernt",
+      error: "Abo konnte nicht aktualisiert werden"
     },
     mspModules: {
       contrat_enabled: "Unternehmen",
@@ -957,6 +1008,10 @@ const USER_PROFILE_COPY = {
         activeCount: "{count}/{total} tipi di alert attivi per te.",
         allDisabled: "Hai disattivato tutti gli alert in-app."
       },
+      subscriptions: {
+        title: "Iscrizioni",
+        description: "Aziende, contatti e dispositivi che segui"
+      },
       planning: {
         title: "Visibilità planning",
         description: "Controlla cosa gli altri agenti vedono dei tuoi eventi"
@@ -1064,6 +1119,19 @@ const USER_PROFILE_COPY = {
           description: "Alert quando la tua richiesta di validazione è approvata o rifiutata."
         }
       }
+    },
+    subscriptions: {
+      empty: "Nessuna iscrizione. Usa la campana su una scheda azienda, contatto o dispositivo.",
+      loading: "Caricamento iscrizioni…",
+      typeEnterprise: "Azienda",
+      typeContact: "Contatto",
+      typeEquipment: "Dispositivo",
+      channelInapp: "In-app",
+      channelEmail: "E-mail",
+      open: "Apri",
+      unsubscribe: "Annulla iscrizione",
+      unsubscribedToast: "Iscrizione rimossa",
+      error: "Impossibile aggiornare l'iscrizione"
     },
     mspModules: {
       contrat_enabled: "Azienda",
@@ -1245,6 +1313,10 @@ const USER_PROFILE_COPY = {
         activeCount: "{count}/{total} tipos de alerta activos para usted.",
         allDisabled: "Ha desactivado todas las alertas in-app."
       },
+      subscriptions: {
+        title: "Suscripciones",
+        description: "Empresas, contactos y dispositivos que sigue"
+      },
       planning: {
         title: "Visibilidad de la planificación",
         description: "Controle lo que otros agentes ven de sus eventos"
@@ -1352,6 +1424,19 @@ const USER_PROFILE_COPY = {
           description: "Alerta cuando tu solicitud de validación es aprobada o rechazada."
         }
       }
+    },
+    subscriptions: {
+      empty: "Sin suscripciones. Use la campana en una ficha de empresa, contacto o dispositivo.",
+      loading: "Cargando suscripciones…",
+      typeEnterprise: "Empresa",
+      typeContact: "Contacto",
+      typeEquipment: "Dispositivo",
+      channelInapp: "In-app",
+      channelEmail: "Correo",
+      open: "Abrir",
+      unsubscribe: "Cancelar suscripción",
+      unsubscribedToast: "Suscripción eliminada",
+      error: "No se pudo actualizar la suscripción"
     },
     mspModules: {
       contrat_enabled: "Empresa",

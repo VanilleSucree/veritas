@@ -157,7 +157,8 @@ export default function AdminInjection({
     setFamiliesLoading(true);
     try {
       const [data, extensionsPayload] = await Promise.all([
-        fetchEquipmentFamilies({ admin: true }),
+        // Public list (enabled families) — agents with injection must not need equipment_families admin.
+        fetchEquipmentFamilies(),
         fetchSystemFamilyExtensions().catch(() => ({ extensions: {} }))
       ]);
       setCustomFamilies(Array.isArray(data) ? data.filter(f => f.enabled !== false) : []);
