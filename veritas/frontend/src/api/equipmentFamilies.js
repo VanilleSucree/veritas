@@ -162,7 +162,7 @@ export function mapCustomEquipmentItem(item, familyOrKey, extras = {}) {
     clientId: item?.clientId || extras.clientId || null,
     clientName: item?.clientName || extras.clientName || "",
     name: item?.name || pickCustomEquipmentValue(item, fields, data, ["name", "nom"]),
-    location: item?.location || pickCustomEquipmentValue(item, fields, data, ["site", "location", "localisation"]),
+    location: item?.location || pickCustomEquipmentValue(item, fields, data, ["site", "location", "localisation", "lieu", "emplacement"]),
     manufacturer: item?.manufacturer || pickCustomEquipmentValue(item, fields, data, ["manufacturer", "marque", "brand", "constructeur"]),
     model: item?.model || pickCustomEquipmentValue(item, fields, data, ["model", "modele", "modèle"]),
     serial: item?.serial || pickCustomEquipmentValue(item, fields, data, ["serial", "numeroSerie", "numero_serie", "sn"]),

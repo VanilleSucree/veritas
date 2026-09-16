@@ -264,6 +264,28 @@ export async function addTicketCommentWithAttachments(ticketId, {
   });
   return handleJsonResponse(response, "Error adding comment");
 }
+export async function uploadTicketTaskAttachments(ticketId, taskId, files = []) {
+  const formData = new FormData();
+  (Array.isArray(files) ? files : []).forEach(file => {
+    formData.append("attachments", file);
+  });
+  const response = await fetch(
+    `${API_BASE_URL}/tickets/${ticketId}/tasks/${encodeURIComponent(String(taskId))}/attachments`,
+    {
+      method: "POST",
+      credentials: "include",
+      body: formData
+    }
+  );
+  return handleJsonResponse(response, "Error uploading task documents");
+}
+export async function deleteTicketAttachment(ticketId, attachmentId) {
+  const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/attachments/${attachmentId}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  return handleJsonResponse(response, "Error deleting attachment");
+}
 export async function addTicketTag(ticketId, label, color) {
   const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/tags`, {
     method: "POST",

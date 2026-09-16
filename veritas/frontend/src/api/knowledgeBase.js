@@ -105,6 +105,12 @@ export async function fetchPublicKnowledgeArticle(token) {
   return data.article;
 }
 
+export async function fetchPublicKnowledgeEmojis() {
+  const response = await fetch(`${API_BASE_URL}/public/knowledge/emojis`);
+  const data = await handleJsonResponse(response, "Error loading emojis.");
+  return Array.isArray(data?.emojis) ? data.emojis : [];
+}
+
 export async function fetchKnowledgeArticleRevisions(id) {
   const response = await fetch(`${BASE}/${id}/revisions`, { credentials: "include" });
   const data = await handleJsonResponse(response, "Error loading history.");
@@ -231,6 +237,52 @@ export async function deleteKnowledgeCategory(id) {
     credentials: "include"
   });
   await handleJsonResponse(response, "Error deleting category.");
+}
+
+const EMOJIS_BASE = `${API_BASE_URL}/knowledge-emojis`;
+
+export async function fetchKnowledgeEmojis() {
+  const response = await fetch(EMOJIS_BASE, { credentials: "include" });
+  const data = await handleJsonResponse(response, "Error loading emojis.");
+  return Array.isArray(data?.emojis) ? data.emojis : [];
+}
+
+export async function createKnowledgeEmoji({ name, file }) {
+  const form = new FormData();
+  form.append("name", name);
+  form.append("file", file);
+  const response = await fetch(EMOJIS_BASE, {
+    method: "POST",
+    credentials: "include",
+    body: form
+  });
+  const data = await handleJsonResponse(response, "Error creating emoji.");
+  return data.emoji;
+}
+
+export async function renameKnowledgeEmoji(id, name) {
+  const response = await fetch(`${EMOJIS_BASE}/${id}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name })
+  });
+  const data = await handleJsonResponse(response, "Error renaming emoji.");
+  return data.emoji;
+}
+
+export async function deleteKnowledgeEmoji(id) {
+  const response = await fetch(`${EMOJIS_BASE}/${id}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  await handleJsonResponse(response, "Error deleting emoji.");
+}
+
+export function resolveKnowledgeEmojiUrl(emoji) {
+  if (!emoji) return "";
+  if (typeof emoji === "string") return resolveKnowledgeAssetUrl(emoji);
+  return resolveKnowledgeAssetUrl(emoji.url || `/api/knowledge-emojis/${emoji.id}/image`);
 }
 
 export async function uploadKnowledgeAsset(articleId, file) {

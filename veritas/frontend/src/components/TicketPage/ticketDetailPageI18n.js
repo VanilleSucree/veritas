@@ -226,6 +226,8 @@ const DETAIL_COPY = {
     },
     comment: {
       editedMark: " · modifié",
+      createdLabel: "Créé :",
+      byLabel: "par",
       privateTitle: "Réponse privée",
       editTooltip: "Modifier le message",
       editAria: "Modifier le message",
@@ -800,6 +802,8 @@ const DETAIL_COPY = {
     },
     comment: {
       editedMark: " · edited",
+      createdLabel: "Created:",
+      byLabel: "by",
       privateTitle: "Private reply",
       editTooltip: "Edit message",
       editAria: "Edit message",
@@ -1165,6 +1169,12 @@ const DETAIL_COPY = {
     DETAIL_COPY[code] = JSON.parse(JSON.stringify(DETAIL_COPY.en));
   }
 });
+DETAIL_COPY.de.comment.createdLabel = "Erstellt:";
+DETAIL_COPY.de.comment.byLabel = "von";
+DETAIL_COPY.it.comment.createdLabel = "Creato:";
+DETAIL_COPY.it.comment.byLabel = "da";
+DETAIL_COPY.es.comment.createdLabel = "Creado:";
+DETAIL_COPY.es.comment.byLabel = "por";
 DETAIL_COPY.de.pageTitle = "Ticket";
 DETAIL_COPY.de.ticketNumber = "Ticket #{number}";
 DETAIL_COPY.de.statusClosed = "Geschlossen";

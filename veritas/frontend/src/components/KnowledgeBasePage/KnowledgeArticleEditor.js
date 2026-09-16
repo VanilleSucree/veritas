@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { interpolate } from "../../i18n/translate";
 import { fetchClientsList, fetchContactsList } from "../../api/clients";
-import { deleteKnowledgeArticle, deleteKnowledgeArticleComment, fetchKnowledgeArticle, fetchKnowledgeArticleRevision, fetchKnowledgeArticleRevisions, fetchKnowledgeArticles, fetchKnowledgeFolder, fetchKnowledgeFolders, fetchKnowledgeSearchMisses, fetchKnowledgeTagCatalog, publishKnowledgeArticle, resolveKnowledgeHtml, resolveKnowledgeJson, restoreKnowledgeArticleRevision, toStoredKnowledgeHtml, toStoredKnowledgeJson, unpublishKnowledgeArticle, updateKnowledgeArticle, updateKnowledgeArticlePublicLink } from "../../api/knowledgeBase";
+import { deleteKnowledgeArticle, deleteKnowledgeArticleComment, fetchKnowledgeArticle, fetchKnowledgeArticleRevision, fetchKnowledgeArticleRevisions, fetchKnowledgeArticles, fetchKnowledgeEmojis, fetchKnowledgeFolder, fetchKnowledgeFolders, fetchKnowledgeSearchMisses, fetchKnowledgeTagCatalog, publishKnowledgeArticle, resolveKnowledgeEmojiUrl, resolveKnowledgeHtml, resolveKnowledgeJson, restoreKnowledgeArticleRevision, toStoredKnowledgeHtml, toStoredKnowledgeJson, unpublishKnowledgeArticle, updateKnowledgeArticle, updateKnowledgeArticlePublicLink } from "../../api/knowledgeBase";
+import KnowledgeEmojiModal from "./KnowledgeEmojiModal";
+import { buildEmojiMap, expandEmojiShortcodesInHtml, renderEmojiShortcodes } from "./knowledgeEmojiHelpers";
 import ConfirmModal from "../Misc/ConfirmModal/ConfirmModal";
 import MspPageHero from "../Misc/MspPageHero/MspPageHero";
 import cyberStyles from "../CybersecuritePage/CybersecuritePage.module.css";
@@ -98,6 +100,8 @@ function readSidePanelCollapsed() {
 function ArticleReader({
   copy,
   title,
+  icon,
+  emojiMap,
   category,
   status,
   publishedAt,
@@ -106,6 +110,9 @@ function ArticleReader({
   contentHtml,
   showBanner
 }) {
+  const titleHtml = renderEmojiShortcodes(title || copy.untitled, emojiMap);
+  const bodyHtml = expandEmojiShortcodesInHtml(resolveKnowledgeHtml(contentHtml), emojiMap);
+  const iconEmoji = icon ? emojiMap?.get(String(icon).toLowerCase()) : null;
   return (
     <article className={styles.reader}>
       {showBanner ? (
@@ -116,7 +123,10 @@ function ArticleReader({
       ) : null}
       <div className={styles.readerInner}>
         {category ? <p className={styles.readerCategory}>{category}</p> : null}
-        <h1 className={styles.readerTitle}>{title || copy.untitled}</h1>
+        <div className={styles.readerTitleRow}>
+          {iconEmoji ? <img src={resolveKnowledgeEmojiUrl(iconEmoji)} alt="" className={styles.pageIconLarge} /> : null}
+          <h1 className={styles.readerTitle} dangerouslySetInnerHTML={{ __html: titleHtml }} />
+        </div>
         <p className={styles.readerMeta}>
           <span className={`${styles.badge} ${status === "draft" ? styles.badgeDraft : ""}`}>
             {status === "published" ? copy.statusPublished : copy.statusDraft}
@@ -132,7 +142,7 @@ function ArticleReader({
         {htmlHasText(contentHtml) ? (
           <div
             className={styles.readerBody}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(resolveKnowledgeHtml(contentHtml), KNOWLEDGE_ARTICLE_HTML_CONFIG) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyHtml, KNOWLEDGE_ARTICLE_HTML_CONFIG) }}
           />
         ) : (
           <p className={styles.previewEmpty}>{copy.previewEmpty}</p>
@@ -153,6 +163,9 @@ export default function KnowledgeArticleEditor({
 }) {
   const [article, setArticle] = useState(null);
   const [title, setTitle] = useState("");
+  const [icon, setIcon] = useState(null);
+  const [emojis, setEmojis] = useState([]);
+  const [emojiModal, setEmojiModal] = useState(null);
   const [category, setCategory] = useState("");
   const [categoryModal, setCategoryModal] = useState(false);
   const [visibleToAgents, setVisibleToAgents] = useState(true);
@@ -217,6 +230,7 @@ export default function KnowledgeArticleEditor({
         if (cancelled) return;
         setArticle(loaded);
         setTitle(loaded.title || "");
+        setIcon(loaded.icon || null);
         setCategory(loaded.category || "");
         setVisibleToAgents(loaded.visibleToAgents !== false);
         setVisibleToAllClients(loaded.visibleToAllClients === true);
@@ -290,6 +304,7 @@ export default function KnowledgeArticleEditor({
 
   const payload = useCallback(() => ({
     title,
+    icon: icon || null,
     category,
     visibleToAgents,
     visibleToAllClients,
@@ -305,7 +320,21 @@ export default function KnowledgeArticleEditor({
     folderId: folderId || null,
     contentJson: toStoredKnowledgeJson(contentJson),
     contentHtml: toStoredKnowledgeHtml(contentHtml)
-  }), [title, category, visibleToAgents, visibleToAllClients, visibleToAllContacts, ratingsEnabled, commentsEnabled, commentsCompany, clientIds, contactIds, clientTagIds, contactTagIds, relatedIds, folderId, contentJson, contentHtml]);
+  }), [title, icon, category, visibleToAgents, visibleToAllClients, visibleToAllContacts, ratingsEnabled, commentsEnabled, commentsCompany, clientIds, contactIds, clientTagIds, contactTagIds, relatedIds, folderId, contentJson, contentHtml]);
+
+  const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchKnowledgeEmojis()
+      .then(rows => {
+        if (!cancelled) setEmojis(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setEmojis([]);
+      });
+    return () => { cancelled = true; };
+  }, [articleId]);
 
   const refreshRevisions = useCallback(() => {
     fetchKnowledgeArticleRevisions(articleId)
@@ -316,6 +345,7 @@ export default function KnowledgeArticleEditor({
   const hydrateFromArticle = useCallback(next => {
     setArticle(next);
     setTitle(next.title || "");
+    setIcon(next.icon || null);
     setCategory(next.category || "");
     setVisibleToAgents(next.visibleToAgents !== false);
     setVisibleToAllClients(next.visibleToAllClients === true);
@@ -649,7 +679,27 @@ export default function KnowledgeArticleEditor({
             <section className={styles.editorMain}>
               {editable ? (
                 <div className={styles.editorPane} hidden={showPreview}>
-                  <input className={styles.titleInput} value={title} onChange={event => setTitle(event.target.value)} placeholder={copy.titlePlaceholder} />
+                  <div className={styles.titleRow}>
+                    <button
+                      type="button"
+                      className={styles.pageIconBtn}
+                      onClick={() => setEmojiModal({ pick: true, target: "icon" })}
+                      title={copy.emojiPageIcon}
+                      aria-label={copy.emojiPageIcon}
+                    >
+                      {icon && emojiMap.get(String(icon).toLowerCase()) ? (
+                        <img src={resolveKnowledgeEmojiUrl(emojiMap.get(String(icon).toLowerCase()))} alt="" className={styles.pageIconImg} />
+                      ) : (
+                        <Icon icon="mdi:emoticon-outline" />
+                      )}
+                    </button>
+                    <input className={styles.titleInput} value={title} onChange={event => setTitle(event.target.value)} placeholder={copy.titlePlaceholder} />
+                    {icon ? (
+                      <button type="button" className={styles.pageIconClear} onClick={() => setIcon(null)} title={copy.emojiClearIcon}>
+                        <Icon icon="mdi:close" />
+                      </button>
+                    ) : null}
+                  </div>
                   <button
                     type="button"
                     className={`${styles.categoryPicker} ${category ? styles.categoryPickerHas : ""}`}
@@ -664,6 +714,8 @@ export default function KnowledgeArticleEditor({
                     editable
                     copy={copy}
                     locale={locale}
+                    emojis={emojis}
+                    onManageEmojis={opts => setEmojiModal(opts || { pick: true })}
                     onChange={({ json, html }) => {
                       setContentJson(json);
                       setContentHtml(html);
@@ -675,6 +727,8 @@ export default function KnowledgeArticleEditor({
                 <ArticleReader
                   copy={copy}
                   title={title}
+                  icon={icon}
+                  emojiMap={emojiMap}
                   category={category}
                   status={article.status}
                   publishedAt={publishedAt}
@@ -985,6 +1039,28 @@ export default function KnowledgeArticleEditor({
         onClose={() => setCategoryModal(false)}
         onSelect={setCategory}
       />
+      <KnowledgeEmojiModal
+        open={Boolean(emojiModal)}
+        copy={copy}
+        canManage={editable}
+        pickMode={Boolean(emojiModal?.pick)}
+        onClose={() => setEmojiModal(null)}
+        onChanged={async () => {
+          try {
+            setEmojis(await fetchKnowledgeEmojis());
+          } catch {
+            /* ignore */
+          }
+        }}
+        onPick={emoji => {
+          if (emojiModal?.target === "icon") {
+            setIcon(emoji.name);
+            setEmojiModal(null);
+            return;
+          }
+          setEmojiModal(null);
+        }}
+      />
       {shareOpen && shareDraft ? createPortal(
         <div className={styles.modalOverlay} onClick={closeShare}>
           <div className={`${styles.modalShell} ${styles.modalShellWide}`} onClick={event => event.stopPropagation()}>
@@ -1043,6 +1119,8 @@ export default function KnowledgeArticleEditor({
               <ArticleReader
                 copy={copy}
                 title={previewRevision.title || copy.untitled}
+                icon={previewRevision.icon || null}
+                emojiMap={emojiMap}
                 category={previewRevision.category}
                 status={previewRevision.status}
                 publishedAt=""

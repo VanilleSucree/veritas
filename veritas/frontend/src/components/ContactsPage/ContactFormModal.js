@@ -14,6 +14,7 @@ import { enforcePrimaryCommunications, syncLegacyContactFields, hasIncompleteCom
 import { getPortalStatusFromContact } from "../../api/contactPortal";
 import ContactCommunicationsEditor from "./ContactCommunicationsEditor";
 import ContactPortalEmailChangeModal from "./ContactPortalEmailChangeModal";
+import { getSiteDisplayName, getSiteId, normalizeClientSites } from "../../utils/clientSites";
 
 const ENTERPRISE_DROPDOWN_MAX_HEIGHT = 220;
 function resolvePrimaryEmail(source) {
@@ -27,6 +28,35 @@ function getClientLabel(client, copy) {
 function membershipClientId(row) {
   return row?.client_id ?? row?.id ?? null;
 }
+function normalizeMembershipSites(row) {
+  if (Array.isArray(row?.sites) && row.sites.length > 0) {
+    return row.sites
+      .map(site => {
+        const id = String(site?.site_id ?? site?.id ?? "").trim();
+        if (!id) return null;
+        return {
+          id,
+          site_id: id,
+          is_primary: Boolean(site?.is_primary)
+        };
+      })
+      .filter(Boolean);
+  }
+  if (Array.isArray(row?.site_ids)) {
+    return row.site_ids
+      .map(id => {
+        const siteId = String(id || "").trim();
+        if (!siteId) return null;
+        return {
+          id: siteId,
+          site_id: siteId,
+          is_primary: false
+        };
+      })
+      .filter(Boolean);
+  }
+  return [];
+}
 function buildMembershipsFromInitial(initialContact, fixedClientId, defaultClientId, clientList, {
   forcePrimary = false
 } = {}) {
@@ -39,18 +69,25 @@ function buildMembershipsFromInitial(initialContact, fixedClientId, defaultClien
       client_id: clientId,
       name: row.name || listed?.name || "",
       poste: row.poste || "",
-      is_primary: Boolean(row.is_primary)
+      is_primary: Boolean(row.is_primary),
+      sites: normalizeMembershipSites(row)
     };
   }).filter(Boolean);
   if (memberships.length === 0) {
     const fallbackId = initialContact?.client_id ?? fixedClientId ?? defaultClientId ?? null;
     if (fallbackId) {
       const listed = clientList.find(c => String(c.id) === String(fallbackId));
+      const fromFlatSites = Array.isArray(initialContact?.sites)
+        ? initialContact.sites.filter(site => String(site.client_id || fallbackId) === String(fallbackId))
+        : [];
       memberships = [{
         client_id: fallbackId,
         name: listed?.name || initialContact?.client_name || "",
         poste: initialContact?.poste || "",
-        is_primary: forcePrimary
+        is_primary: forcePrimary,
+        sites: normalizeMembershipSites({
+          sites: fromFlatSites
+        })
       }];
     }
   }
@@ -60,7 +97,8 @@ function buildMembershipsFromInitial(initialContact, fixedClientId, defaultClien
       client_id: fixedClientId,
       name: listed?.name || "",
       poste: "",
-      is_primary: forcePrimary
+      is_primary: forcePrimary,
+      sites: []
     }];
   }
   if (forcePrimary && fixedClientId) {
@@ -72,7 +110,75 @@ function buildMembershipsFromInitial(initialContact, fixedClientId, defaultClien
   return memberships;
 }
 function serializeMemberships(list) {
-  return (Array.isArray(list) ? list : []).map(m => `${m.client_id}:${m.is_primary ? 1 : 0}:${m.poste || ""}`).sort().join("|");
+  return (Array.isArray(list) ? list : []).map(m => {
+    const sitesKey = normalizeMembershipSites(m)
+      .map(site => `${site.site_id}:${site.is_primary ? 1 : 0}`)
+      .sort()
+      .join(",");
+    return `${m.client_id}:${m.is_primary ? 1 : 0}:${m.poste || ""}:${sitesKey}`;
+  }).sort().join("|");
+}
+function MembershipSitesPicker({
+  clientId,
+  clientList,
+  selectedSites,
+  copy,
+  onToggleSite,
+  onToggleSitePrimary
+}) {
+  const availableSites = useMemo(() => {
+    const listed = clientList.find(c => String(c.id) === String(clientId));
+    return normalizeClientSites(listed?.sites);
+  }, [clientList, clientId]);
+  if (availableSites.length === 0) {
+    return <p className={styles.hint} style={{
+      marginTop: "0.55rem",
+      marginBottom: 0
+    }}>{copy.noSitesForCompany}</p>;
+  }
+  const selectedMap = new Map(normalizeMembershipSites({
+    sites: selectedSites
+  }).map(site => [site.site_id, site]));
+  return <div className={styles.field} style={{
+    marginTop: "0.65rem",
+    marginBottom: 0
+  }}>
+      <label className={styles.label}>{copy.sitesLabel}</label>
+      <p className={styles.hint} style={{
+      marginTop: 0
+    }}>{copy.sitesHint}</p>
+      <div className={styles.fieldStack}>
+        {availableSites.map(site => {
+        const siteId = getSiteId(site) || site.id;
+        const selected = selectedMap.get(String(siteId));
+        const checked = Boolean(selected);
+        const label = getSiteDisplayName(site);
+        return <div key={siteId} style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.25rem"
+        }}>
+              <label className={styles.primaryContactToggle} style={{
+            marginTop: 0
+          }}>
+                <input type="checkbox" checked={checked} onChange={() => onToggleSite(clientId, siteId)} />
+                <Icon icon="mdi:map-marker-outline" aria-hidden style={{
+              fontSize: "1rem",
+              color: "var(--msp-accent, #2b5fab)"
+            }} />
+                <span>{label}</span>
+              </label>
+              {checked ? <label className={styles.primaryContactToggle} style={{
+            marginTop: 0,
+            marginLeft: "1.55rem"
+          }}>
+                  <input type="checkbox" checked={Boolean(selected?.is_primary)} onChange={() => onToggleSitePrimary(clientId, siteId)} />
+                  {copy.primaryForSite}
+                </label> : null}
+            </div>;
+      })}
+      </div>
+    </div>;
 }
 export default function ContactFormModal({
   open = true,
@@ -260,7 +366,8 @@ export default function ContactFormModal({
         client_id: client.id,
         name: getClientLabel(client, copy),
         poste: "",
-        is_primary: false
+        is_primary: false,
+        sites: []
       }];
     });
     setEnterpriseSearch("");
@@ -282,7 +389,8 @@ export default function ContactFormModal({
           client_id: clientId,
           name: listed?.name || "",
           poste: form.poste || "",
-          is_primary: true
+          is_primary: true,
+          sites: []
         }];
       }
       return prev.map(m => String(m.client_id) === String(clientId) ? {
@@ -291,6 +399,53 @@ export default function ContactFormModal({
       } : m);
     });
   }, [clientList, form.poste]);
+  const toggleMembershipSite = useCallback((clientId, siteId) => {
+    if (!clientId || !siteId) return;
+    setMemberships(prev => {
+      const ensureRow = list => {
+        if (list.some(m => String(m.client_id) === String(clientId))) return list;
+        const listed = clientList.find(c => String(c.id) === String(clientId));
+        return [...list, {
+          client_id: clientId,
+          name: listed?.name || "",
+          poste: form.poste || "",
+          is_primary: false,
+          sites: []
+        }];
+      };
+      return ensureRow(prev).map(m => {
+        if (String(m.client_id) !== String(clientId)) return m;
+        const current = normalizeMembershipSites(m);
+        const exists = current.some(site => String(site.site_id) === String(siteId));
+        const nextSites = exists
+          ? current.filter(site => String(site.site_id) !== String(siteId))
+          : [...current, {
+            id: String(siteId),
+            site_id: String(siteId),
+            is_primary: false
+          }];
+        return {
+          ...m,
+          sites: nextSites
+        };
+      });
+    });
+  }, [clientList, form.poste]);
+  const toggleMembershipSitePrimary = useCallback((clientId, siteId) => {
+    if (!clientId || !siteId) return;
+    setMemberships(prev => prev.map(m => {
+      if (String(m.client_id) !== String(clientId)) return m;
+      const current = normalizeMembershipSites(m);
+      if (!current.some(site => String(site.site_id) === String(siteId))) return m;
+      return {
+        ...m,
+        sites: current.map(site => String(site.site_id) === String(siteId) ? {
+          ...site,
+          is_primary: !site.is_primary
+        } : site)
+      };
+    }));
+  }, []);
   const validateForm = () => {
     if (!form.nom?.trim()) {
       showError(copy.validation.nameRequired);
@@ -346,13 +501,15 @@ export default function ContactFormModal({
     let nextMemberships = memberships.map(m => ({
       client_id: m.client_id,
       poste: m.poste || form.poste?.trim() || null,
-      is_primary: Boolean(m.is_primary)
+      is_primary: Boolean(m.is_primary),
+      sites: normalizeMembershipSites(m)
     }));
     if (lockedClientId && !nextMemberships.some(m => String(m.client_id) === String(lockedClientId))) {
       nextMemberships = [...nextMemberships, {
         client_id: lockedClientId,
         poste: form.poste?.trim() || null,
-        is_primary: Boolean(draftMode)
+        is_primary: Boolean(draftMode),
+        sites: []
       }];
     }
     if (draftMode && lockedClientId) {
@@ -467,6 +624,7 @@ export default function ContactFormModal({
                       <input type="checkbox" checked={Boolean((memberships.find(m => String(m.client_id) === String(lockedClientId || memberships[0]?.client_id)) || memberships[0])?.is_primary)} onChange={() => toggleMembershipPrimary(lockedClientId || memberships[0]?.client_id)} />
                       {copy.primaryForCompany}
                     </label> : null}
+                  {!draftMode && (lockedClientId || memberships[0]?.client_id) ? <MembershipSitesPicker clientId={lockedClientId || memberships[0]?.client_id} clientList={clientList} selectedSites={(memberships.find(m => String(m.client_id) === String(lockedClientId || memberships[0]?.client_id)) || memberships[0])?.sites || []} copy={copy} onToggleSite={toggleMembershipSite} onToggleSitePrimary={toggleMembershipSitePrimary} /> : null}
                 </div> : <>
                   {memberships.length > 0 && <div className={styles.field}>
                       <label className={styles.label}>{copy.companiesLabel || copy.enterpriseLabel}</label>
@@ -501,6 +659,7 @@ export default function ContactFormModal({
                                 <input type="checkbox" checked={Boolean(membership.is_primary)} onChange={() => toggleMembershipPrimary(membership.client_id)} />
                                 {copy.primaryForCompany}
                               </label>
+                              <MembershipSitesPicker clientId={membership.client_id} clientList={clientList} selectedSites={membership.sites || []} copy={copy} onToggleSite={toggleMembershipSite} onToggleSitePrimary={toggleMembershipSitePrimary} />
                             </div>;
                   })}
                       </div>

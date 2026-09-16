@@ -518,7 +518,7 @@ async function getTicketById(ticketId) {
        ORDER BY t.label ASC`, [ticketId]), pool.query(`SELECT ticket_id, user_id, created_at
        FROM v_b_ticket_watchers
        WHERE ticket_id = $1
-       ORDER BY created_at ASC`, [ticketId]), pool.query(`SELECT id, ticket_id, comment_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at
+       ORDER BY created_at ASC`, [ticketId]), pool.query(`SELECT id, ticket_id, comment_id, task_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at
        FROM v_b_ticket_attachments
        WHERE ticket_id = $1
        ORDER BY created_at DESC`, [ticketId]), assigneesPromise, listTicketActivity(ticketId)]);
@@ -3215,9 +3215,15 @@ router.put("/:id", verifyJWT, requirePermission("tickets.edit"), [param("id").is
             ];
           }
           const primary = assignees[0] || null;
+          const description = String(task?.description || "").trim();
+          const createdById = task?.createdById || task?.created_by_id || null;
+          const createdByLabel = String(task?.createdByLabel || task?.created_by_label || "").trim() || null;
+          const updatedById = task?.updatedById || task?.updated_by_id || null;
+          const updatedByLabel = String(task?.updatedByLabel || task?.updated_by_label || "").trim() || null;
           return {
             id: String(task?.id || `task-${index + 1}`).trim() || `task-${index + 1}`,
             label,
+            description: description || null,
             done: Boolean(task?.done),
             assignees,
             assigneeId: primary?.id || null,
@@ -3228,7 +3234,12 @@ router.put("/:id", verifyJWT, requirePermission("tickets.edit"), [param("id").is
             planningEventId: planningEventId ? String(planningEventId) : null,
             equipmentId: equipmentId ? String(equipmentId) : null,
             equipmentLabel,
-            createdAt: task?.createdAt || task?.created_at || new Date().toISOString()
+            createdById: createdById ? String(createdById) : null,
+            createdByLabel,
+            updatedById: updatedById ? String(updatedById) : null,
+            updatedByLabel,
+            createdAt: task?.createdAt || task?.created_at || new Date().toISOString(),
+            updatedAt: task?.updatedAt || task?.updated_at || task?.createdAt || task?.created_at || new Date().toISOString()
           };
         }).filter(Boolean);
       }
@@ -3642,6 +3653,133 @@ router.patch("/:id/status", verifyJWT, requireTicketStatusPermission, [param("id
     });
   }
 });
+async function requireSalesTaskAttachmentPermission(req, res, next) {
+  try {
+    const ticketResult = await pool.query("SELECT id, type, category FROM v_b_tickets WHERE id = $1", [req.params.id]);
+    if (!ticketResult.rows[0]) {
+      return res.status(404).json({
+        error: "Ticket not found"
+      });
+    }
+    if (!isSalesTicketRow(ticketResult.rows[0])) {
+      return res.status(400).json({
+        error: "Task attachments are only available on sales/installation tickets."
+      });
+    }
+    return requireAnyPermission("sales.edit", "sales_detail.tasks")(req, res, next);
+  } catch (err) {
+    console.error("[permissions] Task attachment check failed:", err.message);
+    return res.status(500).json({
+      error: "Permission check failed."
+    });
+  }
+}
+
+router.post(
+  "/:id/tasks/:taskId/attachments",
+  verifyJWT,
+  attachmentUpload.array("attachments", 10),
+  [param("id").isUUID(), param("taskId").isString().isLength({ min: 1, max: 120 })],
+  requireSalesTaskAttachmentPermission,
+  async (req, res) => {
+    const validationResponse = validationErrorOrNull(req, res);
+    if (validationResponse) return;
+    try {
+      const { id, taskId } = req.params;
+      const normalizedTaskId = String(taskId || "").trim();
+      if (!normalizedTaskId) {
+        return res.status(400).json({ error: "Task id is required." });
+      }
+      const exists = await pool.query("SELECT id, status, is_deleted FROM v_b_tickets WHERE id = $1", [id]);
+      if (exists.rows.length === 0) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      if (isTicketLockedForEdits(exists.rows[0])) {
+        return res.status(409).json({ error: "This ticket is closed. Reopen it to attach documents." });
+      }
+      const files = Array.isArray(req.files) ? req.files : [];
+      if (files.length === 0) {
+        return res.status(400).json({ error: "At least one file is required." });
+      }
+      const created = [];
+      for (const file of files) {
+        const relativePath = `/uploads/tickets/${path.basename(file.path)}`;
+        const inserted = await pool.query(
+          `INSERT INTO v_b_ticket_attachments
+              (ticket_id, comment_id, task_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at)
+             VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, NOW())
+             RETURNING id, ticket_id, comment_id, task_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at`,
+          [
+            id,
+            normalizedTaskId,
+            req.user?.id || null,
+            file.originalname || path.basename(file.path),
+            relativePath,
+            file.mimetype || "application/octet-stream",
+            Number(file.size || 0)
+          ]
+        );
+        if (inserted.rows[0]) created.push(inserted.rows[0]);
+      }
+      await pool.query("UPDATE v_b_tickets SET updated_at = NOW() WHERE id = $1", [id]);
+      res.status(201).json({ attachments: created });
+    } catch (err) {
+      console.error("Error uploading task attachments:", err);
+      if (err instanceof multer.MulterError || /Type de fi|not allowed|File upload/i.test(String(err?.message || ""))) {
+        return res.status(400).json({ error: err.message || "File upload error" });
+      }
+      res.status(500).json({ error: "Error uploading task attachments" });
+    }
+  }
+);
+
+router.delete(
+  "/:id/attachments/:attachmentId",
+  verifyJWT,
+  [param("id").isUUID(), param("attachmentId").isUUID()],
+  requireSalesTaskAttachmentPermission,
+  async (req, res) => {
+    const validationResponse = validationErrorOrNull(req, res);
+    if (validationResponse) return;
+    try {
+      const { id, attachmentId } = req.params;
+      const exists = await pool.query("SELECT id, status, is_deleted FROM v_b_tickets WHERE id = $1", [id]);
+      if (exists.rows.length === 0) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      if (isTicketLockedForEdits(exists.rows[0])) {
+        return res.status(409).json({ error: "This ticket is closed. Reopen it to delete documents." });
+      }
+      const attachmentResult = await pool.query(
+        `SELECT id, ticket_id, task_id, file_path
+           FROM v_b_ticket_attachments
+          WHERE id = $1 AND ticket_id = $2`,
+        [attachmentId, id]
+      );
+      if (attachmentResult.rows.length === 0) {
+        return res.status(404).json({ error: "Attachment not found" });
+      }
+      const attachment = attachmentResult.rows[0];
+      if (!attachment.task_id) {
+        return res.status(400).json({ error: "Only task attachments can be deleted via this endpoint." });
+      }
+      const canDelete = await userHasAnyPermission(req.user, ["sales_detail.delete_attachments", "sales_detail.tasks", "sales.edit"]);
+      if (!canDelete) {
+        return res.status(403).json({
+          error: "You do not have permission to perform this action.",
+          code: "PERMISSION_DENIED"
+        });
+      }
+      await pool.query(`DELETE FROM v_b_ticket_attachments WHERE id = $1 AND ticket_id = $2`, [attachmentId, id]);
+      await pool.query("UPDATE v_b_tickets SET updated_at = NOW() WHERE id = $1", [id]);
+      res.json({ success: true, id: attachmentId });
+    } catch (err) {
+      console.error("Error deleting task attachment:", err);
+      res.status(500).json({ error: "Error deleting attachment" });
+    }
+  }
+);
+
 router.post("/:id/comments", verifyJWT, attachmentUpload.array("attachments", 10), [param("id").isUUID(), body("isInternal").optional().isBoolean()], requireTicketCommentPermission, async (req, res) => {
   const validationResponse = validationErrorOrNull(req, res);
   if (validationResponse) return;
@@ -3681,7 +3819,7 @@ router.post("/:id/comments", verifyJWT, attachmentUpload.array("attachments", 10
     if (!Boolean(req.body.isInternal) && (await hasTicketColumn("sla_info"))) {
       await ensureTicketSlaInfoStored(id);
     }
-    const attachmentsResult = await pool.query(`SELECT id, ticket_id, comment_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at
+    const attachmentsResult = await pool.query(`SELECT id, ticket_id, comment_id, task_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at
          FROM v_b_ticket_attachments
          WHERE comment_id = $1
          ORDER BY created_at ASC`, [createdComment.id]);
@@ -3891,7 +4029,7 @@ router.patch("/:id/comments/:commentId", verifyJWT, requireTicketCommentEditPerm
       await ensureTicketSlaInfoStored(id);
     }
     const updatedComment = updateResult.rows[0];
-    const attachmentsResult = await pool.query(`SELECT id, ticket_id, comment_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at
+    const attachmentsResult = await pool.query(`SELECT id, ticket_id, comment_id, task_id, uploaded_by, file_name, file_path, mime_type, file_size, created_at
          FROM v_b_ticket_attachments
          WHERE comment_id = $1
          ORDER BY created_at ASC`, [commentId]);

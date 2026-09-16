@@ -470,12 +470,15 @@
 }
 
 .mainScroll {
+  --portal-scroll-pad-top: 20px;
+  --portal-scroll-pad-x: 24px;
+  --portal-scroll-pad-bottom: 32px;
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 20px 24px 32px;
+  padding: var(--portal-scroll-pad-top) var(--portal-scroll-pad-x) var(--portal-scroll-pad-bottom);
 }
 
 .impersonationBanner {
@@ -1323,7 +1326,12 @@
 }
 
 @media (max-width: 768px) {
-  .mainScroll { padding: 14px; }
+  .mainScroll {
+    --portal-scroll-pad-top: 14px;
+    --portal-scroll-pad-x: 14px;
+    --portal-scroll-pad-bottom: 14px;
+    padding: var(--portal-scroll-pad-top) var(--portal-scroll-pad-x) var(--portal-scroll-pad-bottom);
+  }
   .healthBars { grid-template-columns: 1fr; }
   .cloudGrid { grid-template-columns: 1fr 1fr; }
   .twoCol { grid-template-columns: 1fr; }
@@ -1334,7 +1342,12 @@
 }
 
 @media (min-width: 1600px) {
-  .mainScroll { padding: 24px 32px; }
+  .mainScroll {
+    --portal-scroll-pad-top: 24px;
+    --portal-scroll-pad-x: 32px;
+    --portal-scroll-pad-bottom: 24px;
+    padding: var(--portal-scroll-pad-top) var(--portal-scroll-pad-x) var(--portal-scroll-pad-bottom);
+  }
 }
 
 @media print {

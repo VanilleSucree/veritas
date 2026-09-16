@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, mergeAttributes, InputRule } from "@tiptap/core";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 
 export function toVideoEmbedSrc(raw) {
@@ -280,22 +280,91 @@ export const PageBreak = Node.create({
   }
 });
 
-export const KNOWLEDGE_EDITOR_NODES = [Callout, ToggleBlock, VideoEmbed, PdfEmbed, Attachment, MathBlock, PageBreak];
+export const CustomEmoji = Node.create({
+  name: "customEmoji",
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+  addOptions() {
+    return {
+      getEmoji: () => null
+    };
+  },
+  addAttributes() {
+    return {
+      name: {
+        default: null,
+        parseHTML: el => el.getAttribute("data-emoji") || null,
+        renderHTML: attrs => (attrs.name ? { "data-emoji": attrs.name } : {})
+      },
+      src: {
+        default: null,
+        parseHTML: el => el.getAttribute("src") || null,
+        renderHTML: attrs => (attrs.src ? { src: attrs.src } : {})
+      }
+    };
+  },
+  parseHTML() {
+    return [{ tag: "img[data-emoji]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    const name = HTMLAttributes["data-emoji"] || HTMLAttributes.name || "";
+    return [
+      "img",
+      mergeAttributes(HTMLAttributes, {
+        "data-emoji": name,
+        class: "kb-emoji",
+        alt: name ? `:${name}:` : "emoji",
+        draggable: "false"
+      })
+    ];
+  },
+  addCommands() {
+    return {
+      insertCustomEmoji: attrs => ({ commands }) => {
+        if (!attrs?.name || !attrs?.src) return false;
+        return commands.insertContent({
+          type: this.name,
+          attrs: { name: attrs.name, src: attrs.src }
+        });
+      }
+    };
+  },
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /:([a-z0-9][a-z0-9_-]{1,31}):$/,
+        handler: ({ range, match, chain }) => {
+          const name = match[1];
+          const emoji = this.options.getEmoji?.(name);
+          if (!emoji?.src && !emoji?.url) return null;
+          const src = emoji.src || emoji.url;
+          chain().deleteRange(range).insertContentAt(range.from, {
+            type: this.name,
+            attrs: { name, src }
+          }).run();
+        }
+      })
+    ];
+  }
+});
+
+export const KNOWLEDGE_EDITOR_NODES = [Callout, ToggleBlock, VideoEmbed, PdfEmbed, Attachment, MathBlock, PageBreak, CustomEmoji];
 
 export const KNOWLEDGE_ARTICLE_HTML_CONFIG = {
   ALLOWED_TAGS: [
     "p", "br", "strong", "em", "b", "i", "u", "s", "ul", "ol", "li", "a",
     "h1", "h2", "h3", "h4", "blockquote", "code", "pre", "span", "div", "label",
     "img", "table", "thead", "tbody", "tr", "th", "td", "hr", "input",
-    "img", "table", "thead", "tbody", "tr", "th", "td", "hr", "input",
     "details", "summary", "iframe", "video", "source", "mark"
   ],
   ALLOWED_ATTR: [
     "id", "href", "target", "rel", "src", "alt", "title", "class", "colspan", "rowspan",
     "data-type", "data-checked", "data-tone", "data-summary", "data-src", "data-latex",
-    "data-name", "data-title", "type", "checked", "controls", "allowfullscreen", "allow",
-    "frameborder", "download", "open", "width", "height", "name", "mime"
+    "data-name", "data-title", "data-emoji", "type", "checked", "controls", "allowfullscreen", "allow",
+    "frameborder", "download", "open", "width", "height", "name", "mime", "draggable"
   ],
   ADD_TAGS: ["iframe", "video", "source", "details", "summary"],
-  ADD_ATTR: ["target", "allowfullscreen", "allow", "controls", "frameborder"]
+  ADD_ATTR: ["target", "allowfullscreen", "allow", "controls", "frameborder", "data-emoji", "draggable"]
 };

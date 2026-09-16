@@ -5,6 +5,16 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.16",
+    date: "2026-09-16",
+    highlights: [
+      "Base de connaissances : menu latéral type Outline, emojis personnalisés (:nom:) pour articles, titres et icônes de page.",
+      "Tickets : suivis en bulles cadrées (style GLPI) côté agent et portail client.",
+      "Rapports : fiche entreprise plus fine à la création (contrat, lieux, périphériques, antivirus, antispam, NDD, tenant Microsoft, SSL, abonnements, campagnes).",
+      "Documents : filtre entreprise en champ de suggestion (plus de liste complète d’un coup)."
+    ]
+  },
+  {
     version: "1.0.15",
     date: "2026-09-16",
     highlights: [

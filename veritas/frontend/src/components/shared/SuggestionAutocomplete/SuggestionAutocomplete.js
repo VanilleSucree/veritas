@@ -13,7 +13,10 @@ export default function SuggestionAutocomplete({
   options = [],
   disabled = false,
   onChange,
-  emptyMessage = "No suggestions"
+  emptyMessage = "No suggestions",
+  hintMessage = "",
+  minQueryLength = 0,
+  className = ""
 }) {
   const rootRef = useRef(null);
   const anchorRef = useRef(null);
@@ -77,9 +80,10 @@ export default function SuggestionAutocomplete({
   const filteredOptions = useMemo(() => {
     const query = search.trim().toLowerCase();
     const labels = options.map(option => String(option?.label || option || "").trim()).filter(Boolean);
+    if (query.length < minQueryLength) return [];
     if (!query) return labels.slice(0, 50);
     return labels.filter(labelText => labelText.toLowerCase().includes(query)).slice(0, 50);
-  }, [options, search]);
+  }, [options, search, minQueryLength]);
   useEffect(() => {
     setHighlight(0);
   }, [search, open]);
@@ -117,8 +121,11 @@ export default function SuggestionAutocomplete({
       setSearch(value || "");
     }
   };
+  const queryLength = search.trim().length;
+  const needsMoreQuery = queryLength < minQueryLength;
+  const menuEmptyMessage = needsMoreQuery && hintMessage ? hintMessage : emptyMessage;
   const labelId = id ? `${id}-label` : undefined;
-  return <div className={styles.field} ref={rootRef}>
+  return <div className={`${styles.field} ${className}`.trim()} ref={rootRef}>
       {label ? <label className={styles.label} htmlFor={id} id={labelId}>
           {label}
           {required ? <span className={styles.required}> *</span> : null}
@@ -135,7 +142,7 @@ export default function SuggestionAutocomplete({
           </button> : null}
       </div>
       {open && menuStyle ? createPortal(<div ref={menuRef} className={styles.dropdown} style={menuStyle} role="listbox" aria-labelledby={labelId}>
-              {filteredOptions.length === 0 ? <div className={styles.empty}>{emptyMessage}</div> : filteredOptions.map((labelText, idx) => <button key={labelText} type="button" role="option" aria-selected={value === labelText} className={`${styles.option} ${highlight === idx ? styles.optionActive : ""} ${value === labelText ? styles.optionSelected : ""}`.trim()} onMouseEnter={() => setHighlight(idx)} onClick={() => pickOption(labelText)}>
+              {filteredOptions.length === 0 ? <div className={styles.empty}>{menuEmptyMessage}</div> : filteredOptions.map((labelText, idx) => <button key={labelText} type="button" role="option" aria-selected={value === labelText} className={`${styles.option} ${highlight === idx ? styles.optionActive : ""} ${value === labelText ? styles.optionSelected : ""}`.trim()} onMouseEnter={() => setHighlight(idx)} onClick={() => pickOption(labelText)}>
                     {labelText}
                   </button>)}
             </div>, document.body) : null}

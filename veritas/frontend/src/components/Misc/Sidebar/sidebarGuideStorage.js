@@ -1,20 +1,27 @@
 export const SIDEBAR_GUIDE_VERSION = "v1";
-export function getSidebarGuideStorageKey(userId) {
-  return `veritas_sidebar_guide_${SIDEBAR_GUIDE_VERSION}_${userId}`;
+
+/** @param {"agent"|"portal"} [scope] */
+export function getSidebarGuideStorageKey(userId, scope = "agent") {
+  const prefix = scope === "portal" ? "veritas_client_portal_guide" : "veritas_sidebar_guide";
+  return `${prefix}_${SIDEBAR_GUIDE_VERSION}_${userId}`;
 }
-export function readSidebarGuideState(userId) {
+
+/** @param {string|null|undefined} userId @param {"agent"|"portal"} [scope] */
+export function readSidebarGuideState(userId, scope = "agent") {
   if (!userId) return null;
   try {
-    const raw = localStorage.getItem(getSidebarGuideStorageKey(userId));
+    const raw = localStorage.getItem(getSidebarGuideStorageKey(userId, scope));
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
-export function writeSidebarGuideState(userId, patch) {
+
+/** @param {string|null|undefined} userId @param {object} patch @param {"agent"|"portal"} [scope] */
+export function writeSidebarGuideState(userId, patch, scope = "agent") {
   if (!userId) return;
-  const prev = readSidebarGuideState(userId) || {};
-  localStorage.setItem(getSidebarGuideStorageKey(userId), JSON.stringify({
+  const prev = readSidebarGuideState(userId, scope) || {};
+  localStorage.setItem(getSidebarGuideStorageKey(userId, scope), JSON.stringify({
     ...prev,
     ...patch
   }));

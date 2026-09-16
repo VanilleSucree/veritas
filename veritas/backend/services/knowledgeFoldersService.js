@@ -28,6 +28,7 @@ function mapFolderRow(row, extras = {}) {
     id: row.id,
     parentId: row.parent_id || null,
     name: row.name || "",
+    icon: row.icon || null,
     inheritSharing: row.inherit_sharing !== false,
     visibleToAgents: row.visible_to_agents !== false,
     visibleToAllClients: row.visible_to_all_clients === true,
@@ -295,7 +296,7 @@ async function nextSortOrder(parentId) {
   return Number(rows[0]?.next) || 0;
 }
 
-export async function createKnowledgeFolder({ name, parentId } = {}) {
+export async function createKnowledgeFolder({ name, parentId, icon } = {}) {
   await ensureKnowledgeArticlesSchema();
   const title = String(name || "").trim();
   if (!title) {
@@ -309,12 +310,13 @@ export async function createKnowledgeFolder({ name, parentId } = {}) {
     err.status = 404;
     throw err;
   }
+  const iconName = icon ? String(icon).replace(/^:|:$/g, "").trim().toLowerCase().slice(0, 32) || null : null;
   const sortOrder = await nextSortOrder(parent);
   const { rows } = await pool.query(
-    `INSERT INTO v_b_knowledge_folders (name, parent_id, sort_order)
-     VALUES ($1, $2, $3)
+    `INSERT INTO v_b_knowledge_folders (name, parent_id, sort_order, icon)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [title.slice(0, 120), parent, sortOrder]
+    [title.slice(0, 120), parent, sortOrder, iconName]
   );
   return mapFolderRow(rows[0], { clientIds: [], contactIds: [], clients: [], contacts: [] });
 }
@@ -347,6 +349,9 @@ export async function updateKnowledgeFolder(folderId, patch = {}) {
   const visibleToAgents = patch.visibleToAgents != null ? Boolean(patch.visibleToAgents) : existing.visibleToAgents;
   const visibleToAllClients = patch.visibleToAllClients != null ? Boolean(patch.visibleToAllClients) : existing.visibleToAllClients;
   const visibleToAllContacts = patch.visibleToAllContacts != null ? Boolean(patch.visibleToAllContacts) : existing.visibleToAllContacts;
+  const icon = patch.icon !== undefined
+    ? (patch.icon ? String(patch.icon).replace(/^:|:$/g, "").trim().toLowerCase().slice(0, 32) || null : null)
+    : existing.icon;
   const { rows } = await pool.query(
     `UPDATE v_b_knowledge_folders
         SET name = $2,
@@ -355,10 +360,11 @@ export async function updateKnowledgeFolder(folderId, patch = {}) {
             visible_to_agents = $5,
             visible_to_all_clients = $6,
             visible_to_all_contacts = $7,
+            icon = $8,
             updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
-    [folderId, name, parentId, inheritSharing, visibleToAgents, visibleToAllClients, visibleToAllContacts]
+    [folderId, name, parentId, inheritSharing, visibleToAgents, visibleToAllClients, visibleToAllContacts, icon]
   );
   if (patch.clientIds != null || patch.contactIds != null || patch.clientTagIds != null || patch.contactTagIds != null) {
     await replaceFolderAudience(

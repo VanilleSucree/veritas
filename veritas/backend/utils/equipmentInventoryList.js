@@ -581,6 +581,8 @@ async function patchCustomEquipment(item, { isActive, location }) {
     data.site = loc;
     data.location = loc;
     data.emplacement = loc;
+    data.lieu = loc;
+    data.localisation = loc;
   }
   const nextActive = typeof isActive === "boolean" ? isActive : current.is_active !== false;
   data.actif = nextActive;

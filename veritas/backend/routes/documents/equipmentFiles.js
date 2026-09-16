@@ -7,6 +7,7 @@ import { pool } from "../../database/db.js";
 import verifyJWT from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/permissions.js";
 import { isUuid, resolveFileUploadedBy } from "../../utils/fileUploadedBy.js";
+import { allowAssetEmbedding } from "../../middleware/securityHeaders.js";
 const router = express.Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, "..", "..", "uploads", "equipment-files");
@@ -152,6 +153,7 @@ router.get("/:id/preview", verifyJWT, requirePermission("documents.view"), async
     });
     res.setHeader("Content-Type", mime_type);
     res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file_name)}"`);
+    allowAssetEmbedding(res);
     fs.createReadStream(fullPath).pipe(res);
   } catch (err) {
     console.error("[GET /equipment-files/:id/preview]", err.message);

@@ -15,7 +15,9 @@ import {
   removeTicketTag,
   removeTicketWatcher,
   updateTicket,
-  consumeTicketSupportCredits
+  consumeTicketSupportCredits,
+  uploadTicketTaskAttachments,
+  deleteTicketAttachment
 } from "../../api/tickets";
 import { fetchClientsList, fetchContactsList } from "../../api/clients";
 import { fetchActiveUsers } from "../../api/users";
@@ -82,6 +84,7 @@ function normalizePmTasks(formData) {
       return {
         id: String(task?.id || `task-${index + 1}`),
         label: String(task?.label || "").trim(),
+        description: String(task?.description || "").trim() || null,
         done: Boolean(task?.done),
         assignees,
         assigneeId: primary?.id || null,
@@ -92,10 +95,48 @@ function normalizePmTasks(formData) {
         planningEventId: task?.planningEventId || task?.planning_event_id || null,
         equipmentId: task?.equipmentId || task?.equipment_id || null,
         equipmentLabel: String(task?.equipmentLabel || task?.equipment_label || "").trim() || null,
-        createdAt: task?.createdAt || task?.created_at || null
+        createdById: task?.createdById || task?.created_by_id || null,
+        createdByLabel: String(task?.createdByLabel || task?.created_by_label || "").trim() || null,
+        updatedById: task?.updatedById || task?.updated_by_id || null,
+        updatedByLabel: String(task?.updatedByLabel || task?.updated_by_label || "").trim() || null,
+        createdAt: task?.createdAt || task?.created_at || null,
+        updatedAt: task?.updatedAt || task?.updated_at || task?.createdAt || task?.created_at || null,
+        documents: []
       };
     })
     .filter(task => task.label);
+}
+
+function normalizeTaskDocument(attachment) {
+  if (!attachment) return null;
+  const id = attachment.id || null;
+  const fileName = attachment.file_name || attachment.fileName || attachment.filename || attachment.name || "file";
+  const filePath = attachment.file_path || attachment.filePath || attachment.path || attachment.url || "";
+  return {
+    id,
+    fileName,
+    filePath,
+    mimeType: attachment.mime_type || attachment.mimeType || null,
+    fileSize: attachment.file_size ?? attachment.fileSize ?? null,
+    createdAt: attachment.created_at || attachment.createdAt || null,
+    taskId: attachment.task_id || attachment.taskId || null
+  };
+}
+
+function attachDocumentsToTasks(tasks, attachments) {
+  const list = Array.isArray(tasks) ? tasks : [];
+  const docs = (Array.isArray(attachments) ? attachments : [])
+    .map(normalizeTaskDocument)
+    .filter(doc => doc?.taskId && doc.filePath);
+  return list.map(task => ({
+    ...task,
+    documents: docs.filter(doc => String(doc.taskId) === String(task.id))
+  }));
+}
+
+function buildPmTasksFromTicket(ticket, formDataOverride) {
+  const formData = formDataOverride || resolveFormData(ticket) || {};
+  return attachDocumentsToTasks(normalizePmTasks(formData), ticket?.attachments);
 }
 
 function formatTaskSchedule(task, formatDateTime, rangeJoiner) {
@@ -452,7 +493,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
       setContacts(Array.isArray(contactsRes) ? contactsRes : []);
       setClients(Array.isArray(clientsRes) ? clientsRes : []);
       setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
-      setPmTasks(normalizePmTasks(resolveFormData(row)));
+      setPmTasks(buildPmTasksFromTicket(row));
       setCategorySearch(String(row?.category || ""));
       // Requester / client labels are resolved once lists are loaded.
     } catch (error) {
@@ -1134,34 +1175,48 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
     async nextTasks => {
       if (!ticketId) return false;
       setSavingTasks(true);
-      const nextProgress = nextTasks.length === 0 ? 0 : clampProgress((nextTasks.filter(t => t.done).length / nextTasks.length) * 100);
+      const sanitizedTasks = (Array.isArray(nextTasks) ? nextTasks : []).map(task => {
+        const { documents, ...rest } = task || {};
+        return rest;
+      });
+      const nextProgress =
+        sanitizedTasks.length === 0
+          ? 0
+          : clampProgress((sanitizedTasks.filter(t => t.done).length / sanitizedTasks.length) * 100);
       try {
         const updated = await updateTicket(ticketId, {
-          salesFormData: { pmTasks: nextTasks },
+          salesFormData: { pmTasks: sanitizedTasks },
           progressPercent: nextProgress
         });
-        const nextForm = updated?.sales_form_data || updated?.salesFormData || { ...(formData || {}), pmTasks: nextTasks };
+        const nextForm = updated?.sales_form_data || updated?.salesFormData || { ...(formData || {}), pmTasks: sanitizedTasks };
+        const nextTicketBase = {
+          ...(ticket || {}),
+          ...(updated || {}),
+          sales_form_data: nextForm,
+          attachments: updated?.attachments || ticket?.attachments || []
+        };
         setTicket(prev =>
           prev
             ? {
                 ...prev,
                 ...(updated || {}),
                 sales_form_data: nextForm,
-                progress_percent: updated?.progress_percent ?? updated?.progressPercent ?? nextProgress
+                progress_percent: updated?.progress_percent ?? updated?.progressPercent ?? nextProgress,
+                attachments: updated?.attachments || prev.attachments || []
               }
             : prev
         );
-        setPmTasks(normalizePmTasks(nextForm));
+        setPmTasks(buildPmTasksFromTicket(nextTicketBase, nextForm));
         return true;
       } catch (error) {
         toast.error(error.message || copy.tasks.saveError);
-        setPmTasks(normalizePmTasks(formData));
+        setPmTasks(buildPmTasksFromTicket(ticket, formData));
         return false;
       } finally {
         setSavingTasks(false);
       }
     },
-    [ticketId, formData, copy.tasks.saveError]
+    [ticketId, formData, ticket, copy.tasks.saveError]
   );
 
   const syncTaskPlanningEvent = useCallback(
@@ -1257,8 +1312,17 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
     if (!task?.label) return false;
     setSavingTasks(true);
     try {
-      const planningEventId = task.startAt ? await syncTaskPlanningEvent(task) : null;
-      const withEvent = { ...task, planningEventId };
+      const authorLabel = userLabel(user) || null;
+      const stamped = {
+        ...task,
+        createdById: currentUserId || task.createdById || null,
+        createdByLabel: authorLabel || task.createdByLabel || null,
+        updatedById: currentUserId || task.updatedById || null,
+        updatedByLabel: authorLabel || task.updatedByLabel || null,
+        updatedAt: task.updatedAt || task.createdAt || new Date().toISOString()
+      };
+      const planningEventId = stamped.startAt ? await syncTaskPlanningEvent(stamped) : null;
+      const withEvent = { ...stamped, planningEventId };
       const next = [...pmTasks, withEvent];
       setPmTasks(next);
       const ok = await persistTasks(next);
@@ -1279,8 +1343,15 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
     if (!task?.id || !task?.label) return false;
     setSavingTasks(true);
     try {
-      const planningEventId = await syncTaskPlanningEvent(task);
-      const withEvent = { ...task, planningEventId: planningEventId || null };
+      const authorLabel = userLabel(user) || null;
+      const stamped = {
+        ...task,
+        updatedById: currentUserId || task.updatedById || null,
+        updatedByLabel: authorLabel || task.updatedByLabel || null,
+        updatedAt: new Date().toISOString()
+      };
+      const planningEventId = await syncTaskPlanningEvent(stamped);
+      const withEvent = { ...stamped, planningEventId: planningEventId || null };
       const next = pmTasks.map(row => (String(row.id) === String(task.id) ? { ...row, ...withEvent } : row));
       setPmTasks(next);
       return await persistTasks(next);
@@ -1425,15 +1496,85 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
     setPmTasks(next);
     const ok = await persistTasks(next);
     if (ok && target) {
+      const docs = Array.isArray(target.documents) ? target.documents : [];
+      await Promise.all(
+        docs
+          .filter(doc => doc?.id)
+          .map(doc => deleteTicketAttachment(ticketId, doc.id).catch(() => null))
+      );
       try {
         await deleteSalesTaskPlanningEvents({ task: target, ticket });
       } catch (error) {
         toast.error(error.message || copy.tasks.planningSyncError);
       }
+      setTicket(prev =>
+        prev
+          ? {
+              ...prev,
+              attachments: (prev.attachments || []).filter(
+                att => String(att.task_id || att.taskId || "") !== String(taskId)
+              )
+            }
+          : prev
+      );
     } else if (!ok) {
       setPmTasks(pmTasks);
     }
     return ok;
+  };
+
+  const handleUploadTaskDocuments = async (taskId, files = []) => {
+    if (!ticketId || !taskId || !files.length) return [];
+    const result = await uploadTicketTaskAttachments(ticketId, taskId, files);
+    const created = Array.isArray(result?.attachments) ? result.attachments : [];
+    if (created.length > 0) {
+      setTicket(prev =>
+        prev
+          ? {
+              ...prev,
+              attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), ...created]
+            }
+          : prev
+      );
+      setPmTasks(prev =>
+        prev.map(task =>
+          String(task.id) === String(taskId)
+            ? {
+                ...task,
+                documents: [
+                  ...(Array.isArray(task.documents) ? task.documents : []),
+                  ...created.map(normalizeTaskDocument).filter(Boolean)
+                ]
+              }
+            : task
+        )
+      );
+    }
+    return created;
+  };
+
+  const handleDeleteTaskDocument = async (taskId, attachmentId) => {
+    if (!ticketId || !attachmentId) return false;
+    await deleteTicketAttachment(ticketId, attachmentId);
+    setTicket(prev =>
+      prev
+        ? {
+            ...prev,
+            attachments: (prev.attachments || []).filter(att => String(att.id) !== String(attachmentId))
+          }
+        : prev
+    );
+    setPmTasks(prev =>
+      prev.map(task =>
+        String(task.id) === String(taskId)
+          ? {
+              ...task,
+              documents: (task.documents || []).filter(doc => String(doc.id) !== String(attachmentId))
+            }
+          : task
+      )
+    );
+    return true;
   };
 
   const handleAddAssignee = async userId => {
@@ -1520,7 +1661,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
       try {
         const row = await fetchTicket(ticketId);
         setTicket(row);
-        setPmTasks(normalizePmTasks(resolveFormData(row)));
+        setPmTasks(buildPmTasksFromTicket(row));
       } catch (error) {
         toast.error(error.message || copy.loadError);
       } finally {
@@ -2384,6 +2525,8 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
                         onToggleTask={handleToggleTask}
                         onRemoveTask={handleRemoveTask}
                         onConsumeTaskCredits={handleConsumeTaskCreditsFromForm}
+                        onUploadDocuments={handleUploadTaskDocuments}
+                        onDeleteDocument={handleDeleteTaskDocument}
                       />
                     </div>
                   ) : null}

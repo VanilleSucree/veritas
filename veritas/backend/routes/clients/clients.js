@@ -21,6 +21,7 @@ import { fetchEquipmentFleetIssues } from '../../utils/equipmentFleetIssues.js';
 import { userHasAllPermissions } from '../../services/permissionService.js';
 import { addMembership, fetchPrimaryContactNamesByClientId, sqlContactLinkedToClientAsync, attachMembershipsToContacts } from '../../services/contactClientLinks.js';
 import { propagateClientSiteRenames } from '../../services/propagateClientSiteRenames.js';
+import { pruneOrphanSiteLinksForClient } from '../../services/contactSiteLinks.js';
 const router = express.Router();
 router.use(requireProForClientInfra);
 router.use(verifyJWT);
@@ -2873,6 +2874,7 @@ router.put('/:id', verifyJWT, requireClientUpdatePermissions, async (req, res) =
       modules,
       modules_monitoring,
       sites,
+      siteRenames,
       ssid,
       ssids,
       office365_data,
@@ -2982,10 +2984,19 @@ router.put('/:id', verifyJWT, requireClientUpdatePermissions, async (req, res) =
         await propagateClientSiteRenames(
           req.params.id,
           previousClientSnapshot?.sites,
-          sites || []
+          sites || [],
+          { explicitRenames: siteRenames }
         ).catch(err => {
           console.error("[clients] site rename propagation failed:", err?.message || err);
         });
+        try {
+          const validIds = (Array.isArray(sites) ? sites : [])
+            .map(site => String(site?.id || "").trim())
+            .filter(Boolean);
+          await pruneOrphanSiteLinksForClient(req.params.id, validIds);
+        } catch (err) {
+          console.error("[clients] site link prune failed:", err?.message || err);
+        }
       }
       await logClientUpdate({
         req,
@@ -3125,6 +3136,7 @@ router.put('/general/:id', verifyJWT, requireClientUpdatePermissions, async (req
       modules,
       modules_monitoring,
       sites,
+      siteRenames,
       ssid,
       ssids,
       office365_data,
@@ -3232,10 +3244,19 @@ router.put('/general/:id', verifyJWT, requireClientUpdatePermissions, async (req
       await propagateClientSiteRenames(
         req.params.id,
         previousClientSnapshot?.sites,
-        sites || []
+        sites || [],
+        { explicitRenames: siteRenames }
       ).catch(err => {
         console.error("[clients/general] site rename propagation failed:", err?.message || err);
       });
+      try {
+        const validIds = (Array.isArray(sites) ? sites : [])
+          .map(site => String(site?.id || "").trim())
+          .filter(Boolean);
+        await pruneOrphanSiteLinksForClient(req.params.id, validIds);
+      } catch (err) {
+        console.error("[clients/general] site link prune failed:", err?.message || err);
+      }
     }
     await logClientUpdate({
       req,

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { fetchClientsList, fetchContactsList } from "../../api/clients";
-import { fetchKnowledgeFolder, fetchKnowledgeTagCatalog } from "../../api/knowledgeBase";
+import { fetchKnowledgeEmojis, fetchKnowledgeFolder, fetchKnowledgeTagCatalog, resolveKnowledgeEmojiUrl } from "../../api/knowledgeBase";
+import { buildEmojiMap } from "./knowledgeEmojiHelpers";
 import KnowledgeShareForm from "./KnowledgeShareForm";
 import styles from "./knowledgeBase.module.css";
 
@@ -18,6 +19,8 @@ export default function KnowledgeFolderModal({
   onRename
 }) {
   const [name, setName] = useState("");
+  const [icon, setIcon] = useState(null);
+  const [emojis, setEmojis] = useState([]);
   const [inheritSharing, setInheritSharing] = useState(true);
   const [visibleToAgents, setVisibleToAgents] = useState(true);
   const [visibleToAllClients, setVisibleToAllClients] = useState(false);
@@ -38,7 +41,9 @@ export default function KnowledgeFolderModal({
   useEffect(() => {
     if (!open) return;
     setName(folder?.name || "");
+    setIcon(folder?.icon || null);
     setInheritedSharing(null);
+    fetchKnowledgeEmojis().then(setEmojis).catch(() => setEmojis([]));
     if (mode !== "share" || !folder?.id) return undefined;
     let cancelled = false;
     setLoadingShare(true);
@@ -80,14 +85,16 @@ export default function KnowledgeFolderModal({
   if (!open) return null;
 
   const title = mode === "share" ? copy.shareFolder : mode === "rename" ? copy.renameFolder : parentId ? copy.newSubfolder : copy.newFolder;
+  const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
+  const selectedEmoji = icon ? emojiMap.get(String(icon).toLowerCase()) : null;
 
   const submit = async () => {
     if (mode === "create") {
-      await onCreate({ name, parentId });
+      await onCreate({ name, parentId, icon: icon || null });
       return;
     }
     if (mode === "rename") {
-      await onRename(folder.id, { name });
+      await onRename(folder.id, { name, icon: icon || null });
       return;
     }
     await onRename(folder.id, {
@@ -111,7 +118,34 @@ export default function KnowledgeFolderModal({
         </div>
         <div className={`${styles.modalBody} ${mode === "share" ? styles.modalBodyShare : ""}`}>
           {mode !== "share" ? (
-            <input className={styles.search} value={name} onChange={event => setName(event.target.value)} placeholder={copy.folderNamePlaceholder} autoFocus />
+            <>
+              <input className={styles.search} value={name} onChange={event => setName(event.target.value)} placeholder={copy.folderNamePlaceholder} autoFocus />
+              <div className={styles.folderIconPicker}>
+                <span className={styles.sideLabel}>{copy.emojiFolderIcon}</span>
+                <div className={styles.folderIconRow}>
+                  <button
+                    type="button"
+                    className={`${styles.folderIconChoice} ${!icon ? styles.folderIconChoiceActive : ""}`}
+                    onClick={() => setIcon(null)}
+                    title={copy.emojiClearIcon}
+                  >
+                    <Icon icon="mdi:cube-outline" />
+                  </button>
+                  {emojis.map(emoji => (
+                    <button
+                      key={emoji.id}
+                      type="button"
+                      className={`${styles.folderIconChoice} ${icon === emoji.name ? styles.folderIconChoiceActive : ""}`}
+                      onClick={() => setIcon(emoji.name)}
+                      title={`:${emoji.name}:`}
+                    >
+                      <img src={resolveKnowledgeEmojiUrl(emoji)} alt={`:${emoji.name}:`} />
+                    </button>
+                  ))}
+                </div>
+                {selectedEmoji ? <p className={styles.hint}>:{selectedEmoji.name}:</p> : null}
+              </div>
+            </>
           ) : loadingShare ? (
             <p className={styles.hint}>{copy.loading}</p>
           ) : (

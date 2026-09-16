@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { FaTimes } from "react-icons/fa";
+import { toast } from "react-toastify";
 import TicketConfirmModal from "./TicketConfirmModal";
 import layout from "../EnterprisesPage/EnterpriseFormModal.module.css";
 import eventStyles from "../PlanningPage/PlanningEventFormModal.module.css";
@@ -16,6 +17,41 @@ import { usePlanningEventTypes } from "../PlanningPage/usePlanningEventTypes";
 import { getPlanningEventFormCopy } from "../PlanningPage/planningEventFormI18n";
 import { PLANNING_EVENT_TYPES } from "../PlanningPage/planningEventTypes";
 import { getEquipmentPickerLabel } from "./ticketEquipmentUtils";
+import API_BASE_URL from "../../config";
+import { interpolate } from "../../i18n/translate";
+
+const ATTACHMENT_ACCEPT = ".pdf,.jpg,.jpeg,.png,.doc,.docx,.csv,.xls,.xlsx,.mp4,.3gp,.mp3,.mpeg,.ogg,.aac,.amr,.m4a";
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+
+function toAbsoluteUrl(path) {
+  const raw = String(path || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = String(API_BASE_URL || "").replace(/\/api\/?$/, "");
+  return raw.startsWith("/") ? `${base}${raw}` : `${base}/${raw}`;
+}
+
+function getInitials(label) {
+  const cleaned = String(label || "").trim();
+  if (!cleaned) return "?";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
+}
+
+function formatRelativeLabel(value, copy) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60_000) return copy.relativeJustNow || "just now";
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return interpolate(copy.relativeMinutes || "{count} min", { count: String(minutes) });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return interpolate(copy.relativeHours || "{count} h", { count: String(hours) });
+  const days = Math.floor(hours / 24);
+  return interpolate(copy.relativeDays || "{count} d", { count: String(days) });
+}
 
 function toDatetimeLocalValue(value) {
   if (!value) return "";
@@ -53,6 +89,7 @@ const TASK_FORM_SECTIONS_BASE = [
   { id: "schedule", icon: "mdi:calendar-clock" },
   { id: "assignee", icon: "mdi:account-outline" },
   { id: "equipment", icon: "mdi:desktop-classic" },
+  { id: "documents", icon: "mdi:paperclip" },
   { id: "credits", icon: "mdi:ticket-percent-outline" }
 ];
 
@@ -74,7 +111,9 @@ export default function SalesTasksPanel({
   onUpdateTask,
   onToggleTask,
   onRemoveTask,
-  onConsumeTaskCredits
+  onConsumeTaskCredits,
+  onUploadDocuments,
+  onDeleteDocument
 }) {
   const locale = useAppLocale();
   const catalogTypes = usePlanningEventTypes();
@@ -98,6 +137,7 @@ export default function SalesTasksPanel({
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [activeSection, setActiveSection] = useState("general");
   const [label, setLabel] = useState("");
+  const [description, setDescription] = useState("");
   const [eventType, setEventType] = useState("");
   const [assigneeIds, setAssigneeIds] = useState([]);
   const [equipmentId, setEquipmentId] = useState("");
@@ -109,7 +149,12 @@ export default function SalesTasksPanel({
   const [assigneeHighlight, setAssigneeHighlight] = useState(0);
   const [creditEnabled, setCreditEnabled] = useState(false);
   const [creditAmounts, setCreditAmounts] = useState({});
+  const [existingDocuments, setExistingDocuments] = useState([]);
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [docsToRemove, setDocsToRemove] = useState([]);
+  const [docsBusy, setDocsBusy] = useState(false);
   const assigneePickerRef = useRef(null);
+  const documentInputRef = useRef(null);
 
   const canManageCredits = Boolean(supportCredit?.eligible && creditCopy);
   const fieldsCopy = creditCopy || {};
@@ -151,6 +196,7 @@ export default function SalesTasksPanel({
     setEditingTask(null);
     setActiveSection("general");
     setLabel("");
+    setDescription("");
     setEventType(resolveDefaultEventType(selectableTypes));
     setAssigneeIds([]);
     setAssigneeSearch("");
@@ -160,6 +206,9 @@ export default function SalesTasksPanel({
     setStartLocal("");
     setEndLocal("");
     setRangeMode(false);
+    setExistingDocuments([]);
+    setPendingFiles([]);
+    setDocsToRemove([]);
     resetCreditForm(false);
   };
 
@@ -181,6 +230,7 @@ export default function SalesTasksPanel({
     setEditingTask(task);
     setActiveSection("general");
     setLabel(String(task.label || ""));
+    setDescription(String(task.description || ""));
     setEventType(resolveDefaultEventType(selectableTypes, task.eventType || task.type));
     const fromAssignees = Array.isArray(task.assignees)
       ? task.assignees.map(entry => String(entry?.id || "")).filter(Boolean)
@@ -200,6 +250,9 @@ export default function SalesTasksPanel({
     setStartLocal(toDatetimeLocalValue(task.startAt));
     setEndLocal(toDatetimeLocalValue(task.endAt));
     setRangeMode(Boolean(task.startAt && task.endAt));
+    setExistingDocuments(Array.isArray(task.documents) ? task.documents : []);
+    setPendingFiles([]);
+    setDocsToRemove([]);
     const alreadyDebited = Boolean(creditDebitedSources?.has?.(`task:${task.id}`));
     resetCreditForm(alreadyDebited);
     setOpen(true);
@@ -249,6 +302,7 @@ export default function SalesTasksPanel({
       schedule: true,
       assignee: true,
       equipment: true,
+      documents: true,
       credits: canManageCredits
         ? Boolean(
             creditDebitedSources?.has?.(`task:${editingTask?.id}`) ||
@@ -317,7 +371,60 @@ export default function SalesTasksPanel({
     return `${titlePart} · ${typePart} · ${assigneePart} · ${equipmentPart} · ${schedulePart}`;
   }, [label, eventType, typeLabels, selectedAssignees, equipmentId, equipmentOptions, startLocal, copy.assigneeNone, copy.equipmentNone, copy.eventTypeRequiredShort, copy.scheduled, copy.unscheduled, modalCopy.footerUntitled]);
 
-  const canSubmit = Boolean(label.trim() && eventType && !saving);
+  const canSubmit = Boolean(label.trim() && eventType && !saving && !docsBusy);
+
+  const addPendingFiles = fileList => {
+    const next = Array.from(fileList || []);
+    if (next.length === 0) return;
+    const accepted = [];
+    for (const file of next) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast.error(copy.documentsFileTooLarge || copy.fileTooLarge || "File too large");
+        continue;
+      }
+      accepted.push(file);
+    }
+    if (accepted.length > 0) {
+      setPendingFiles(prev => [...prev, ...accepted]);
+    }
+  };
+
+  const removePendingFile = index => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const markExistingDocForRemoval = docId => {
+    const id = String(docId || "");
+    if (!id) return;
+    setDocsToRemove(prev => (prev.includes(id) ? prev : [...prev, id]));
+    setExistingDocuments(prev => prev.filter(doc => String(doc.id) !== id));
+  };
+
+  const syncTaskDocuments = async taskId => {
+    if (!taskId) return true;
+    setDocsBusy(true);
+    try {
+      for (const attachmentId of docsToRemove) {
+        try {
+          await onDeleteDocument?.(taskId, attachmentId);
+        } catch (error) {
+          toast.error(error.message || copy.documentsDeleteError);
+          return false;
+        }
+      }
+      if (pendingFiles.length > 0) {
+        try {
+          await onUploadDocuments?.(taskId, pendingFiles);
+        } catch (error) {
+          toast.error(error.message || copy.documentsUploadError);
+          return false;
+        }
+      }
+      return true;
+    } finally {
+      setDocsBusy(false);
+    }
+  };
 
   const addAssignee = userId => {
     const id = String(userId || "").trim();
@@ -337,7 +444,7 @@ export default function SalesTasksPanel({
     event.preventDefault();
     const trimmed = label.trim();
     const selectedType = String(eventType || "").trim();
-    if (!trimmed || saving) return;
+    if (!trimmed || saving || docsBusy) return;
     if (!selectedType) {
       setActiveSection("general");
       return;
@@ -359,6 +466,7 @@ export default function SalesTasksPanel({
     const taskId = isEditing ? String(editingTask.id) : `task-${Date.now()}`;
     const payload = {
       label: trimmed,
+      description: String(description || "").trim() || null,
       eventType: selectedType,
       assignees,
       assigneeId: primary?.id || null,
@@ -381,10 +489,14 @@ export default function SalesTasksPanel({
         id: taskId,
         ...payload,
         done: false,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
       if (ok === false) return;
     }
+
+    const docsOk = await syncTaskDocuments(taskId);
+    if (!docsOk) return;
 
     if (canManageCredits && creditEnabled && !editingCreditsAlreadyDebited) {
       const debits = getSalesCreditDebitsFromState(creditEnabled, creditAmounts, supportCredit?.packs);
@@ -451,8 +563,22 @@ export default function SalesTasksPanel({
                   value={label}
                   onChange={e => setLabel(e.target.value)}
                   placeholder={copy.placeholder}
-                  disabled={saving}
+                  disabled={saving || docsBusy}
                   autoFocus
+                />
+              </div>
+              <div className={layout.field}>
+                <label className={layout.label} htmlFor="sales-task-description">
+                  {copy.description || "Description"}
+                </label>
+                <textarea
+                  id="sales-task-description"
+                  className={layout.input}
+                  rows={4}
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder={copy.descriptionPlaceholder || ""}
+                  disabled={saving || docsBusy}
                 />
               </div>
             </div>
@@ -647,6 +773,86 @@ export default function SalesTasksPanel({
             </div>
           </>
         );
+      case "documents":
+        return (
+          <>
+            <div className={layout.sectionHead}>
+              <h3 className={layout.sectionTitle}>{modalCopy.documentsTitle || copy.documents}</h3>
+              <p className={layout.sectionDesc}>{modalCopy.documentsDesc || copy.documentsHint || ""}</p>
+            </div>
+            <div className={layout.fieldStack}>
+              <div className={styles.taskDocActions}>
+                <input
+                  ref={documentInputRef}
+                  type="file"
+                  multiple
+                  accept={ATTACHMENT_ACCEPT}
+                  className={styles.taskDocInput}
+                  onChange={e => {
+                    addPendingFiles(e.target.files);
+                    e.target.value = "";
+                  }}
+                  disabled={saving || docsBusy}
+                />
+                <button
+                  type="button"
+                  className={styles.tasksAddTrigger}
+                  onClick={() => documentInputRef.current?.click()}
+                  disabled={saving || docsBusy}
+                >
+                  <Icon icon="mdi:paperclip" aria-hidden />
+                  {copy.documentsAdd}
+                </button>
+              </div>
+              {existingDocuments.length === 0 && pendingFiles.length === 0 ? (
+                <p className={styles.taskPlanningHint}>{copy.documentsEmpty}</p>
+              ) : (
+                <ul className={styles.taskDocList}>
+                  {existingDocuments.map(doc => (
+                    <li key={doc.id || doc.filePath} className={styles.taskDocItem}>
+                      <a
+                        href={toAbsoluteUrl(doc.filePath)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.taskDocLink}
+                        title={copy.documentsOpen}
+                      >
+                        <Icon icon="mdi:file-document-outline" aria-hidden />
+                        <span>{doc.fileName}</span>
+                      </a>
+                      <button
+                        type="button"
+                        className={styles.taskRemove}
+                        onClick={() => markExistingDocForRemoval(doc.id)}
+                        aria-label={copy.documentsRemove}
+                        disabled={saving || docsBusy}
+                      >
+                        <Icon icon="mdi:delete-outline" />
+                      </button>
+                    </li>
+                  ))}
+                  {pendingFiles.map((file, index) => (
+                    <li key={`pending-${file.name}-${index}`} className={styles.taskDocItem}>
+                      <span className={styles.taskDocPending}>
+                        <Icon icon="mdi:upload-outline" aria-hidden />
+                        <span>{file.name}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className={styles.taskRemove}
+                        onClick={() => removePendingFile(index)}
+                        aria-label={copy.documentsRemove}
+                        disabled={saving || docsBusy}
+                      >
+                        <Icon icon="mdi:close" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        );
       case "credits":
         return (
           <>
@@ -665,7 +871,7 @@ export default function SalesTasksPanel({
               onEnabledChange={setCreditEnabled}
               amounts={creditAmounts}
               onAmountsChange={setCreditAmounts}
-              disabled={saving || editingCreditsAlreadyDebited}
+              disabled={saving || docsBusy || editingCreditsAlreadyDebited}
               alreadyDebited={editingCreditsAlreadyDebited}
               compact
             />
@@ -789,75 +995,161 @@ export default function SalesTasksPanel({
           const schedule = formatTaskSchedule(task, formatDateTime, copy.rangeJoiner);
           const typeLabel = typeLabels[task.eventType] || typeLabels[task.type] || null;
           const creditDebited = creditDebitedSources?.has?.(`task:${task.id}`);
+          const assigneeList =
+            Array.isArray(task.assignees) && task.assignees.length > 0
+              ? task.assignees
+              : task.assigneeId
+                ? [{ id: task.assigneeId, label: task.assigneeLabel }]
+                : [];
+          const assigneeLabels = assigneeList
+            .map(
+              entry =>
+                (entry.id && userOptions.find(u => u.id === String(entry.id))?.label) ||
+                entry.label ||
+                entry.id
+            )
+            .filter(Boolean);
+          const avatarLabel = assigneeLabels[0] || task.createdByLabel || copy.unknownAuthor || "?";
+          const createdRelative = formatRelativeLabel(task.createdAt, copy);
+          const updatedRelative = formatRelativeLabel(task.updatedAt || task.createdAt, copy);
+          const docs = Array.isArray(task.documents) ? task.documents : [];
           return (
-            <li key={task.id} className={`${styles.taskChatItem} ${task.done ? styles.taskChatItemDone : ""}`}>
-              <button type="button" className={styles.taskCheck} onClick={() => canManageTasks && onToggleTask?.(task.id)} aria-pressed={task.done} title={task.done ? copy.markTodo : copy.markDone} disabled={!canManageTasks || saving}>
-                <Icon icon={task.done ? "mdi:checkbox-marked" : "mdi:checkbox-blank-outline"} />
-              </button>
-              <div className={styles.taskChatBody}>
-                {canManageTasks ? (
-                  <button type="button" className={styles.taskChatLabelBtn} onClick={() => openEditModal(task)} disabled={saving} title={copy.edit}>
-                    <span className={styles.taskChatLabel}>{task.label}</span>
-                  </button>
-                ) : (
-                  <span className={styles.taskChatLabel}>{task.label}</span>
-                )}
-                <div className={styles.taskChatMeta}>
+            <li key={task.id} className={`${styles.taskGlpiRow} ${task.done ? styles.taskGlpiRowDone : ""}`}>
+              <div className={styles.taskGlpiAvatar} aria-hidden title={avatarLabel}>
+                {getInitials(avatarLabel)}
+              </div>
+              <article className={styles.taskGlpiCard}>
+                <div className={styles.taskGlpiMetaRow}>
+                  {createdRelative ? (
+                    <span className={styles.taskGlpiMetaPill}>
+                      {copy.createdBy} : <Icon icon="mdi:clock-outline" aria-hidden /> {createdRelative}
+                      {task.createdByLabel ? (
+                        <>
+                          {" "}
+                          {copy.byAuthor} <Icon icon="mdi:account-outline" aria-hidden /> {task.createdByLabel}
+                        </>
+                      ) : null}
+                    </span>
+                  ) : null}
+                  {updatedRelative ? (
+                    <span className={styles.taskGlpiMetaPill}>
+                      {copy.updatedBy} : <Icon icon="mdi:clock-outline" aria-hidden /> {updatedRelative}
+                      {task.updatedByLabel ? (
+                        <>
+                          {" "}
+                          {copy.byAuthor} <Icon icon="mdi:account-outline" aria-hidden /> {task.updatedByLabel}
+                        </>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className={styles.taskGlpiBody}>
+                  <Icon icon="mdi:wrench-outline" className={styles.taskGlpiWatermark} aria-hidden />
+                  {canManageTasks ? (
+                    <button
+                      type="button"
+                      className={styles.taskGlpiTitleBtn}
+                      onClick={() => openEditModal(task)}
+                      disabled={saving || docsBusy}
+                      title={copy.edit}
+                    >
+                      <span className={styles.taskGlpiTitle}>{task.label}</span>
+                    </button>
+                  ) : (
+                    <span className={styles.taskGlpiTitle}>{task.label}</span>
+                  )}
+                  {task.description ? <p className={styles.taskGlpiDescription}>{task.description}</p> : null}
+                  {docs.length > 0 ? (
+                    <ul className={styles.taskGlpiDocs}>
+                      {docs.map(doc => (
+                        <li key={doc.id || doc.filePath}>
+                          <a
+                            href={toAbsoluteUrl(doc.filePath)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.taskGlpiDocLink}
+                            title={copy.documentsOpen}
+                          >
+                            <Icon icon="mdi:paperclip" aria-hidden />
+                            {doc.fileName}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+
+                <div className={styles.taskGlpiFooter}>
                   {typeLabel ? (
-                    <span>
+                    <span className={styles.taskGlpiTag}>
                       <Icon icon="mdi:shape-outline" aria-hidden />
                       {typeLabel}
                     </span>
                   ) : null}
                   {creditDebited ? (
-                    <span title={creditAlreadyLabel || undefined}>
+                    <span className={styles.taskGlpiTag} title={creditAlreadyLabel || undefined}>
                       <Icon icon="mdi:ticket-percent-outline" aria-hidden />
                       {creditAlreadyLabel || "Credits"}
                     </span>
                   ) : null}
-                  <span>
+                  <span className={styles.taskGlpiTag}>
                     <Icon icon="mdi:account-outline" aria-hidden />
-                    {(() => {
-                      const list = Array.isArray(task.assignees) && task.assignees.length > 0
-                        ? task.assignees
-                        : task.assigneeId
-                          ? [{ id: task.assigneeId, label: task.assigneeLabel }]
-                          : [];
-                      if (list.length === 0) return copy.assigneeNone;
-                      return list
-                        .map(entry =>
-                          (entry.id && userOptions.find(u => u.id === String(entry.id))?.label) ||
-                          entry.label ||
-                          entry.id
-                        )
-                        .filter(Boolean)
-                        .join(", ");
-                    })()}
+                    {assigneeLabels.length > 0 ? assigneeLabels.join(", ") : copy.assigneeNone}
                   </span>
-                  {(task.equipmentId || task.equipmentLabel) ? (
-                    <span>
+                  {task.equipmentId || task.equipmentLabel ? (
+                    <span className={styles.taskGlpiTag}>
                       <Icon icon="mdi:desktop-classic" aria-hidden />
-                      {(task.equipmentId && equipmentOptions.find(eq => eq.id === String(task.equipmentId))?.label) || task.equipmentLabel || copy.equipment}
+                      {(task.equipmentId &&
+                        equipmentOptions.find(eq => eq.id === String(task.equipmentId))?.label) ||
+                        task.equipmentLabel ||
+                        copy.equipment}
                     </span>
                   ) : null}
                   {schedule ? (
-                    <span>
+                    <span className={`${styles.taskGlpiTag} ${styles.taskGlpiTagSchedule}`}>
                       <Icon icon="mdi:calendar-clock" aria-hidden />
                       {schedule}
                     </span>
                   ) : null}
                 </div>
+              </article>
+
+              <div className={styles.taskGlpiSideActions}>
+                <button
+                  type="button"
+                  className={`${styles.taskGlpiDoneBtn} ${task.done ? styles.taskGlpiDoneBtnActive : ""}`}
+                  onClick={() => canManageTasks && onToggleTask?.(task.id)}
+                  aria-pressed={task.done}
+                  title={task.done ? copy.markTodo : copy.markDone}
+                  disabled={!canManageTasks || saving || docsBusy}
+                >
+                  <Icon icon={task.done ? "mdi:check-bold" : "mdi:check"} />
+                </button>
+                {canManageTasks ? (
+                  <>
+                    <button
+                      type="button"
+                      className={styles.taskEdit}
+                      onClick={() => openEditModal(task)}
+                      aria-label={copy.edit}
+                      title={copy.edit}
+                      disabled={saving || docsBusy}
+                    >
+                      <Icon icon="mdi:pencil-outline" />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.taskRemove}
+                      onClick={() => setTaskToDelete(task)}
+                      aria-label={copy.remove}
+                      disabled={saving || docsBusy}
+                    >
+                      <Icon icon="mdi:delete-outline" />
+                    </button>
+                  </>
+                ) : null}
               </div>
-              {canManageTasks ? (
-                <div className={styles.taskItemActions}>
-                  <button type="button" className={styles.taskEdit} onClick={() => openEditModal(task)} aria-label={copy.edit} title={copy.edit} disabled={saving}>
-                    <Icon icon="mdi:pencil-outline" />
-                  </button>
-                  <button type="button" className={styles.taskRemove} onClick={() => setTaskToDelete(task)} aria-label={copy.remove} disabled={saving}>
-                    <Icon icon="mdi:delete-outline" />
-                  </button>
-                </div>
-              ) : null}
             </li>
           );
         })}

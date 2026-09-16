@@ -3,9 +3,9 @@ import { fetchClientSupportCredits } from "../../../../api/clients";
 import { isDateWithinPeriod } from "../supervisionReportBuilder";
 import { buildSummarySnapshot } from "./summaryData";
 import { fetchSupportSummary } from "./summarySupport";
-import ReportSummaryCybersecurity from "../ReportSummary/ReportSummaryCybersecurity";
-import ReportSummaryServices from "../ReportSummary/ReportSummaryServices";
 import ReportSummarySupervision from "../ReportSummary/ReportSummarySupervision";
+import ReportSummaryBackup from "../ReportSummary/ReportSummaryBackup";
+import ReportSummaryServicesCyber from "../ReportSummary/ReportSummaryServicesCyber";
 import styles from "./SummaryStep.module.css";
 
 const REPORT_TABS = [
@@ -46,7 +46,6 @@ export default function SummaryStep({
   equipmentCheckMKData = {},
   monitoringSyncStatus = {},
   allComments = [],
-  equipmentComments = {},
   equipmentCommentCounts = {},
   equipmentTicketCounts = {},
   equipmentAlertCounts = {},
@@ -109,6 +108,12 @@ export default function SummaryStep({
     client?.reportEndDate
   );
 
+  const introMeta = {
+    clientPrefix: snapshot?.clientPrefix || "",
+    clientMainLabel: snapshot?.clientMainLabel || client?.name || client?.nom || "",
+    periodLabel: snapshot?.periodLabel || ""
+  };
+
   return (
     <div className={styles.root} ref={summaryContentRef}>
       <div className={styles.reportTabs} role="tablist" aria-label="Rapports de synthèse" data-export-hide="true">
@@ -149,6 +154,8 @@ export default function SummaryStep({
               supportStats={supportStats}
               credits={credits}
               consumedOnPeriod={consumedOnPeriod}
+              reportStartDate={client?.reportStartDate}
+              reportEndDate={client?.reportEndDate}
             />
           </div>
         </article>
@@ -165,13 +172,11 @@ export default function SummaryStep({
             <p className={styles.reportDocDesc}>Instances, flux et jobs de sauvegarde uniquement.</p>
           </header>
           <div className={styles.exportRoot}>
-            <ReportSummaryCybersecurity
+            <ReportSummaryBackup
               client={client}
-              equipmentCheckMKData={equipmentCheckMKData}
-              equipmentComments={equipmentComments}
-              equipmentCommentCounts={equipmentCommentCounts}
-              equipmentTicketCounts={equipmentTicketCounts}
-              includeSections={["backup"]}
+              clientPrefix={introMeta.clientPrefix}
+              clientMainLabel={introMeta.clientMainLabel}
+              reportEndDate={client?.reportEndDate}
             />
           </div>
         </article>
@@ -188,19 +193,12 @@ export default function SummaryStep({
             <p className={styles.reportDocDesc}>Antivirus, antispam, Microsoft 365 et noms de domaine.</p>
           </header>
           <div className={styles.exportRoot}>
-            <ReportSummaryCybersecurity
+            <ReportSummaryServicesCyber
               client={client}
-              equipmentCheckMKData={equipmentCheckMKData}
-              equipmentComments={equipmentComments}
-              equipmentCommentCounts={equipmentCommentCounts}
-              equipmentTicketCounts={equipmentTicketCounts}
-              includeSections={["antivirus", "antispam"]}
-            />
-            <ReportSummaryServices
-              client={client}
-              equipmentComments={equipmentComments}
-              equipmentCommentCounts={equipmentCommentCounts}
-              equipmentTicketCounts={equipmentTicketCounts}
+              clientPrefix={introMeta.clientPrefix}
+              clientMainLabel={introMeta.clientMainLabel}
+              reportStartDate={client?.reportStartDate}
+              reportEndDate={client?.reportEndDate}
             />
           </div>
         </article>

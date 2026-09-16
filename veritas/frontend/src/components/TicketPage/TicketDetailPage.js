@@ -50,7 +50,7 @@ import { useContractModuleOptions } from "../../hooks/useContractModuleOptions";
 import { fetchTicketAutomationConfig, getTicketAutomationConfig, saveTicketAutomationConfig, subscribeTicketAutomationConfig } from "../../utils/ticketAutomationStorage";
 import { DEFAULT_TICKET_CHAT_UI_SETTINGS, normalizeTicketChatUiSettings } from "../../utils/ticketChatUiSettings";
 import { formatClientSlaRows, getTicketSlaDisplay, parseClientSla } from "../../utils/ticketSlaUtils";
-import { useAppGeneralSettings, useAppLocale } from "../../hooks/useAppGeneralSettings";
+import { useAppLocale } from "../../hooks/useAppGeneralSettings";
 import { getTicketDetailCopy } from "./ticketDetailPageI18n";
 import { getTicketSalesCreatePageCopy } from "./ticketSalesCreatePageI18n";
 import { getTicketValidationCopy } from "./ticketValidationI18n";
@@ -1037,9 +1037,6 @@ export default function TicketDetailPage({
     ticketId: urlTicketId
   } = useParams();
   const locale = useAppLocale();
-  const {
-    settings: generalSettings
-  } = useAppGeneralSettings();
   const copy = useMemo(() => getTicketDetailCopy(locale), [locale]);
   const validationCopy = useMemo(() => getTicketValidationCopy(locale), [locale]);
   const salesCopy = useMemo(() => getTicketSalesCreatePageCopy(locale), [locale]);
@@ -3596,8 +3593,6 @@ export default function TicketDetailPage({
       setAiCorrectLoading(false);
     }
   }, [aiCorrectLoading, aiSuggestLoading, isReadOnly, aiFeatures.suggestReply, canAiSuggest, commentDraft, commentInternal, ticketId, expandReplyBox, locale, copy.toasts.aiCorrectEmpty, copy.toasts.aiCorrectError, copy.toasts.aiCorrectOk, copy.toasts.aiCorrectUnchanged]);
-  const knowledgeBaseUrl = String(generalSettings?.app_knowledge_base_url || "").trim();
-  const hasKnowledgeBase = /^https?:\/\//i.test(knowledgeBaseUrl);
   const deleteConfirmConfig = useMemo(() => {
     if (ticketDeleteConfirm === "soft") {
       return {
@@ -4996,56 +4991,69 @@ export default function TicketDetailPage({
               />
               <div className={styles.timeline} ref={timelineRef} onScroll={handleTimelineScroll}>
               <article className={`${styles.commentItem} ${styles.commentItemInitial}`}>
-                <div className={styles.commentHeader}>
-                  <div className={styles.commentHeaderMain}>
-                    <UserAvatar name={requesterDisplayName !== "-" ? requesterDisplayName : copy.description.requesterFallback} size={26} variant="client" />
-                    <div className={styles.commentMeta}>
-                      <span className={styles.commentAuthor}>{requesterDisplayName !== "-" ? requesterDisplayName : copy.description.requesterFallback}</span>
-                      <span className={styles.initialRequestBadge}>{copy.description.initial}</span>
+                <UserAvatar
+                  className={styles.commentAvatarSide}
+                  name={requesterDisplayName !== "-" ? requesterDisplayName : copy.description.requesterFallback}
+                  size={40}
+                  variant="client"
+                />
+                <div className={styles.commentBubble}>
+                  <div className={styles.commentHeader}>
+                    <div className={styles.commentHeaderMain}>
+                      <div className={styles.commentMetaStrip}>
+                        <span className={styles.commentMetaLabel}>{copy.comment.createdLabel}</span>
+                        <span className={styles.commentMetaValue}>
+                          <Icon icon="mdi:clock-outline" aria-hidden />
+                          {copy.formatDateTime(ticket.created_at)}
+                        </span>
+                        <span className={styles.commentMetaLabel}>{copy.comment.byLabel}</span>
+                        <span className={styles.commentMetaAuthor}>
+                          <Icon icon="mdi:account-outline" aria-hidden />
+                          {requesterDisplayName !== "-" ? requesterDisplayName : copy.description.requesterFallback}
+                        </span>
+                        <span className={styles.initialRequestBadge}>{copy.description.initial}</span>
+                      </div>
+                    </div>
+                    <div className={styles.commentHeaderRight}>
+                      {!isReadOnly && !initialRequestEditing ? <SmartTooltip content={copy.description.editTitle}>
+                          <button type="button" className={styles.commentEditBtn} onClick={startInitialRequestEdit} aria-label={copy.description.editButtonAria}>
+                            <Icon icon="mdi:pencil-outline" />
+                          </button>
+                        </SmartTooltip> : null}
                     </div>
                   </div>
-                  <div className={styles.commentHeaderRight}>
-                    <span className={styles.commentTimestamp}>
-                      {copy.formatDateTime(ticket.created_at)}
-                    </span>
-                    {!isReadOnly && !initialRequestEditing ? <SmartTooltip content={copy.description.editTitle}>
-                        <button type="button" className={styles.commentEditBtn} onClick={startInitialRequestEdit} aria-label={copy.description.editButtonAria}>
-                          <Icon icon="mdi:pencil-outline" />
+                  {initialRequestEditing ? <div className={styles.initialRequestEditBox}>
+                      <input ref={titleInputRef} className={styles.descriptionTitleInput} type="text" value={titleDraft} onChange={e => setTitleDraft(e.target.value)} onKeyDown={e => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelInitialRequestEdit();
+                  }
+                }} placeholder={copy.header.titlePlaceholder} disabled={isReadOnly} aria-label={copy.header.titleAria} />
+                      <textarea ref={descriptionTextareaRef} className={styles.descriptionEditTextarea} value={descriptionDraft} onChange={e => setDescriptionDraft(e.target.value)} onKeyDown={e => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelInitialRequestEdit();
+                  }
+                }} placeholder={copy.description.placeholder} disabled={isReadOnly} rows={4} aria-label={copy.description.editAria} />
+                      <div className={styles.commentEditActions}>
+                        <button type="button" className={styles.commentEditSaveBtn} onClick={saveInitialRequestEdit} disabled={isReadOnly}>
+                          {copy.comment.editSave}
                         </button>
-                      </SmartTooltip> : null}
-                  </div>
+                        <button type="button" className={styles.commentEditCancelBtn} onClick={cancelInitialRequestEdit}>
+                          {copy.comment.editCancel}
+                        </button>
+                      </div>
+                    </div> : <>
+                      <div className={styles.initialRequestTitleWrap}>
+                        <h2 className={`${styles.descriptionTitle} ${!(editForm.title || ticket?.title) ? styles.descriptionTitlePlaceholder : ""}`.trim()}>
+                          {editForm.title || ticket?.title || copy.header.titlePlaceholder}
+                        </h2>
+                      </div>
+                      {editForm.description || ticket?.description ? <div className={styles.commentBody} onClick={handleInlineImageClick}>
+                          {renderCommentContent(editForm.description || ticket?.description, descriptionAttachments)}
+                        </div> : <p className={styles.descriptionBodyPlaceholder}>{copy.description.empty}</p>}
+                    </>}
                 </div>
-                {initialRequestEditing ? <div className={styles.initialRequestEditBox}>
-                    <input ref={titleInputRef} className={styles.descriptionTitleInput} type="text" value={titleDraft} onChange={e => setTitleDraft(e.target.value)} onKeyDown={e => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  cancelInitialRequestEdit();
-                }
-              }} placeholder={copy.header.titlePlaceholder} disabled={isReadOnly} aria-label={copy.header.titleAria} />
-                    <textarea ref={descriptionTextareaRef} className={styles.descriptionEditTextarea} value={descriptionDraft} onChange={e => setDescriptionDraft(e.target.value)} onKeyDown={e => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  cancelInitialRequestEdit();
-                }
-              }} placeholder={copy.description.placeholder} disabled={isReadOnly} rows={4} aria-label={copy.description.editAria} />
-                    <div className={styles.commentEditActions}>
-                      <button type="button" className={styles.commentEditSaveBtn} onClick={saveInitialRequestEdit} disabled={isReadOnly}>
-                        {copy.comment.editSave}
-                      </button>
-                      <button type="button" className={styles.commentEditCancelBtn} onClick={cancelInitialRequestEdit}>
-                        {copy.comment.editCancel}
-                      </button>
-                    </div>
-                  </div> : <>
-                    <div className={styles.initialRequestTitleWrap}>
-                      <h2 className={`${styles.descriptionTitle} ${!(editForm.title || ticket?.title) ? styles.descriptionTitlePlaceholder : ""}`.trim()}>
-                        {editForm.title || ticket?.title || copy.header.titlePlaceholder}
-                      </h2>
-                    </div>
-                    {editForm.description || ticket?.description ? <div className={styles.commentBody} onClick={handleInlineImageClick}>
-                        {renderCommentContent(editForm.description || ticket?.description, descriptionAttachments)}
-                      </div> : <p className={styles.descriptionBodyPlaceholder}>{copy.description.empty}</p>}
-                  </>}
               </article>
               {(ticket.comments || []).filter(comment => isTimelineVisibleComment(comment?.content)).map(comment => {
                   const isEditingComment = String(editingCommentId) === String(comment.id);
@@ -5056,101 +5064,115 @@ export default function TicketDetailPage({
                   const isDeletingComment = String(deletingCommentId) === String(comment.id);
                   const commentNotification = unreadByCommentId.get(String(comment.id));
                   return <article key={comment.id} className={`${styles.commentItem} ${comment.is_internal ? styles.commentItemInternal : ""} ${resolutionStatus?.variant === "pending" ? styles.commentItemResolutionPending : resolutionStatus?.variant === "rejected" ? styles.commentItemResolutionRejected : resolutionStatus?.variant === "done" ? styles.commentItemResolutionDone : ""}`.trim()}>
-                  <div className={styles.commentHeader}>
-                    <div className={styles.commentHeaderMain}>
-                      <UserAvatar name={resolveCommentAuthorName(comment)} avatar={resolveCommentAuthorAvatar(comment)} size={26} variant={comment.is_internal ? "neutral" : "agent"} />
-                      <div className={styles.commentMeta}>
-                        <span className={styles.commentAuthor}>{resolveCommentAuthorName(comment)}</span>
+                  <UserAvatar
+                    className={styles.commentAvatarSide}
+                    name={resolveCommentAuthorName(comment)}
+                    avatar={resolveCommentAuthorAvatar(comment)}
+                    size={40}
+                    variant={comment.is_internal ? "neutral" : "agent"}
+                  />
+                  <div className={styles.commentBubble}>
+                    <div className={styles.commentHeader}>
+                      <div className={styles.commentHeaderMain}>
+                        <div className={styles.commentMetaStrip}>
+                          <span className={styles.commentMetaLabel}>{copy.comment.createdLabel}</span>
+                          <span className={styles.commentMetaValue}>
+                            <Icon icon="mdi:clock-outline" aria-hidden />
+                            {copy.formatDateTime(comment.created_at)}
+                            {isCommentEdited(comment) ? <span className={styles.commentEditedMark}>{copy.comment.editedMark}</span> : null}
+                          </span>
+                          <span className={styles.commentMetaLabel}>{copy.comment.byLabel}</span>
+                          <span className={styles.commentMetaAuthor}>
+                            <Icon icon="mdi:account-outline" aria-hidden />
+                            {resolveCommentAuthorName(comment)}
+                          </span>
+                          {comment.is_internal ? <span className={styles.commentInternal} title={copy.comment.privateTitle}>
+                              <Icon icon="mdi:lock-outline" />
+                            </span> : null}
+                        </div>
+                      </div>
+                      <div className={styles.commentHeaderRight}>
+                        {showEditAction && !isEditingComment && <SmartTooltip content={copy.comment.editTooltip}>
+                            <button type="button" className={styles.commentEditBtn} onClick={() => startEditComment(comment)} disabled={isReadOnly} aria-label={copy.comment.editAria}>
+                              <Icon icon="mdi:pencil-outline" />
+                            </button>
+                          </SmartTooltip>}
+                        {showDeleteAction && !isEditingComment && <SmartTooltip content={copy.comment.deleteTooltip}>
+                            <button type="button" className={styles.commentDeleteBtn} onClick={() => deleteComment(comment.id)} disabled={isReadOnly || isDeletingComment} aria-label={copy.comment.deleteAria}>
+                              <Icon icon="mdi:trash-can-outline" />
+                            </button>
+                          </SmartTooltip>}
+                        {commentNotification ? <SmartTooltip content={copy.comment.unreadTooltip}>
+                            <button type="button" className={styles.commentNotificationBadge} onClick={() => markCommentNotificationRead(commentNotification.id)} aria-label={copy.comment.markReadAria}>
+                              <Icon icon="mdi:bell-badge-outline" />
+                            </button>
+                          </SmartTooltip> : null}
                       </div>
                     </div>
-                    <div className={styles.commentHeaderRight}>
-                      <span className={styles.commentTimestamp}>
-                        {copy.formatDateTime(comment.created_at)}
-                        {isCommentEdited(comment) ? <span className={styles.commentEditedMark}>{copy.comment.editedMark}</span> : null}
-                      </span>
-                      {comment.is_internal && <span className={styles.commentInternal} title={copy.comment.privateTitle}>
-                          <Icon icon="mdi:lock-outline" />
-                        </span>}
-                      {showEditAction && !isEditingComment && <SmartTooltip content={copy.comment.editTooltip}>
-                          <button type="button" className={styles.commentEditBtn} onClick={() => startEditComment(comment)} disabled={isReadOnly} aria-label={copy.comment.editAria}>
-                            <Icon icon="mdi:pencil-outline" />
+                    {isEditingComment ? <div className={styles.commentEditBox}>
+                        <div ref={commentEditEditorRef} className={styles.commentEditEditor} contentEditable={!isReadOnly && !savingCommentEdit} suppressContentEditableWarning onInput={e => setEditingCommentDraft(e.currentTarget?.innerHTML || "")} style={{
+                          minHeight: "96px",
+                          whiteSpace: "pre-wrap",
+                          overflowY: "auto"
+                        }} />
+                        {Array.isArray(comment.attachments) && comment.attachments.length > 0 ? <div className={styles.commentEditAttachments}>
+                            {comment.attachments.map((attachment, attachmentIndex) => {
+                            const removalKey = getAttachmentRemovalKey(attachment) || `index:${attachmentIndex}`;
+                            const isMarkedForRemoval = getAttachmentRemovalKey(attachment) ? editingCommentRemovedAttachmentKeys.includes(getAttachmentRemovalKey(attachment)) : false;
+                            const attachmentLabel = attachment.filename || attachment.name || copy.attachmentDefault;
+                            return <div key={removalKey} className={`${styles.commentEditAttachmentItem} ${isMarkedForRemoval ? styles.commentEditAttachmentItemRemoved : ""}`.trim()}>
+                                  <Icon icon="mdi:paperclip" className={styles.commentEditAttachmentIcon} />
+                                  <span className={styles.commentEditAttachmentName}>{attachmentLabel}</span>
+                                  {canDeleteAttachments ? <button type="button" className={styles.commentEditAttachmentRemoveBtn} onClick={() => toggleEditingCommentAttachmentRemoval(attachment)} disabled={savingCommentEdit || isReadOnly} aria-label={isMarkedForRemoval ? interpolate(copy.comment.editKeepAttachmentAria, {
+                                name: attachmentLabel
+                              }) : interpolate(copy.comment.editRemoveAttachmentAria, {
+                                name: attachmentLabel
+                              })} title={isMarkedForRemoval ? copy.comment.editUndoRemoveTitle : copy.comment.editRemoveTitle}>
+                                    <Icon icon={isMarkedForRemoval ? "mdi:undo" : "mdi:close"} />
+                                  </button> : null}
+                                </div>;
+                          })}
+                          </div> : null}
+                        <div className={styles.commentEditActions}>
+                          <button type="button" className={`${styles.replyModeBtn} ${styles.commentEditVisibility} ${editingCommentInternal ? styles.replyModeBtnPrivate : ""}`.trim()} onClick={() => {
+                            if (!canPublicReply) {
+                              setEditingCommentInternal(true);
+                              return;
+                            }
+                            setEditingCommentInternal(prev => !prev);
+                          }} disabled={savingCommentEdit || isReadOnly || !canPublicReply} title={editingCommentInternal ? copy.reply.modePrivateTitle : copy.reply.modePublicTitle}>
+                            <Icon icon={editingCommentInternal ? "mdi:lock-outline" : "mdi:earth"} />
+                            {editingCommentInternal ? copy.reply.modePrivate : copy.reply.modePublic}
                           </button>
-                        </SmartTooltip>}
-                      {showDeleteAction && !isEditingComment && <SmartTooltip content={copy.comment.deleteTooltip}>
-                          <button type="button" className={styles.commentDeleteBtn} onClick={() => deleteComment(comment.id)} disabled={isReadOnly || isDeletingComment} aria-label={copy.comment.deleteAria}>
-                            <Icon icon="mdi:trash-can-outline" />
+                          <button type="button" className={styles.commentEditSaveBtn} onClick={saveEditComment} disabled={savingCommentEdit || isReadOnly}>
+                            {savingCommentEdit ? copy.comment.editSaving : copy.comment.editSave}
                           </button>
-                        </SmartTooltip>}
-                      {commentNotification ? <SmartTooltip content={copy.comment.unreadTooltip}>
-                          <button type="button" className={styles.commentNotificationBadge} onClick={() => markCommentNotificationRead(commentNotification.id)} aria-label={copy.comment.markReadAria}>
-                            <Icon icon="mdi:bell-badge-outline" />
+                          <button type="button" className={styles.commentEditCancelBtn} onClick={cancelEditComment} disabled={savingCommentEdit}>
+                            {copy.comment.editCancel}
                           </button>
-                        </SmartTooltip> : null}
-                    </div>
-                  </div>
-                  {isEditingComment ? <div className={styles.commentEditBox}>
-                      <div ref={commentEditEditorRef} className={styles.commentEditEditor} contentEditable={!isReadOnly && !savingCommentEdit} suppressContentEditableWarning onInput={e => setEditingCommentDraft(e.currentTarget?.innerHTML || "")} style={{
-                        minHeight: "96px",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto"
-                      }} />
-                      {Array.isArray(comment.attachments) && comment.attachments.length > 0 ? <div className={styles.commentEditAttachments}>
-                          {comment.attachments.map((attachment, attachmentIndex) => {
-                          const removalKey = getAttachmentRemovalKey(attachment) || `index:${attachmentIndex}`;
-                          const isMarkedForRemoval = getAttachmentRemovalKey(attachment) ? editingCommentRemovedAttachmentKeys.includes(getAttachmentRemovalKey(attachment)) : false;
+                        </div>
+                      </div> : isResolutionProposal ? <div className={`${styles.commentBody} ${styles.commentBodyResolution}`}>
+                        {renderResolutionCommentCard(comment, resolutionValidation)}
+                      </div> : <div className={styles.commentBody} onClick={handleInlineImageClick}>{renderCommentBody(comment)}</div>}
+                    {!isEditingComment && Array.isArray(comment.attachments) && comment.attachments.length > 0 && !isIncomingEmailContent(comment.content) && <div className={styles.attachmentsList}>
+                        {comment.attachments.map(attachment => {
+                          const attachmentUrl = attachment.url || attachment.path;
+                          if (!attachmentUrl) return null;
                           const attachmentLabel = attachment.filename || attachment.name || copy.attachmentDefault;
-                          return <div key={removalKey} className={`${styles.commentEditAttachmentItem} ${isMarkedForRemoval ? styles.commentEditAttachmentItemRemoved : ""}`.trim()}>
-                                <Icon icon="mdi:paperclip" className={styles.commentEditAttachmentIcon} />
-                                <span className={styles.commentEditAttachmentName}>{attachmentLabel}</span>
-                                {canDeleteAttachments ? <button type="button" className={styles.commentEditAttachmentRemoveBtn} onClick={() => toggleEditingCommentAttachmentRemoval(attachment)} disabled={savingCommentEdit || isReadOnly} aria-label={isMarkedForRemoval ? interpolate(copy.comment.editKeepAttachmentAria, {
+                          if (isImageAttachment(attachment)) {
+                            return <button type="button" key={attachment.id || attachmentUrl} className={styles.attachmentPreviewLink} title={interpolate(copy.comment.attachmentOpenTitle, {
                               name: attachmentLabel
-                            }) : interpolate(copy.comment.editRemoveAttachmentAria, {
-                              name: attachmentLabel
-                            })} title={isMarkedForRemoval ? copy.comment.editUndoRemoveTitle : copy.comment.editRemoveTitle}>
-                                  <Icon icon={isMarkedForRemoval ? "mdi:undo" : "mdi:close"} />
-                                </button> : null}
-                              </div>;
-                        })}
-                        </div> : null}
-                      <div className={styles.commentEditActions}>
-                        <button type="button" className={`${styles.replyModeBtn} ${styles.commentEditVisibility} ${editingCommentInternal ? styles.replyModeBtnPrivate : ""}`.trim()} onClick={() => {
-                          if (!canPublicReply) {
-                            setEditingCommentInternal(true);
-                            return;
+                            })} onClick={() => openImageLightbox(attachmentUrl, attachmentLabel)}>
+                                <img src={attachmentUrl} alt={attachmentLabel} className={styles.attachmentPreviewImage} loading="lazy" />
+                              </button>;
                           }
-                          setEditingCommentInternal(prev => !prev);
-                        }} disabled={savingCommentEdit || isReadOnly || !canPublicReply} title={editingCommentInternal ? copy.reply.modePrivateTitle : copy.reply.modePublicTitle}>
-                          <Icon icon={editingCommentInternal ? "mdi:lock-outline" : "mdi:earth"} />
-                          {editingCommentInternal ? copy.reply.modePrivate : copy.reply.modePublic}
-                        </button>
-                        <button type="button" className={styles.commentEditSaveBtn} onClick={saveEditComment} disabled={savingCommentEdit || isReadOnly}>
-                          {savingCommentEdit ? copy.comment.editSaving : copy.comment.editSave}
-                        </button>
-                        <button type="button" className={styles.commentEditCancelBtn} onClick={cancelEditComment} disabled={savingCommentEdit}>
-                          {copy.comment.editCancel}
-                        </button>
-                      </div>
-                    </div> : isResolutionProposal ? <div className={`${styles.commentBody} ${styles.commentBodyResolution}`}>
-                      {renderResolutionCommentCard(comment, resolutionValidation)}
-                    </div> : <div className={styles.commentBody} onClick={handleInlineImageClick}>{renderCommentBody(comment)}</div>}
-                  {!isEditingComment && Array.isArray(comment.attachments) && comment.attachments.length > 0 && !isIncomingEmailContent(comment.content) && <div className={styles.attachmentsList}>
-                      {comment.attachments.map(attachment => {
-                        const attachmentUrl = attachment.url || attachment.path;
-                        if (!attachmentUrl) return null;
-                        const attachmentLabel = attachment.filename || attachment.name || copy.attachmentDefault;
-                        if (isImageAttachment(attachment)) {
-                          return <button type="button" key={attachment.id || attachmentUrl} className={styles.attachmentPreviewLink} title={interpolate(copy.comment.attachmentOpenTitle, {
-                            name: attachmentLabel
-                          })} onClick={() => openImageLightbox(attachmentUrl, attachmentLabel)}>
-                              <img src={attachmentUrl} alt={attachmentLabel} className={styles.attachmentPreviewImage} loading="lazy" />
-                            </button>;
-                        }
-                        return <a key={attachment.id || attachmentUrl} href={attachmentUrl} target="_blank" rel="noopener noreferrer" className={styles.attachmentLink} title={`${attachmentLabel} (open in new tab)`}>
-                            <Icon icon="mdi:paperclip" />
-                            {attachmentLabel}
-                          </a>;
-                      })}
-                    </div>}
+                          return <a key={attachment.id || attachmentUrl} href={attachmentUrl} target="_blank" rel="noopener noreferrer" className={styles.attachmentLink} title={`${attachmentLabel} (open in new tab)`}>
+                              <Icon icon="mdi:paperclip" />
+                              {attachmentLabel}
+                            </a>;
+                        })}
+                      </div>}
+                  </div>
                 </article>;
                 })}
               </div>
@@ -5722,12 +5744,6 @@ export default function TicketDetailPage({
             }}>
               <Icon icon="mdi:history" />
             </button>
-            {hasKnowledgeBase ? <>
-                <span className={styles.sidebarSeparator} aria-hidden />
-                <button type="button" className={styles.sidebarActionBtn} title={copy.sidebar.kbTitle} onClick={() => window.open(knowledgeBaseUrl, "_blank", "noopener,noreferrer")}>
-                  <Icon icon="mdi:book-open-page-variant-outline" />
-                </button>
-              </> : null}
             <span className={styles.sidebarSeparator} aria-hidden />
             {!isDeleted && canDeleteTicket ? <button type="button" className={styles.sidebarActionBtn} title={copy.sidebar.deleteTitle} onClick={softDeleteCurrentTicket}>
                 <Icon icon="mdi:trash-can-outline" />

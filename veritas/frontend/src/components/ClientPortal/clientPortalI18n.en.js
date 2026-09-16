@@ -706,6 +706,8 @@ export default {
       initialDescription: "Initial description",
       noMessages: "No messages yet.",
       supportAuthor: "Support",
+      createdLabel: "Created:",
+      byLabel: "by",
       editMessageAria: "Edit message",
       editMessageTitle: "Edit message",
       validationQuestion: "Does the proposed solution work for you?",

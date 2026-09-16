@@ -3,7 +3,7 @@ import { Icon as IconifyIcon } from "@iconify/react";
 import infraStyles from "./ReportSummaryInfrastructure.module.css";
 import cyberStyles from "./ReportSummaryCybersecurity.module.css";
 import { REPORT_CYBER_MODULES, sumEquipmentCountsForModules } from "./reportCategoryCounts";
-import { ReportCategoryKpisBlock, ReportTableBlock } from "./ReportSummaryBlocks";
+import { ReportCategoryKpisBlock, ReportSummaryIntro, ReportSummarySection, ReportTableBlock } from "./ReportSummaryBlocks";
 import { buildAntivirusEndpointRowsForClient, buildAntivirusPolicyRowsForClient, getAntivirusSolutionName } from "./reportCyberTableUtils";
 import { formatAntivirusEndpointType } from "../../../EnterprisesPage/antivirusSolutionUtils";
 import { formatServeurLieLabel, pickBackupJobType, pickBackupJobDestination } from "../../../EnterprisesPage/backupJobUtils";
@@ -223,7 +223,12 @@ export default function ReportSummaryCybersecurity({
   equipmentComments = {},
   equipmentCommentCounts = {},
   equipmentTicketCounts = {},
-  includeSections = null
+  includeSections = null,
+  embedded = false,
+  documentTitle = null,
+  clientPrefix = "",
+  clientMainLabel = "",
+  periodLabel = ""
 }) {
   const sauvegardeInstances = useMemo(() => {
     const raw = client?.equipements?.Sauvegarde;
@@ -382,24 +387,38 @@ export default function ReportSummaryCybersecurity({
   const cyberTicketTotal = useMemo(() => sumEquipmentCountsForModules(equipmentTicketCounts, REPORT_CYBER_MODULES, equipmentComments), [equipmentTicketCounts, equipmentComments]);
   const backupKpis = useMemo(() => {
     const totalJobs = sauvegardeInstances.reduce((acc, inst) => acc + (Array.isArray(inst.jobs) ? inst.jobs.length : 0), 0);
+    let vigilance = 0;
+    sauvegardeInstances.forEach(inst => {
+      const jobs = Array.isArray(inst.jobs) ? inst.jobs : [];
+      jobs.forEach(job => {
+        const status = String(getBackupJobStatus(normalizeBackupJobForStatus(job, inst)) || "").toLowerCase();
+        if (status === "warning" || status === "critical" || status === "fail" || status === "failed" || status === "error") {
+          vigilance += 1;
+        }
+      });
+    });
     return [{
-      label: "Active Backup",
-      value: sauvegardeActiveBackupInstances.length,
-      icon: "mdi:microsoft-office"
-    }, {
-      label: "HyperBackup",
-      value: sauvegardeHyperBackupInstances.length,
-      icon: "mdi:nas"
-    }, {
-      label: "Instances de sauvegarde",
+      label: "Instances",
       value: sauvegardeInstances.length,
-      icon: "mdi:database-sync"
+      icon: "mdi:database-sync",
+      iconColor: "#2563eb"
     }, {
-      label: "Jobs de sauvegarde",
+      label: "Jobs",
       value: totalJobs,
-      icon: "mdi:briefcase-clock-outline"
+      icon: "mdi:briefcase-clock-outline",
+      iconColor: "#0891b2"
+    }, {
+      label: "Points de vigilance",
+      value: vigilance,
+      icon: "mdi:eye-outline",
+      iconColor: vigilance > 0 ? "#b45309" : "#059669"
+    }, {
+      label: "Tickets",
+      value: cyberTicketTotal,
+      icon: "mdi:ticket-outline",
+      iconColor: "#7c3aed"
     }];
-  }, [sauvegardeInstances, sauvegardeActiveBackupInstances, sauvegardeHyperBackupInstances]);
+  }, [sauvegardeInstances, cyberTicketTotal]);
   const antivirusKpis = useMemo(() => [{
     label: "Postes inventoriés",
     value: antivirusStats.totalEndpoints || 0,
@@ -547,33 +566,50 @@ export default function ReportSummaryCybersecurity({
   }), [sauvegardeInstances]);
   const antivirusPolicyRows = useMemo(() => buildAntivirusPolicyRowsForClient(antivirusSolutions), [antivirusSolutions]);
   const antivirusEndpointRows = useMemo(() => buildAntivirusEndpointRowsForClient(antivirusSolutions), [antivirusSolutions]);
-  return <div className={infraStyles.root}>
-      {showLegend ? <div className={infraStyles.overviewContainer}>
+  const isBackupDocument = Boolean(documentTitle) && isBackupActive && !isAntivirusActive && !isAntispamActive;
+  const showDocumentIntro = Boolean(documentTitle) && !embedded;
+  const Wrapper = embedded ? React.Fragment : "div";
+  const wrapperProps = embedded ? {} : { className: infraStyles.root };
+  return <Wrapper {...wrapperProps}>
+      {showDocumentIntro ? <ReportSummaryIntro
+        title={documentTitle}
+        clientPrefix={clientPrefix}
+        clientMainLabel={clientMainLabel}
+        periodLabel={periodLabel}
+        kpis={isBackupDocument ? backupKpis : [{
+          label: "Solutions antivirus",
+          value: antivirusSolutions.length,
+          icon: "mdi:shield-check",
+          iconColor: "#059669"
+        }, {
+          label: "Solutions antispam",
+          value: antispamSolutions.length,
+          icon: "mdi:email-alert",
+          iconColor: "#ea580c"
+        }, {
+          label: "Tickets",
+          value: cyberTicketTotal,
+          icon: "mdi:ticket-outline",
+          iconColor: "#7c3aed"
+        }, {
+          label: "Commentaires",
+          value: cyberCommentTotal,
+          icon: "mdi:comment-text-outline",
+          iconColor: "#0891b2"
+        }]}
+      /> : null}
+      {showLegend && !embedded ? <div className={infraStyles.overviewContainer}>
         <CyberNotificationLegend commentTotal={cyberCommentTotal} ticketTotal={cyberTicketTotal} />
       </div> : null}
 
-      {}
-      {isBackupActive && <section className={infraStyles.section}>
-        <div className={infraStyles.sectionHeader}>
-          <div className={infraStyles.sectionTitleWrapper}>
-            <span className={infraStyles.sectionIcon}>
-              <IconifyIcon icon="mdi:database-sync" width={34} height={34} color="#0ea5e9" />
-            </span>
-            <div>
-              <h4 className={infraStyles.sectionTitle}>
-                Backup
-              </h4>
-              <div className={infraStyles.sectionSubtitle}>
-                Synthèse des solutions et jobs de sauvegarde
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className={infraStyles.sectionTitleSeparator} />
+      {isBackupActive && <ReportSummarySection
+        icon="mdi:database-sync"
+        title="Backup"
+        subtitle="Synthèse des solutions et jobs de sauvegarde"
+      >
         {sauvegardeInstances.length === 0 ? <div className={infraStyles.sectionHelperMuted}>
             Aucune solution de sauvegarde enregistrée pour ce client.
           </div> : <>
-            {}
             {(sauvegardeActiveBackupInstances.length > 0 || sauvegardeHyperBackupInstances.length > 0) && (() => {
           const ACTIVE_BACKUP_MODULES = [{
             key: "oneDrive",
@@ -788,26 +824,13 @@ export default function ReportSummaryCybersecurity({
           render: row => <BackupStatusBadge status={row.lastStatus} />
         }]} />
           </>}
-      </section>}
+      </ReportSummarySection>}
 
-      {}
-      {isAntivirusActive && <section className={infraStyles.section}>
-        <div className={infraStyles.sectionHeader}>
-          <div className={infraStyles.sectionTitleWrapper}>
-            <span className={infraStyles.sectionIcon}>
-              <IconifyIcon icon="mdi:shield-check" width={34} height={34} color="#10b981" />
-            </span>
-            <div>
-              <h4 className={infraStyles.sectionTitle}>
-                Antivirus
-              </h4>
-              <div className={infraStyles.sectionSubtitle}>
-                Solutions déployées et couverture des postes
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className={infraStyles.sectionTitleSeparator} />
+      {isAntivirusActive && <ReportSummarySection
+        icon="mdi:shield-check"
+        title="Antivirus"
+        subtitle="Solutions déployées et couverture des postes"
+      >
         <CyberCategoryKpisBlock items={antivirusKpis} />
         <CyberCategoryKpisBlock items={antivirusConnectionKpis} />
         <CyberCategoryKpisBlock items={antivirusOsKpis} />
@@ -948,26 +971,13 @@ export default function ReportSummaryCybersecurity({
           return <span className={`${cyberStyles.statusBadge} ${tone}`}>{statusLabel}</span>;
         }
       }]} />
-      </section>}
+      </ReportSummarySection>}
 
-      {}
-      {isAntispamActive && <section className={infraStyles.section}>
-        <div className={infraStyles.sectionHeader}>
-          <div className={infraStyles.sectionTitleWrapper}>
-            <span className={infraStyles.sectionIcon}>
-              <IconifyIcon icon="mdi:email-alert" width={34} height={34} color="#f97316" />
-            </span>
-            <div>
-              <h4 className={infraStyles.sectionTitle}>
-                Antispam
-              </h4>
-              <div className={infraStyles.sectionSubtitle}>
-                Solutions antispam et volume de menaces filtrées
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className={infraStyles.sectionTitleSeparator} />
+      {isAntispamActive && <ReportSummarySection
+        icon="mdi:email-alert"
+        title="Antispam"
+        subtitle="Solutions antispam et volume de menaces filtrées"
+      >
         <CyberCategoryKpisBlock items={antispamKpis} />
 
         <CyberReportTable title="Licences antispam" count={antispamSolutions.length} rows={antispamSolutions.map((sol, idx) => ({
@@ -1102,7 +1112,7 @@ export default function ReportSummaryCybersecurity({
         label: "Alias",
         render: row => Array.isArray(row.aliases) ? row.aliases.length : 0
       }]} />
-      </section>}
+      </ReportSummarySection>}
 
-    </div>;
+    </Wrapper>;
 }

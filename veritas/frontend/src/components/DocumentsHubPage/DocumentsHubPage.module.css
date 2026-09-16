@@ -103,6 +103,11 @@
   position: relative;
 }
 
+.companySuggest {
+  min-width: 0;
+  width: 100%;
+}
+
 .searchIcon {
   position: absolute;
   left: 0.75rem;

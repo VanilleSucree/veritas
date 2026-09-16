@@ -2787,6 +2787,34 @@ button.sidebarOptionIcon:hover {
   white-space: nowrap;
 }
 
+.sidebarContactSites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.sidebarContactSiteChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--msp-border, #dde3ed);
+  background: var(--msp-surface-2, #f8fafc);
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--msp-text, #0f1c2e);
+  line-height: 1.2;
+}
+
+.sidebarContactSiteChip > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebarContactMeta {
   display: flex;
   flex-direction: column;

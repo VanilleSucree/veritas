@@ -706,6 +706,8 @@ export default {
       initialDescription: "Erstbeschreibung",
       noMessages: "Noch keine Nachrichten.",
       supportAuthor: "Support",
+      createdLabel: "Erstellt:",
+      byLabel: "von",
       editMessageAria: "Nachricht bearbeiten",
       editMessageTitle: "Nachricht bearbeiten",
       validationQuestion: "Ist die vorgeschlagene Lösung für Sie in Ordnung?",

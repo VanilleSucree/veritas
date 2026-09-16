@@ -1535,15 +1535,51 @@
 }
 
 .monitoringBtnMapped {
-  color: var(--msp-accent, #2b5fab);
-  border-color: var(--msp-accent, #2b5fab);
-  background-color: var(--msp-accent-soft, rgba(43, 95, 171, 0.16));
+  color: var(--msp-accent, #2b5fab) !important;
+  border-color: var(--msp-accent, #2b5fab) !important;
+  background-color: var(--msp-accent-soft, rgba(43, 95, 171, 0.16)) !important;
 }
 
 .monitoringBtnMapped:hover:not(:disabled) {
-  color: #ffffff;
-  border-color: var(--msp-accent, #2b5fab);
-  background-color: var(--msp-accent, #2b5fab);
+  color: #ffffff !important;
+  border-color: var(--msp-accent, #2b5fab) !important;
+  background-color: var(--msp-accent, #2b5fab) !important;
+}
+
+.monitoringBtnOk {
+  color: #047857 !important;
+  border-color: #10b981 !important;
+  background-color: #ecfdf5 !important;
+}
+
+.monitoringBtnOk:hover:not(:disabled) {
+  color: #ffffff !important;
+  border-color: #059669 !important;
+  background-color: #059669 !important;
+}
+
+.monitoringBtnWarn {
+  color: #b45309 !important;
+  border-color: #f59e0b !important;
+  background-color: #fffbeb !important;
+}
+
+.monitoringBtnWarn:hover:not(:disabled) {
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+  background-color: #d97706 !important;
+}
+
+.monitoringBtnCritical {
+  color: #b91c1c !important;
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+
+.monitoringBtnCritical:hover:not(:disabled) {
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  background-color: #dc2626 !important;
 }
 
 .infraActionBadgeWrap {

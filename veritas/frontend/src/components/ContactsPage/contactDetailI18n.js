@@ -48,6 +48,7 @@ const DETAIL_COPY = {
     },
     vaultClientLabel: "Entreprise du coffre",
     primaryBadge: "Principal",
+    sitePrimaryBadge: "Principal du lieu",
     deleting: "Suppression…",
     deleteContact: "Supprimer le contact",
     coordinates: "Coordonnées",
@@ -382,6 +383,7 @@ const DETAIL_COPY = {
     },
     vaultClientLabel: "Vault company",
     primaryBadge: "Primary",
+    sitePrimaryBadge: "Site primary",
     deleting: "Deleting…",
     deleteContact: "Delete contact",
     coordinates: "Contact details",
@@ -714,6 +716,7 @@ const DETAIL_COPY = {
       cancel: "Abbrechen",
       close: "Schließen"
     },
+    sitePrimaryBadge: "Standort-Hauptkontakt",
     deleting: "Löschen…",
     deleteContact: "Kontakt löschen",
     coordinates: "Kontaktdaten",
@@ -1043,6 +1046,7 @@ const DETAIL_COPY = {
       cancel: "Annulla",
       close: "Chiudi"
     },
+    sitePrimaryBadge: "Principale della sede",
     deleting: "Eliminazione…",
     deleteContact: "Elimina contatto",
     coordinates: "Contatti",
@@ -1372,6 +1376,7 @@ const DETAIL_COPY = {
       cancel: "Cancelar",
       close: "Cerrar"
     },
+    sitePrimaryBadge: "Principal del lugar",
     deleting: "Eliminando…",
     deleteContact: "Eliminar contacto",
     coordinates: "Datos de contacto",

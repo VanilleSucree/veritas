@@ -502,7 +502,9 @@
 }
 
 .panelAllowOverflow:has(.contactInputWrapOpen),
-.panelAllowOverflow:has(.contactPicker:focus-within) {
+.panelAllowOverflow:has(.contactPicker:focus-within),
+.panelAllowOverflow:has(.linkTicketPicker:has(.contactDropdown)),
+.panelAllowOverflow:has(.contactDropdown) {
   z-index: 80;
 }
 

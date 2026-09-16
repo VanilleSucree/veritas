@@ -3,9 +3,36 @@ import { Icon } from "@iconify/react";
 import equipmentStyles from "../../EquipementPage/EquipmentPage.module.css";
 import styles from "./RapportMonitoringBuilder.module.css";
 import { MonitoringStepHeader } from "./MonitoringStepLayout";
-import { isEquipmentMappedForCheckMK, getCheckMKCachedData, countCheckMKMonitoredServices } from "./checkmkReportCacheUtils";
+import {
+  isEquipmentMappedForCheckMK,
+  getCheckMKCachedData,
+  countCheckMKMonitoredServices,
+  computeCheckMKEquipmentStatus,
+  resolveCheckMKEquipmentKey
+} from "./checkmkReportCacheUtils";
 import ReportEquipmentRemoteAccessButton from "./ReportEquipmentRemoteAccessButton";
 import { hasReportRemoteAccessConfigured } from "./reportEquipmentRemoteAccess";
+
+function resolveMonitoringSyncStatus(item, equipmentKey, monitoringSyncStatus, equipmentCheckMKData) {
+  const statusKey = resolveCheckMKEquipmentKey(item, equipmentKey);
+  const fromMap = statusKey ? monitoringSyncStatus?.[statusKey] : null;
+  if (fromMap === "ok" || fromMap === "warn" || fromMap === "critical") {
+    return fromMap;
+  }
+  const cached = getCheckMKCachedData(equipmentCheckMKData, item, equipmentKey);
+  if (cached) {
+    const criticalEvents = Array.isArray(cached.events)
+      ? cached.events.filter(event => Number(event?.state) === 2)
+      : [];
+    return computeCheckMKEquipmentStatus({
+      services: Array.isArray(cached.services) ? cached.services : [],
+      events: criticalEvents,
+      availability: cached.availability,
+      eventsCount: criticalEvents.length
+    });
+  }
+  return fromMap || null;
+}
 
 function InsightCountCell({ count, tone = "neutral", emptyLabel = "—" }) {
   const n = Number(count) || 0;
@@ -104,9 +131,13 @@ export default function InfrastructureEquipmentTable({
     return [...base, ...insightCols];
   }, [columns, showInsightColumns, ticketCounts, equipmentCheckMKData, onOpenCheckMKDetail]);
 
-  const getMonitoringButtonClass = (isMappedForMonitoring) => {
+  const getMonitoringButtonClass = (isMappedForMonitoring, syncStatus) => {
     const base = equipmentStyles.mappingActionButton;
     if (!isMappedForMonitoring) return base;
+    if (syncStatus === "critical") return `${base} ${styles.monitoringBtnCritical}`;
+    if (syncStatus === "warn") return `${base} ${styles.monitoringBtnWarn}`;
+    if (syncStatus === "ok") return `${base} ${styles.monitoringBtnOk}`;
+    // Mapped but not yet synced (or sync failed) → keep neutral mapped style
     return `${base} ${styles.monitoringBtnMapped}`;
   };
 
@@ -136,8 +167,7 @@ export default function InfrastructureEquipmentTable({
               const commentCount = commentCounts && commentCounts[equipmentKey] || 0;
               const isHighlighted = highlightedEquipmentKey != null && String(highlightedEquipmentKey) === String(equipmentKey);
               const isMappedForMonitoring = isEquipmentMappedForCheckMK(item) || Boolean(getCheckMKCachedData(equipmentCheckMKData, item, equipmentKey));
-              const statusKey = String(item?.id ?? equipmentKey);
-              const syncStatus = monitoringSyncStatus[statusKey];
+              const syncStatus = resolveMonitoringSyncStatus(item, equipmentKey, monitoringSyncStatus, equipmentCheckMKData);
               const hasMonitoringAction = typeof onOpenCheckMKDetail === "function";
               const hasCommentsAction = typeof onOpenComments === "function";
               const hasTicketAction = typeof onCreateTicket === "function" && !!clientId;
@@ -159,7 +189,7 @@ export default function InfrastructureEquipmentTable({
                       {showActions && <td className={styles.infraTableActions} onClick={e => e.stopPropagation()}>
                         <div className={equipmentStyles.mappingActions}>
                           <div className={equipmentStyles.mappingActionsGroup}>
-                            {hasMonitoringAction && <button type="button" className={getMonitoringButtonClass(isMappedForMonitoring)} title={isMappedForMonitoring ? (syncStatus ? "Voir le détail supervision" : "Synchronisation en cours ou à lancer — ouvrir le détail") : "Non mappé à une supervision"} disabled={!isMappedForMonitoring} onClick={() => onOpenCheckMKDetail(item, {
+                            {hasMonitoringAction && <button type="button" className={getMonitoringButtonClass(isMappedForMonitoring, syncStatus)} title={isMappedForMonitoring ? (syncStatus === "ok" ? "Supervision OK — voir le détail" : syncStatus === "warn" ? "Supervision : alertes — voir le détail" : syncStatus === "critical" ? "Supervision : critique — voir le détail" : syncStatus ? "Voir le détail supervision" : "Synchronisation en cours ou à lancer — ouvrir le détail") : "Non mappé à une supervision"} disabled={!isMappedForMonitoring} onClick={() => onOpenCheckMKDetail(item, {
                         moduleKey,
                         equipmentKey,
                         reportPeriod

@@ -1,7 +1,7 @@
 .recapCard {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 0.85rem;
   height: 100%;
   min-height: 0;
   padding: 0;
@@ -21,14 +21,14 @@
 .recapHeader {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-shrink: 0;
 }
 
 .recapHeaderMain {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.65rem;
   min-width: 0;
   flex: 1;
 }
@@ -37,10 +37,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 12px;
-  font-size: 1.35rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 8px;
+  font-size: 1.05rem;
   color: var(--msp-accent, #2b5fab);
   background: var(--msp-accent-soft, rgba(43, 95, 171, 0.1));
   flex-shrink: 0;
@@ -53,24 +53,25 @@
 
 .recapTitle {
   margin: 0;
-  font-size: 1.28rem;
+  font-size: 1.02rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
   color: var(--msp-text, #0f1c2e);
 }
 
 .recapMeta {
   display: block;
-  margin-top: 0.2rem;
-  font-size: 0.78rem;
+  margin-top: 0.12rem;
+  font-size: 0.7rem;
   color: var(--msp-muted, #5c6b82);
 }
 
 .contractBadge {
   flex-shrink: 0;
-  padding: 0.3rem 0.65rem;
+  padding: 0.18rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -100,13 +101,13 @@
 .changeBtn {
   flex-shrink: 0;
   margin-left: auto;
-  padding: 0.4rem 0.85rem;
+  padding: 0.28rem 0.7rem;
   border: 1px solid var(--msp-border-light, #e2e8f0);
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--msp-surface, #fff);
   color: var(--msp-accent, #2b5fab);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -117,144 +118,129 @@
 }
 
 .statStrip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0.35rem 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
   flex-shrink: 0;
-  padding: 0.15rem 0 0.85rem;
-  border-bottom: 1px solid var(--msp-border-light, #e2e8f0);
-}
-
-:global(html.dark) .stat,
-:global(html.dark) .recapRow,
-:global(html.dark) .changeBtn {
-  background: transparent;
-}
-
-:global(html.dark) .changeBtn {
-  background: var(--msp-surface, #12122a);
 }
 
 .stat {
-  flex: 1 1 0;
-  min-width: 6.5rem;
-  padding: 0.15rem 1.1rem 0.15rem 0;
-  border: none;
-  border-right: 1px solid var(--msp-border-light, #e2e8f0);
-  border-radius: 0;
-  background: transparent;
-}
-
-.stat:last-child {
-  border-right: none;
-  padding-right: 0;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--msp-border-light, #e2e8f0);
+  border-radius: 10px;
+  background: var(--msp-surface-2, #f7f9fc);
 }
 
 .statValue {
   display: block;
-  font-size: 1.2rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   color: var(--msp-text, #0f1c2e);
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .statLabel {
   display: block;
-  margin-top: 0.25rem;
-  font-size: 0.68rem;
+  margin-top: 0.18rem;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.045em;
   color: var(--msp-muted, #5c6b82);
 }
 
-.recapRows {
+.recapSections {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: 0;
+  gap: 0.7rem;
 }
 
-.recapRow {
-  display: grid;
-  grid-template-columns: minmax(8.5rem, 10rem) minmax(0, 1fr);
-  align-items: start;
-  gap: 0.85rem 1.25rem;
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
   min-height: 0;
-  padding: 0.85rem 0;
-  border-radius: 0;
-  border: none;
-  border-bottom: 1px solid var(--msp-border-light, #e2e8f0);
-  background: transparent;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--msp-border-light, #e2e8f0);
+  border-radius: 10px;
+  background: var(--msp-surface, #fff);
 }
 
-.recapRow:last-child {
-  border-bottom: none;
-  padding-bottom: 0.15rem;
-}
-
-.recapRowLabel {
+.sectionTitle {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--msp-muted, #5c6b82);
 }
 
-.recapRowLabel svg {
+.sectionTitle svg {
   flex-shrink: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--msp-accent, #2b5fab);
 }
 
-.recapRowBody {
+.sectionBody {
   display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 0.45rem 0.85rem;
+  flex-direction: column;
+  gap: 0.45rem;
   min-width: 0;
 }
 
-.recapInlineFact {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
+.factGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.85rem;
+  margin: 0;
 }
 
-.recapInlineKey {
-  font-size: 0.7rem;
+.fact {
+  min-width: 0;
+}
+
+.fact dt {
+  margin: 0;
+  font-size: 0.62rem;
   font-weight: 600;
   color: var(--msp-muted-light, #8b9bb5);
 }
 
-.recapInlineValue {
-  font-size: 0.84rem;
+.fact dd {
+  margin: 0.08rem 0 0;
+  font-size: 0.8rem;
   font-weight: 650;
   color: var(--msp-text, #0f1c2e);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chipList {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.3rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .chip {
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
   border: 1px solid var(--msp-border-light, #e2e8f0);
   background: var(--msp-surface-2, #f7f9fc);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 600;
   color: var(--msp-text, #0f1c2e);
 }
@@ -265,10 +251,94 @@
   color: var(--msp-accent-dark, #1a3d75);
 }
 
+.serviceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.serviceTile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--msp-border-light, #e2e8f0);
+  border-radius: 8px;
+  background: var(--msp-surface-2, #f7f9fc);
+}
+
+.serviceTileActive {
+  background: var(--msp-surface, #fff);
+  border-color: rgba(43, 95, 171, 0.22);
+}
+
+.serviceIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 6px;
+  background: var(--msp-surface, #fff);
+  color: var(--msp-muted, #5c6b82);
+  font-size: 0.88rem;
+  flex-shrink: 0;
+}
+
+.serviceTileActive .serviceIcon {
+  background: var(--msp-accent-soft, rgba(43, 95, 171, 0.1));
+  color: var(--msp-accent, #2b5fab);
+}
+
+.serviceCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.serviceLabel {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--msp-text, #0f1c2e);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.serviceDetail {
+  font-size: 0.64rem;
+  color: var(--msp-muted, #5c6b82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.serviceCount {
+  min-width: 1.35rem;
+  padding: 0.08rem 0.3rem;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--msp-muted-light, #8b9bb5);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.serviceCountActive {
+  background: var(--msp-accent-soft, rgba(43, 95, 171, 0.1));
+  color: var(--msp-accent-dark, #1a3d75);
+}
+
 .equipmentList {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem 0.85rem;
+  gap: 0.35rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -277,9 +347,18 @@
 .equipmentItem {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
+  gap: 0.3rem;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--msp-border-light, #e2e8f0);
+  border-radius: 8px;
+  background: var(--msp-surface-2, #f7f9fc);
+  font-size: 0.72rem;
   color: var(--msp-text, #0f1c2e);
+}
+
+.equipmentItem svg {
+  font-size: 0.85rem;
+  color: var(--msp-accent, #2b5fab);
 }
 
 .equipmentLabel {
@@ -287,36 +366,39 @@
 }
 
 .equipmentCount {
-  min-width: 1.4rem;
-  padding: 0.1rem 0.4rem;
+  min-width: 1.2rem;
+  padding: 0.05rem 0.3rem;
   border-radius: 999px;
-  background: var(--msp-surface-2, #f7f9fc);
-  font-size: 0.72rem;
+  background: var(--msp-surface, #fff);
+  font-size: 0.64rem;
   font-weight: 700;
   text-align: center;
 }
 
 .emptyHint {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   color: var(--msp-muted, #5c6b82);
 }
 
 .siteList {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem 1.1rem;
+  flex-direction: column;
+  gap: 0.35rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .siteItem {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.5rem;
-  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--msp-border-light, #e2e8f0);
+  border-radius: 8px;
+  background: var(--msp-surface-2, #f7f9fc);
+  font-size: 0.74rem;
   color: var(--msp-text, #0f1c2e);
 }
 
@@ -324,14 +406,32 @@
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.3rem;
   font-weight: 650;
 }
 
 .siteAddress {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 500;
   color: var(--msp-muted, #5c6b82);
+}
+
+:global(html.dark) .stat,
+:global(html.dark) .section,
+:global(html.dark) .serviceTile,
+:global(html.dark) .equipmentItem,
+:global(html.dark) .siteItem,
+:global(html.dark) .changeBtn {
+  background: var(--msp-surface, #12122a);
+}
+
+:global(html.dark) .serviceIcon,
+:global(html.dark) .equipmentCount {
+  background: var(--msp-surface-2, #1c1c38);
+}
+
+:global(html.dark) .serviceTileActive {
+  background: rgba(43, 95, 171, 0.08);
 }
 
 @media (max-width: 760px) {
@@ -344,18 +444,11 @@
   }
 
   .statStrip {
-    gap: 0.75rem 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .stat {
-    flex-basis: calc(50% - 0.5rem);
-    border-right: none;
-    padding-right: 0;
-  }
-
-  .recapRow {
+  .serviceGrid,
+  .factGrid {
     grid-template-columns: 1fr;
-    align-items: flex-start;
-    gap: 0.55rem;
   }
 }

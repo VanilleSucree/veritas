@@ -15,8 +15,9 @@ import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
-import { resolveKnowledgeAssetUrl, uploadKnowledgeAsset } from "../../api/knowledgeBase";
-import { KNOWLEDGE_EDITOR_NODES, toVideoEmbedSrc } from "./knowledgeEditorNodes";
+import { resolveKnowledgeAssetUrl, uploadKnowledgeAsset, fetchKnowledgeEmojis, resolveKnowledgeEmojiUrl } from "../../api/knowledgeBase";
+import { KNOWLEDGE_EDITOR_NODES, toVideoEmbedSrc, CustomEmoji } from "./knowledgeEditorNodes";
+import { buildEmojiMap, normalizeEmojiName } from "./knowledgeEmojiHelpers";
 import styles from "./knowledgeBase.module.css";
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
@@ -69,7 +70,8 @@ function slashCommands(copy, localeTag) {
     { id: "calloutInfo", group: "notices", label: s.calloutInfo, icon: "mdi:information-outline", run: editor => editor.chain().focus().setCallout("info").run() },
     { id: "calloutSuccess", group: "notices", label: s.calloutSuccess, icon: "mdi:check-circle-outline", run: editor => editor.chain().focus().setCallout("success").run() },
     { id: "calloutWarning", group: "notices", label: s.calloutWarning, icon: "mdi:alert-outline", run: editor => editor.chain().focus().setCallout("warning").run() },
-    { id: "calloutDanger", group: "notices", label: s.calloutDanger, icon: "mdi:alert-octagon-outline", run: editor => editor.chain().focus().setCallout("danger").run() }
+    { id: "calloutDanger", group: "notices", label: s.calloutDanger, icon: "mdi:alert-octagon-outline", run: editor => editor.chain().focus().setCallout("danger").run() },
+    { id: "customEmoji", group: "inserts", label: s.customEmoji || "Emoji custom", icon: "mdi:emoticon-outline", run: "emoji" }
   ];
 }
 
@@ -110,52 +112,107 @@ function emptyParagraphCoords(editor) {
   }
 }
 
+function getEmojiQuery(editor) {
+  if (!editor) return null;
+  const { $from } = editor.state.selection;
+  const text = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
+  const match = text.match(/(?:^|\s):([a-z0-9_-]*)$/i);
+  if (!match) return null;
+  return match[1] || "";
+}
+
+function deleteEmojiToken(editor) {
+  const { state } = editor;
+  const { $from } = state.selection;
+  const text = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
+  const match = text.match(/(?:^|\s)(:[a-z0-9_-]*)$/i);
+  if (!match) return;
+  const from = $from.pos - match[1].length;
+  editor.chain().focus().deleteRange({ from, to: $from.pos }).run();
+}
+
 export default function KnowledgeBaseEditor({
   articleId,
   contentJson,
   editable,
   copy,
   locale = "fr",
-  onChange
+  emojis: emojisProp,
+  onChange,
+  onManageEmojis
 }) {
   const fileRef = useRef(null);
   const areaRef = useRef(null);
   const menuRef = useRef(null);
+  const emojiMenuRef = useRef(null);
   const chromeRef = useRef(() => {});
+  const emojiMapRef = useRef(new Map());
   const [slash, setSlash] = useState(null);
   const [slashIndex, setSlashIndex] = useState(0);
+  const [emojiMenu, setEmojiMenu] = useState(null);
+  const [emojiIndex, setEmojiIndex] = useState(0);
   const [plus, setPlus] = useState(null);
   const [fileKind, setFileKind] = useState("image");
   const [ask, setAsk] = useState(null);
   const [bubble, setBubble] = useState(null);
+  const [emojisLocal, setEmojisLocal] = useState([]);
   const localeTag = locale === "en" ? "en-GB" : locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : locale === "es" ? "es-ES" : "fr-FR";
   const commands = useMemo(() => slashCommands(copy, localeTag), [copy, localeTag]);
+  const emojis = emojisProp || emojisLocal;
+  const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
+  emojiMapRef.current = emojiMap;
+
+  useEffect(() => {
+    if (emojisProp) return undefined;
+    let cancelled = false;
+    fetchKnowledgeEmojis()
+      .then(rows => {
+        if (!cancelled) setEmojisLocal(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setEmojisLocal([]);
+      });
+    return () => { cancelled = true; };
+  }, [emojisProp]);
+
   const filtered = useMemo(() => {
     const q = String(slash?.query || "").toLowerCase().trim();
     return commands.filter(item => item.label && (!q || item.label.toLowerCase().includes(q) || item.id.toLowerCase().includes(q)));
   }, [commands, slash]);
 
+  const filteredEmojis = useMemo(() => {
+    const q = normalizeEmojiName(emojiMenu?.query || "");
+    const list = [...emojiMap.values()];
+    if (!q) return list.slice(0, 40);
+    return list.filter(row => row.name.includes(q)).slice(0, 40);
+  }, [emojiMap, emojiMenu]);
+
+  const editorExtensions = useMemo(() => [
+    StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+    Placeholder.configure({
+      placeholder: copy.editorPlaceholder,
+      showOnlyWhenEditable: true,
+      showOnlyCurrent: true
+    }),
+    Underline,
+    Highlight,
+    Link.configure({ openOnClick: false, autolink: true }),
+    Image.configure({ inline: false, allowBase64: false }),
+    Table.configure({ resizable: false }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    ...KNOWLEDGE_EDITOR_NODES.filter(ext => ext.name !== "customEmoji"),
+    CustomEmoji.configure({
+      getEmoji: name => emojiMapRef.current.get(normalizeEmojiName(name))
+    })
+  ], [copy.editorPlaceholder]);
+
   const editor = useEditor({
     editable,
-    extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
-      Placeholder.configure({
-        placeholder: copy.editorPlaceholder,
-        showOnlyWhenEditable: true,
-        showOnlyCurrent: true
-      }),
-      Underline,
-      Highlight,
-      Link.configure({ openOnClick: false, autolink: true }),
-      Image.configure({ inline: false, allowBase64: false }),
-      Table.configure({ resizable: false }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      ...KNOWLEDGE_EDITOR_NODES
-    ],
+    extensions: editorExtensions,
     content: contentJson && typeof contentJson === "object" ? contentJson : EMPTY_DOC,
     onUpdate: ({ editor: current }) => {
       onChange?.({
@@ -167,7 +224,7 @@ export default function KnowledgeBaseEditor({
     onSelectionUpdate: ({ editor: current }) => {
       chromeRef.current(current);
     }
-  }, [articleId]);
+  }, [articleId, editorExtensions]);
 
   const syncChrome = useCallback(current => {
     if (!editable) {
@@ -205,9 +262,28 @@ export default function KnowledgeBaseEditor({
       });
       setSlashIndex(0);
       setPlus(null);
+      setEmojiMenu(null);
       return;
     }
     setSlash(prev => (prev && !prev.fromPlus ? null : prev));
+
+    const emojiQuery = getEmojiQuery(current);
+    if (emojiQuery != null) {
+      const coords = current.view.coordsAtPos(current.state.selection.from);
+      setEmojiMenu({
+        query: emojiQuery,
+        ...placeMenuNear({
+          left: coords.left,
+          top: coords.top,
+          bottom: coords.bottom
+        })
+      });
+      setEmojiIndex(0);
+      setPlus(null);
+      return;
+    }
+    setEmojiMenu(null);
+
     const coords = emptyParagraphCoords(current);
     if (!coords || !areaRef.current) {
       setPlus(null);
@@ -242,6 +318,15 @@ export default function KnowledgeBaseEditor({
     setAsk({ kind, value: "" });
   }, []);
 
+  const insertEmoji = useCallback(emoji => {
+    if (!editor || !emoji) return;
+    const src = resolveKnowledgeEmojiUrl(emoji);
+    if (!src) return;
+    if (emojiMenu) deleteEmojiToken(editor);
+    setEmojiMenu(null);
+    editor.chain().focus().insertCustomEmoji({ name: emoji.name, src }).run();
+  }, [editor, emojiMenu]);
+
   const applyCommand = useCallback(async item => {
     if (!editor || !item) return;
     if (slash && !slash.fromPlus) deleteSlashToken(editor);
@@ -266,8 +351,13 @@ export default function KnowledgeBaseEditor({
       openAsk("math");
       return;
     }
+    if (item.run === "emoji") {
+      if (onManageEmojis) onManageEmojis({ pick: true });
+      else if (filteredEmojis[0]) insertEmoji(filteredEmojis[0]);
+      return;
+    }
     item.run(editor);
-  }, [editor, slash, pickFile, openAsk]);
+  }, [editor, slash, pickFile, openAsk, onManageEmojis, filteredEmojis, insertEmoji]);
 
   const submitAsk = useCallback(event => {
     event?.preventDefault?.();
@@ -337,6 +427,27 @@ export default function KnowledgeBaseEditor({
     });
     setSlashIndex(0);
   }, [plus, editor]);
+
+  useEffect(() => {
+    if (!emojiMenu) return undefined;
+    const onKey = event => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setEmojiIndex(index => (index + 1) % Math.max(filteredEmojis.length, 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setEmojiIndex(index => (index - 1 + Math.max(filteredEmojis.length, 1)) % Math.max(filteredEmojis.length, 1));
+      } else if (event.key === "Enter") {
+        if (!filteredEmojis[emojiIndex]) return;
+        event.preventDefault();
+        insertEmoji(filteredEmojis[emojiIndex]);
+      } else if (event.key === "Escape") {
+        setEmojiMenu(null);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [emojiMenu, filteredEmojis, emojiIndex, insertEmoji]);
 
   useEffect(() => {
     if (!slash) return undefined;
@@ -415,6 +526,8 @@ export default function KnowledgeBaseEditor({
         ? "video/*"
         : "image/*";
 
+  if (!editor) return null;
+
   return (
     <div className={styles.editorBody}>
       <div className={styles.editorBar}>
@@ -436,7 +549,7 @@ export default function KnowledgeBaseEditor({
         <EditorContent editor={editor} />
       </div>
       <input ref={fileRef} className={styles.hiddenFile} type="file" accept={accept} onChange={onFile} />
-      {editable && plus && !slash ? (
+      {editable && plus && !slash && !emojiMenu ? (
         <button type="button" data-kb-plus className={styles.blockPlus} style={{ top: plus.top, left: plus.left }} onClick={openPlusMenu} title={copy.insertBlock} aria-label={copy.insertBlock}>
           <Icon icon="mdi:plus" />
         </button>
@@ -466,7 +579,40 @@ export default function KnowledgeBaseEditor({
         </div>,
         document.body
       ) : null}
-      {editable && bubble && !slash ? createPortal(
+      {emojiMenu && filteredEmojis.length > 0 ? createPortal(
+        <div ref={emojiMenuRef} className={styles.slashMenu} style={{ top: emojiMenu.top, left: emojiMenu.left }} role="listbox">
+          {filteredEmojis.map((emoji, index) => (
+            <button
+              key={emoji.id}
+              type="button"
+              className={`${styles.slashItem} ${index === emojiIndex ? styles.slashItemActive : ""}`}
+              onMouseDown={event => {
+                event.preventDefault();
+                insertEmoji(emoji);
+              }}
+            >
+              <img src={resolveKnowledgeEmojiUrl(emoji)} alt="" className={styles.emojiMenuThumb} />
+              <span className={styles.slashLabel}>:{emoji.name}:</span>
+            </button>
+          ))}
+          {onManageEmojis ? (
+            <button
+              type="button"
+              className={styles.slashItem}
+              onMouseDown={event => {
+                event.preventDefault();
+                setEmojiMenu(null);
+                onManageEmojis({ pick: true });
+              }}
+            >
+              <span className={styles.slashIcon}><Icon icon="mdi:plus" /></span>
+              <span className={styles.slashLabel}>{copy.emojiImport || copy.emojiManageTitle}</span>
+            </button>
+          ) : null}
+        </div>,
+        document.body
+      ) : null}
+      {editable && bubble && !slash && !emojiMenu ? createPortal(
         <div className={styles.bubbleMenu} style={{ top: bubble.top, left: bubble.left }} role="toolbar">
           {tool(editor.isActive("bold"), "mdi:format-bold", () => editor.chain().focus().toggleBold().run(), "Bold")}
           {tool(editor.isActive("italic"), "mdi:format-italic", () => editor.chain().focus().toggleItalic().run(), "Italic")}

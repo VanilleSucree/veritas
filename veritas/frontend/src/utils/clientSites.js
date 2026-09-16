@@ -25,7 +25,8 @@ export function normalizeClientSite(site, index = 0) {
     const trimmed = site.trim();
     if (!trimmed) return null;
     return createEmptySite({
-      id: `legacy-${index}-${trimmed.toLowerCase().replace(/\s+/g, "-")}`,
+      // Stable positional id (must not include the name) so renames keep the same id.
+      id: `legacy-${index}`,
       name: trimmed
     });
   }
@@ -36,8 +37,9 @@ export function normalizeClientSite(site, index = 0) {
   if (!resolvedName) {
     return null;
   }
+  const explicitId = String(site.id || "").trim();
   return {
-    id: site.id || createSiteId(),
+    id: explicitId || `legacy-${index}`,
     name: resolvedName,
     addressStreet: String(site.addressStreet || site.street || "").trim(),
     addressPostalCode: String(site.addressPostalCode || site.postalCode || "").trim(),
@@ -106,6 +108,32 @@ export function enforceSinglePrimarySite(sites, preferredPrimaryId = null) {
 export function getSiteLocationValue(site) {
   const normalized = typeof site === "object" ? site : normalizeClientSite(site);
   return normalized?.name?.trim() || "";
+}
+
+/**
+ * Detect lieu renames (same id, different name) for cascade to peripherals.
+ * Mirrors backend detectClientSiteRenames (id-based pass).
+ */
+export function detectClientSiteRenames(previousSites, nextSites) {
+  const prev = normalizeClientSites(previousSites);
+  const next = normalizeClientSites(nextSites);
+  if (!prev.length || !next.length) return [];
+
+  const nextById = new Map(next.map(site => [site.id, site]));
+  const renames = [];
+  const seenFrom = new Set();
+
+  for (const oldSite of prev) {
+    const updated = nextById.get(oldSite.id);
+    if (!updated) continue;
+    const from = getSiteLocationValue(oldSite);
+    const to = getSiteLocationValue(updated);
+    if (!from || !to || from === to || seenFrom.has(from)) continue;
+    seenFrom.add(from);
+    renames.push({ from, to });
+  }
+
+  return renames;
 }
 export function findClientSiteByLocation(sites, locationName) {
   const needle = String(locationName || "").trim().toLowerCase();

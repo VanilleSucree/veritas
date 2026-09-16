@@ -178,6 +178,7 @@ function mapArticleRow(row, extras = {}) {
     updatedAt: row.updated_at,
     folderId: row.folder_id || null,
     folderName: row.folder_name || extras.folderName || null,
+    icon: row.icon || null,
     clientIds: extras.clientIds || [],
     contactIds: extras.contactIds || [],
     clientTagIds: extras.clientTagIds || [],
@@ -474,6 +475,9 @@ export async function updateKnowledgeArticle(articleId, patch = {}) {
   const folderId = patch.folderId !== undefined
     ? (isUuid(patch.folderId) ? patch.folderId : null)
     : existing.folderId;
+  const icon = patch.icon !== undefined
+    ? (patch.icon ? String(patch.icon).replace(/^:|:$/g, "").trim().toLowerCase().slice(0, 32) || null : null)
+    : existing.icon;
   const editorUserId = patch.editorUserId || null;
   const beforeFinger = contentFingerprint(existing);
   const afterFinger = contentFingerprint({ title, category, status, folderId, contentHtml });
@@ -498,10 +502,11 @@ export async function updateKnowledgeArticle(articleId, patch = {}) {
             feedback_ratings_enabled = $14,
             feedback_comments_enabled = $15,
             feedback_comments_company = $16,
+            icon = $17,
             updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
-    [articleId, title || "Sans titre", category, visibleToAgents, visibleToAllClients, visibleToAllContacts, JSON.stringify(contentJson), contentHtml, contentPlain, status, publishedAt, folderId, editorUserId, ratingsEnabled, commentsEnabled, commentsCompany]
+    [articleId, title || "Sans titre", category, visibleToAgents, visibleToAllClients, visibleToAllContacts, JSON.stringify(contentJson), contentHtml, contentPlain, status, publishedAt, folderId, editorUserId, ratingsEnabled, commentsEnabled, commentsCompany, icon]
   );
   if (patch.clientIds != null || patch.contactIds != null || patch.clientTagIds != null || patch.contactTagIds != null) {
     await replaceArticleAudience(
@@ -842,7 +847,7 @@ export async function getPublicKnowledgeArticle(token) {
   const value = String(token || "").trim();
   if (value.length < 20 || value.length > 64) return null;
   const { rows } = await pool.query(
-    `SELECT a.id, a.title, a.category, a.content_html, a.published_at, a.updated_at, a.public_token
+    `SELECT a.id, a.title, a.category, a.icon, a.content_html, a.published_at, a.updated_at, a.public_token
        FROM v_b_knowledge_articles a
       WHERE a.public_token = $1
         AND a.public_enabled = TRUE
@@ -855,6 +860,7 @@ export async function getPublicKnowledgeArticle(token) {
   return {
     title: row.title || "",
     category: row.category || null,
+    icon: row.icon || null,
     contentHtml: rewriteAssetUrlsToPublic(row.content_html || "", row.id, row.public_token),
     publishedAt: row.published_at,
     updatedAt: row.updated_at

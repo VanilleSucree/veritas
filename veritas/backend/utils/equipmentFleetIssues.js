@@ -62,14 +62,42 @@ function toSupervisionFamily(equipment) {
   if (type === "Switch") return "switch";
   const family = String(equipment?.family || "").toLowerCase();
   if (family === "nas") return "stockage";
+  if (family === "firewalls") return "firewall";
+  if (family === "serveurs" || family === "server") return "servers";
+  if (family === "bornewifi") return "wifi";
   return family || null;
 }
 
 function lookupCheckmkRow(checkmkMap, clientId, equipmentId, family) {
-  const families = family === "stockage" ? ["stockage", "nas"] : [family];
-  for (const fam of families) {
-    const row = checkmkMap.get(`${clientId}:${equipmentId}:${fam}`);
+  const id = String(equipmentId || "");
+  const client = String(clientId ?? "");
+  const fam = String(family || "").toLowerCase();
+  const aliases = new Set();
+  if (fam) aliases.add(fam);
+  if (fam === "stockage" || fam === "nas") {
+    aliases.add("stockage");
+    aliases.add("nas");
+  }
+  if (fam === "firewall" || fam === "firewalls") {
+    aliases.add("firewall");
+    aliases.add("firewalls");
+  }
+  if (fam === "servers" || fam === "server" || fam === "serveurs") {
+    aliases.add("servers");
+    aliases.add("serveurs");
+  }
+  if (fam === "wifi" || fam === "bornewifi") {
+    aliases.add("wifi");
+    aliases.add("bornewifi");
+  }
+  for (const alias of aliases) {
+    const row = checkmkMap.get(`${client}:${id}:${alias}`);
     if (row) return row;
+  }
+  const byId = checkmkMap.get(`${client}:${id}`);
+  if (byId) return byId;
+  for (const [key, row] of checkmkMap.entries()) {
+    if (key.startsWith(`${client}:${id}:`)) return row;
   }
   return null;
 }

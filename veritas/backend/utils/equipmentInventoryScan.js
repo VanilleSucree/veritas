@@ -56,7 +56,13 @@ export async function loadCheckmkMonitoringMap() {
      FROM v_b_equipment_checkmk_monitoring`);
   const map = new Map();
   for (const row of result.rows) {
-    map.set(`${row.client_id}:${row.equipment_id}:${row.equipment_family}`, row);
+    const equipmentId = String(row.equipment_id);
+    const clientId = String(row.client_id);
+    const family = String(row.equipment_family || "").toLowerCase();
+    map.set(`${clientId}:${equipmentId}:${family}`, row);
+    // Secondary index without family for fallback lookups.
+    const byIdKey = `${clientId}:${equipmentId}`;
+    if (!map.has(byIdKey)) map.set(byIdKey, row);
   }
   return map;
 }
@@ -87,8 +93,19 @@ export async function loadSupervisionEquipmentInventory({
     for (const row of result.rows) {
       const data = row.data && typeof row.data === "object" ? row.data : {};
       const equipmentId = String(row.id);
-      const mkKey = `${row.client_id}:${equipmentId}:${spec.family}`;
-      const mkRow = checkmkMap.get(mkKey);
+      const clientKey = String(row.client_id);
+      const familyAliases =
+        spec.family === "stockage"
+          ? ["stockage", "nas"]
+          : spec.family === "firewall"
+            ? ["firewall", "firewalls"]
+            : [spec.family];
+      let mkRow = null;
+      for (const alias of familyAliases) {
+        mkRow = checkmkMap.get(`${clientKey}:${equipmentId}:${alias}`);
+        if (mkRow) break;
+      }
+      if (!mkRow) mkRow = checkmkMap.get(`${clientKey}:${equipmentId}`) || null;
       const checkmkSummary = mkRow ? computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at) : null;
       const isMkMapped = Boolean(mkRow || data.checkmk_host_name || data.checkmkHostName);
       const agentId = row.agent_id ? String(row.agent_id) : null;

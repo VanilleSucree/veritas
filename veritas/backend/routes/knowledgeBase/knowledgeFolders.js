@@ -40,7 +40,8 @@ router.post(
     try {
       const folder = await createKnowledgeFolder({
         name: req.body?.name,
-        parentId: req.body?.parentId
+        parentId: req.body?.parentId,
+        icon: req.body?.icon
       });
       res.status(201).json({ folder });
     } catch (err) {
@@ -73,6 +74,7 @@ router.patch(
       const folder = await updateKnowledgeFolder(req.params.id, {
         name: req.body?.name,
         parentId: req.body?.parentId,
+        icon: req.body?.icon,
         inheritSharing: req.body?.inheritSharing,
         visibleToAgents: req.body?.visibleToAgents,
         visibleToAllClients: req.body?.visibleToAllClients,

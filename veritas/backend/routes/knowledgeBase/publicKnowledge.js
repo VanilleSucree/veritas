@@ -9,6 +9,7 @@ import {
   getPublicKnowledgeAsset,
   KNOWLEDGE_ASSETS_DIR
 } from "../../services/knowledgeArticlesService.js";
+import { listKnowledgeEmojis } from "../../services/knowledgeEmojisService.js";
 
 const TOKEN = param("token").isString().isLength({ min: 20, max: 64 }).matches(/^[A-Za-z0-9_-]+$/);
 
@@ -21,6 +22,24 @@ function validationErrorOrNull(req, res) {
   res.status(404).json({ error: "Article not found." });
   return true;
 }
+
+router.get("/emojis", async (_req, res) => {
+  try {
+    const emojis = await listKnowledgeEmojis();
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json({
+      emojis: emojis.map(row => ({
+        id: row.id,
+        name: row.name,
+        shortcode: row.shortcode,
+        url: row.url
+      }))
+    });
+  } catch (err) {
+    console.error("[GET /public/knowledge/emojis]", err);
+    res.status(500).json({ error: "Error loading emojis." });
+  }
+});
 
 router.get("/:token", [TOKEN], async (req, res) => {
   if (validationErrorOrNull(req, res)) return;

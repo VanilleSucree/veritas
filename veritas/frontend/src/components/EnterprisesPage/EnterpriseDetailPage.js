@@ -48,7 +48,7 @@ import { exportReversibilityFolder } from "./exportReversibilityDossier";
 import EnterpriseVaultPanel from "./EnterpriseVaultPanel";
 import { getEnterpriseVaultCopy } from "./enterpriseVaultI18n";
 import { splitClientAddress, buildClientAddress, emptyPrimaryContact, mapContactToPrimary, pickPrimaryContact, normalizePrimaryContact, buildAdditiveMembershipsForEnterprise, isPrimaryContactPoste, isContactPrimaryForClient, sortContactsPrimaryFirst, normalizeCompanyStatusKey, toCompanyStatusValue } from "./enterpriseFormUtils";
-import { buildSiteAddress, formatSitesForLog, getSiteDisplayName, getSiteId, getSiteLocationValue, normalizeClientSites, serializeSitesForCompare, siteMatchesQuery } from "../../utils/clientSites";
+import { buildSiteAddress, detectClientSiteRenames, formatSitesForLog, getSiteDisplayName, getSiteId, getSiteLocationValue, normalizeClientSites, serializeSitesForCompare, siteMatchesQuery } from "../../utils/clientSites";
 import { normalizeServeurLieList, pickBackupJobType } from "./backupJobUtils";
 import SiteMapPreview from "./SiteMapPreview";
 import { normalizeLegalIdentifier, LEGAL_IDENTIFIER_LABEL } from "../../utils/siret";
@@ -3019,10 +3019,19 @@ export default function ClientDetailPage({
       return;
     }
     if (!client?.id) return;
+    const previousSites = normalizeClientSites(formData.sites ?? client.sites);
+    const siteRenames = detectClientSiteRenames(previousSites, sites);
     try {
       await updateClient(client.id, {
-        sites
+        sites,
+        ...(siteRenames.length ? { siteRenames } : {})
       });
+      if (activeSiteFilter) {
+        const renamed = siteRenames.find(item => item.from === activeSiteFilter);
+        if (renamed?.to) {
+          setActiveSiteFilter(renamed.to);
+        }
+      }
       setFormData(prev => ({
         ...prev,
         sites
@@ -3031,6 +3040,12 @@ export default function ClientDetailPage({
         ...prev,
         sites
       }));
+      // Reload peripherals (standard + custom) so Site column reflects DB cascade.
+      try {
+        await refreshClientEquipment();
+      } catch (refreshError) {
+        console.warn("Equipment refresh after site rename failed:", refreshError);
+      }
       notifyEnterprisesListRefresh();
       if (!silent) toast.success(copy.toast.sitesUpdated);
     } catch (error) {
@@ -3835,6 +3850,37 @@ export default function ClientDetailPage({
                             {contact.poste && <span className={styles.sidebarContactRole}>
                                 {contact.poste}
                               </span>}
+                            {(() => {
+                              const membership = Array.isArray(contact.clients)
+                                ? contact.clients.find(row => String(row.client_id || row.id) === String(client?.id))
+                                : null;
+                              const linkedSiteIds = new Set([
+                                ...(Array.isArray(membership?.site_ids) ? membership.site_ids : []),
+                                ...(Array.isArray(membership?.sites) ? membership.sites.map(site => site.site_id || site.id) : []),
+                                ...(Array.isArray(contact.sites)
+                                  ? contact.sites
+                                    .filter(site => String(site.client_id || client?.id) === String(client?.id))
+                                    .map(site => site.site_id || site.id)
+                                  : [])
+                              ].map(id => String(id || "").trim()).filter(Boolean));
+                              if (linkedSiteIds.size === 0) return null;
+                              const siteById = new Map(clientSites.map(site => [String(site.id), site]));
+                              const primarySiteIds = new Set([
+                                ...(Array.isArray(membership?.sites) ? membership.sites : []),
+                                ...(Array.isArray(contact.sites) ? contact.sites : [])
+                              ].filter(site => site?.is_primary).map(site => String(site.site_id || site.id || "").trim()).filter(Boolean));
+                              return <div className={styles.sidebarContactSites}>
+                                  {[...linkedSiteIds].map(siteId => {
+                                const site = siteById.get(siteId);
+                                const label = site ? getSiteDisplayName(site) : siteId;
+                                return <span key={siteId} className={styles.sidebarContactSiteChip} title={label}>
+                                      <Icon icon="mdi:map-marker-outline" aria-hidden />
+                                      <span>{label}</span>
+                                      {primarySiteIds.has(siteId) ? <span className={styles.sitePreviewPrimary}>{copy.siteContactPrimary}</span> : null}
+                                    </span>;
+                              })}
+                                </div>;
+                            })()}
                           </div>
                           <div className={styles.sidebarContactActions}>
                             <button type="button" className={styles.sidebarCopyButton} title={copy.copyContactCard} aria-label={copy.copyContactCard} onClick={e => {
@@ -4126,7 +4172,8 @@ export default function ClientDetailPage({
 
       <ContactFormModal open={contactModalOpen} initialContact={editingContact} clients={client ? [{
       id: client.id,
-      name: client.name
+      name: client.name,
+      sites: formData.sites ?? client.sites ?? []
     }] : []} fixedClientId={client?.id ?? null} stacked onClose={handleContactModalClose} onSuccess={() => {
       if (client?.id) loadContacts(client.id);
     }} />
@@ -4409,7 +4456,11 @@ export default function ClientDetailPage({
       setEquipmentRevision(revision => revision + 1);
     }} />}
 
-      <CustomEquipmentModal isOpen={Boolean(customEquipmentModal?.family)} onClose={() => setCustomEquipmentModal(null)} family={customEquipmentModal?.family} item={customEquipmentModal?.item} client={client} clientId={client?.id} onRefresh={async () => {
+      <CustomEquipmentModal isOpen={Boolean(customEquipmentModal?.family)} onClose={() => setCustomEquipmentModal(null)} family={customEquipmentModal?.family} item={customEquipmentModal?.item} client={client ? {
+      ...client,
+      sites: formData.sites ?? client.sites ?? [],
+      equipements: client.equipements || {}
+    } : null} clientId={client?.id} defaultSite={activeSiteFilter || null} onRefresh={async () => {
       const familyKey = customEquipmentModal?.family?.familyKey;
       const result = await refreshClientEquipment();
       if (familyKey) {

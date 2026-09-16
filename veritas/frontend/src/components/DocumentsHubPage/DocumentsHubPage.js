@@ -15,6 +15,7 @@ import PageGuideTour from "../PageGuide/PageGuideTour";
 import { getDocumentsHubGuide } from "../PageGuide/documentsHubGuideSteps";
 import { useRegisterPageGuide } from "../../hooks/useRegisterPageGuide";
 import DocumentsBulkEditModal from "./DocumentsBulkEditModal";
+import SuggestionAutocomplete from "../shared/SuggestionAutocomplete/SuggestionAutocomplete";
 import styles from "./DocumentsHubPage.module.css";
 import { createTrackedAbortController } from "../../utils/pageLoadAbort";
 const IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -93,7 +94,7 @@ export default function DocumentsHubPage() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [companyFilter, setCompanyFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [previewFile, setPreviewFile] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -131,7 +132,7 @@ export default function DocumentsHubPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return files.filter(f => {
-      if (companyFilter !== "all" && (f.client_name || "-") !== companyFilter) return false;
+      if (companyFilter && (f.client_name || "-") !== companyFilter) return false;
       if (categoryFilter !== "all" && f.category !== categoryFilter) return false;
       if (!q) return true;
       return String(f.file_name || "").toLowerCase().includes(q) || String(f.client_name || "").toLowerCase().includes(q) || String(f.category || "").toLowerCase().includes(q) || String(f.description || "").toLowerCase().includes(q);
@@ -295,12 +296,17 @@ export default function DocumentsHubPage() {
                       <Icon icon="mdi:close" />
                     </button> : null}
                 </div>
-                <select className={styles.select} value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} aria-label={copy.filterCompany}>
-                  <option value="all">{copy.filterCompany}</option>
-                  {companies.map(c => <option key={c} value={c}>
-                      {c}
-                    </option>)}
-                </select>
+                <SuggestionAutocomplete
+                  id="documents-hub-company-filter"
+                  className={styles.companySuggest}
+                  placeholder={copy.filterCompanyPlaceholder || copy.filterCompany}
+                  value={companyFilter}
+                  options={companies}
+                  onChange={setCompanyFilter}
+                  minQueryLength={1}
+                  hintMessage={copy.filterCompanyHint}
+                  emptyMessage={copy.filterCompanyEmpty || copy.emptyFiltered}
+                />
                 <select className={styles.select} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} aria-label={copy.filterCategory}>
                   <option value="all">{copy.filterCategory}</option>
                   {CATEGORY_KEYS.map(cat => <option key={cat} value={cat}>

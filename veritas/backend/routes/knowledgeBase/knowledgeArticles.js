@@ -227,6 +227,7 @@ router.patch(
         clientTagIds: req.body?.clientTagIds,
         contactTagIds: req.body?.contactTagIds,
         folderId: req.body?.folderId,
+        icon: req.body?.icon,
         ratingsEnabled: req.body?.ratingsEnabled,
         commentsEnabled: req.body?.commentsEnabled,
         commentsCompany: req.body?.commentsCompany,

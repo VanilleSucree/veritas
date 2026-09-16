@@ -1,15 +1,49 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Icon as IconifyIcon } from "@iconify/react";
 import { computeSupportCreditTotals } from "../../../TicketPage/ticketClientSummaryUtils";
 import { SUMMARY_HEALTH_META } from "../steps/summaryData";
 import { ReportCategoryKpisBlock, ReportTableBlock } from "./ReportSummaryBlocks";
 import infraStyles from "./ReportSummaryInfrastructure.module.css";
+import styles from "./ReportSummarySupervision.module.css";
 
 function formatDateFr(value) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleDateString("fr-FR");
+}
+
+function formatPeriodLongFr(start, end) {
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  if (!startDate || Number.isNaN(startDate.getTime()) || !endDate || Number.isNaN(endDate.getTime())) {
+    return "";
+  }
+  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  const startLabel = startDate.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    ...(sameYear ? {} : { year: "numeric" })
+  });
+  const endLabel = endDate.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+  return `${startLabel} → ${endLabel}`;
+}
+
+function getReportKindLabel(start, end) {
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  if (!startDate || Number.isNaN(startDate.getTime()) || !endDate || Number.isNaN(endDate.getTime())) {
+    return "Rapport périodique";
+  }
+  const days = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  if (days <= 10) return "Rapport hebdomadaire";
+  if (days <= 45) return "Rapport mensuel";
+  if (days <= 100) return "Rapport trimestriel";
+  return "Rapport périodique";
 }
 
 function renderTextWithLinks(value) {
@@ -42,26 +76,6 @@ function HealthBadge({ health }) {
       <IconifyIcon icon={meta.icon || "mdi:circle"} width={16} height={16} />
       <span style={{ fontSize: "0.82rem", fontWeight: 600 }}>{meta.label}</span>
     </span>
-  );
-}
-
-function SectionShell({ icon, title, subtitle, children }) {
-  return (
-    <section className={infraStyles.section}>
-      <div className={infraStyles.sectionHeader}>
-        <div className={infraStyles.sectionTitleWrapper}>
-          <span className={infraStyles.sectionIcon}>
-            <IconifyIcon icon={icon} width={28} height={28} />
-          </span>
-          <div>
-            <h4 className={infraStyles.sectionTitle}>{title}</h4>
-            {subtitle ? <div className={infraStyles.sectionSubtitle}>{subtitle}</div> : null}
-          </div>
-        </div>
-      </div>
-      <div className={infraStyles.sectionTitleSeparator} />
-      {children}
-    </section>
   );
 }
 
@@ -108,6 +122,90 @@ function buildInventoryRows(modules = []) {
   });
 }
 
+function buildTechnicalRows(modules = []) {
+  return modules.flatMap(module => {
+    const equipments = Array.isArray(module.equipments) ? module.equipments : [];
+    return equipments.map(eq => {
+      const quantified = eq.quantified || {};
+      const parts = [];
+      if (!eq.supervision?.mapped && (module.key === "Internet" || module.key === "Firewall" || module.key === "Servers" || module.key === "Storage" || module.key === "Switch" || module.key === "BorneWifi" || module.key === "TOIP")) {
+        parts.push("Non supervisé");
+      } else {
+        if (quantified.services > 0) parts.push(`${quantified.services} service${quantified.services > 1 ? "s" : ""}`);
+        if (quantified.events > 0) parts.push(`${quantified.events} alerte${quantified.events > 1 ? "s" : ""}`);
+        if (eq.health === "ok" && parts.length === 0) parts.push("Sain");
+        if (eq.health === "warn") parts.push("À surveiller");
+        if (eq.health === "critical") parts.push("Critique");
+      }
+      return {
+        _rowKey: eq.key || `${module.key}-${eq.label}`,
+        name: eq.label || "—",
+        status: parts.join(" · ") || "—",
+        health: eq.health || "unmapped"
+      };
+    });
+  });
+}
+
+function buildWatchConstat(point) {
+  const quantified = point.quantified || {};
+  if (quantified.events > 0) {
+    return `${quantified.events} alerte${quantified.events > 1 ? "s" : ""}`;
+  }
+  if (quantified.alerts > 0) {
+    return `${quantified.alerts} alerte${quantified.alerts > 1 ? "s" : ""}`;
+  }
+  if (Array.isArray(point.reasons) && point.reasons.length) {
+    return point.reasons[0];
+  }
+  if (point.severity === "critical") return "État critique";
+  if (point.severity === "warn") return "À surveiller";
+  return "Vérification requise";
+}
+
+function plural(count, singular, pluralForm = null) {
+  const n = Number(count) || 0;
+  return n > 1 ? pluralForm || `${singular}s` : singular;
+}
+
+function buildSynthesisText({
+  criticalCount,
+  warnCount,
+  watchCount,
+  ticketCreated,
+  ticketClosed
+}) {
+  const healthy = criticalCount <= 0 && warnCount <= 0;
+  let healthSentence;
+  if (criticalCount > 0) {
+    healthSentence = `L'infrastructure supervisée présente ${criticalCount} ${plural(criticalCount, "point")} critique${criticalCount > 1 ? "s" : ""} sur la période.`;
+  } else if (healthy && watchCount === 0) {
+    healthSentence = "L'infrastructure supervisée est saine sur la période.";
+  } else if (healthy) {
+    healthSentence = "L'infrastructure supervisée est globalement saine sur la période.";
+  } else {
+    healthSentence = "L'infrastructure supervisée nécessite une attention particulière sur la période.";
+  }
+
+  let watchSentence = "";
+  if (watchCount > 0) {
+    const word = watchCount === 1 ? "équipement présente" : "équipements présentent";
+    watchSentence = ` ${watchCount === 1 ? "Un" : watchCount === 2 ? "Deux" : watchCount === 3 ? "Trois" : String(watchCount)} ${word} une alerte nécessitant une vérification.`;
+  }
+
+  let ticketSentence = "";
+  if ((ticketCreated || 0) === 0 && (ticketClosed || 0) === 0) {
+    ticketSentence = " Aucun ticket support n'a été créé ou clôturé sur la période.";
+  } else {
+    const parts = [];
+    if (ticketCreated > 0) parts.push(`${ticketCreated} ${plural(ticketCreated, "ticket")} créé${ticketCreated > 1 ? "s" : ""}`);
+    if (ticketClosed > 0) parts.push(`${ticketClosed} clôturé${ticketClosed > 1 ? "s" : ""}`);
+    ticketSentence = ` Activité support : ${parts.join(", ")}.`;
+  }
+
+  return `${healthSentence}${watchSentence}${ticketSentence}`.trim();
+}
+
 const INVENTORY_COLUMNS = [
   { id: "family", label: "Famille" },
   { id: "name", label: "Élément" },
@@ -121,29 +219,32 @@ const INVENTORY_COLUMNS = [
   { id: "activity", label: "Activité" }
 ];
 
-const WATCH_COLUMNS = [
+const TECH_COLUMNS = [
+  { id: "name", label: "Équipement", render: row => <span className={styles.equipmentChip}>{row.name}</span> },
+  { id: "status", label: "Supervision" }
+];
+
+const SERVICE_TECH_COLUMNS = [
+  { id: "name", label: "Service", render: row => <span className={styles.equipmentChip}>{row.name}</span> },
   {
-    id: "severity",
-    label: "Sévérité",
-    render: row => <HealthBadge health={row.severity} />
-  },
-  { id: "label", label: "Élément" },
-  { id: "moduleLabel", label: "Module" },
-  { id: "site", label: "Site" },
-  { id: "reasons", label: "Motifs" },
-  { id: "notes", label: "Notes" }
+    id: "health",
+    label: "État",
+    render: row => <HealthBadge health={row.health} />
+  }
 ];
 
 export default function ReportSummarySupervision({
   snapshot,
   supportStats = null,
   credits = null,
-  consumedOnPeriod = 0
+  consumedOnPeriod = 0,
+  reportStartDate = null,
+  reportEndDate = null
 }) {
+  const [showTechnicalDetail, setShowTechnicalDetail] = useState(false);
   const {
     stats = {},
     groups = {},
-    modules = [],
     watchPoints = [],
     contrat = null,
     periodLabel = "",
@@ -160,105 +261,110 @@ export default function ReportSummarySupervision({
     Boolean(credits) &&
     (creditTotals.total > 0 || creditTotals.remaining > 0 || consumedOnPeriod > 0 || packs.length > 0);
   const hasContractInfo = Boolean(contrat?.type || contrat?.debut || contrat?.expiration || hasCreditData);
-  const ticketCount = supportStats?.total ?? stats.tickets ?? 0;
-  const commentCount = notes.length || stats.comments || 0;
 
-  const overviewKpis = useMemo(
-    () => [
-      {
-        label: "Périphériques",
-        value: stats.equipments ?? 0,
-        icon: "mdi:devices",
-        iconColor: "#2563eb"
-      },
-      {
-        label: "Points de vigilance",
-        value: stats.vigilance ?? watchPoints.length,
-        icon: "mdi:eye-outline",
-        iconColor: (stats.vigilance || watchPoints.length) > 0 ? "#b45309" : "#059669"
-      },
-      {
-        label: "Tickets",
-        value: ticketCount,
-        icon: "mdi:ticket-outline",
-        iconColor: "#7c3aed"
-      },
-      {
-        label: "Commentaires",
-        value: commentCount,
-        icon: "mdi:comment-text-outline",
-        iconColor: "#0891b2"
-      }
-    ],
-    [stats, watchPoints.length, ticketCount, commentCount]
-  );
+  const ticketCreated = supportStats?.total ?? stats.tickets ?? 0;
+  const ticketClosed = supportStats?.closed ?? 0;
+  const ticketOpen = supportStats?.open ?? 0;
+  const criticalCount = stats.critical ?? 0;
+  const warnCount = stats.warn ?? 0;
+  const watchCount = stats.vigilance ?? watchPoints.length;
+  const monitoredCount = stats.monitored ?? 0;
+  const equipmentCount = stats.equipments ?? 0;
 
-  const moduleKpis = useMemo(
-    () =>
-      (modules || []).slice(0, 8).map(module => ({
-        label: module.label,
-        value: module.count,
-        hint:
-          module.critical > 0
-            ? `${module.critical} critique(s)`
-            : module.warn > 0
-              ? `${module.warn} à surveiller`
-              : module.monitored > 0
-                ? `${module.monitored} supervisé(s)`
-                : null,
-        icon: module.icon || "mdi:cube-outline",
-        iconColor: SUMMARY_HEALTH_META[module.health]?.color || "#6b7280"
-      })),
-    [modules]
-  );
+  const periodLong =
+    formatPeriodLongFr(reportStartDate, reportEndDate) ||
+    periodLabel ||
+    "";
+  const reportKind = getReportKindLabel(reportStartDate, reportEndDate);
+  const clientLine = [clientPrefix, clientMainLabel].filter(Boolean).join(" — ") || clientMainLabel || "Client";
 
-  const watchRows = useMemo(
-    () =>
-      (watchPoints || []).map(point => ({
-        _rowKey: point.id || point.equipmentKey || point.label,
-        severity: point.severity || "warn",
-        label: point.label || "—",
-        moduleLabel: point.moduleLabel || "—",
-        site: point.site || "—",
-        reasons: Array.isArray(point.reasons) && point.reasons.length ? point.reasons.join(" · ") : "—",
-        notes:
-          Array.isArray(point.comments) && point.comments.length
-            ? point.comments.map(c => c.text).filter(Boolean).join(" | ")
-            : "—"
-      })),
-    [watchPoints]
-  );
-
-  const infraRows = useMemo(() => buildInventoryRows(groups.infra || []), [groups.infra]);
-  const cyberRows = useMemo(() => buildInventoryRows(groups.cyber || []), [groups.cyber]);
-  const cloudRows = useMemo(() => buildInventoryRows(groups.cloud || []), [groups.cloud]);
-
-  const supportKpis = [
-    {
-      label: "Créés",
-      value: supportStats?.total ?? "…",
-      icon: "mdi:plus-circle-outline",
-      iconColor: "#2563eb"
-    },
-    {
-      label: "Clôturés",
-      value: supportStats?.closed ?? "…",
-      icon: "mdi:check-circle-outline",
-      iconColor: "#059669"
-    },
-    {
-      label: "Ouverts",
-      value: supportStats?.open ?? "…",
-      icon: "mdi:clock-outline",
-      iconColor: (supportStats?.open || 0) > 0 ? "#b45309" : "#6b7280"
-    },
-    {
-      label: "Priorité haute",
-      value: supportStats?.highPriority ?? "…",
-      icon: "mdi:alert-circle-outline",
-      iconColor: (supportStats?.highPriority || 0) > 0 ? "#b91c1c" : "#6b7280"
+  const globalState = useMemo(() => {
+    if (criticalCount > 0) {
+      return {
+        label: "Critique",
+        valueClass: styles.overviewCardValueCritical,
+        icon: "mdi:alert-octagon",
+        iconColor: "#dc2626",
+        hint: `${criticalCount} ${plural(criticalCount, "alerte critique", "alertes critiques")}`
+      };
     }
-  ];
+    if (watchCount > 0 || warnCount > 0) {
+      return {
+        label: "Globalement sain",
+        valueClass: styles.overviewCardValueOk,
+        icon: "mdi:check-circle",
+        iconColor: "#059669",
+        hint: `${watchCount} ${plural(watchCount, "point")} à surveiller`
+      };
+    }
+    return {
+      label: "Sain",
+      valueClass: styles.overviewCardValueOk,
+      icon: "mdi:check-circle",
+      iconColor: "#059669",
+      hint: "Aucun point à surveiller"
+    };
+  }, [criticalCount, warnCount, watchCount]);
+
+  const watchHint =
+    criticalCount > 0
+      ? `${criticalCount} ${plural(criticalCount, "alerte critique", "alertes critiques")}`
+      : "Aucune alerte critique signalée";
+
+  const synthesisText = useMemo(
+    () =>
+      buildSynthesisText({
+        criticalCount,
+        warnCount,
+        watchCount,
+        ticketCreated,
+        ticketClosed
+      }),
+    [criticalCount, warnCount, watchCount, ticketCreated, ticketClosed]
+  );
+
+  const infraModules = groups.infra || [];
+  const cyberModules = groups.cyber || [];
+  const cloudModules = groups.cloud || [];
+  const infraCount = infraModules.reduce((sum, module) => sum + (Number(module.count) || 0), 0);
+  const cyberCount = cyberModules.reduce((sum, module) => sum + (Number(module.count) || 0), 0);
+  const cloudCount = cloudModules.reduce((sum, module) => sum + (Number(module.count) || 0), 0);
+  const cyberHealthy = cyberModules.filter(module => module.health === "ok" || !module.health).length;
+  const cloudHealthy = cloudModules.filter(module => module.health === "ok" || !module.health).length;
+
+  const infraRows = useMemo(() => buildInventoryRows(infraModules), [infraModules]);
+  const cyberRows = useMemo(() => buildInventoryRows(cyberModules), [cyberModules]);
+  const cloudRows = useMemo(() => buildInventoryRows(cloudModules), [cloudModules]);
+  const serverTechRows = useMemo(
+    () => buildTechnicalRows(infraModules.filter(module => module.key === "Servers")),
+    [infraModules]
+  );
+  const storageTechRows = useMemo(
+    () => buildTechnicalRows(infraModules.filter(module => module.key === "Storage")),
+    [infraModules]
+  );
+  const serviceTechRows = useMemo(() => {
+    const rows = [];
+    [...cyberModules, ...cloudModules].forEach(module => {
+      const equipments = Array.isArray(module.equipments) ? module.equipments : [];
+      if (!equipments.length) {
+        rows.push({
+          _rowKey: module.key,
+          name: module.label,
+          health: module.health || "ok"
+        });
+        return;
+      }
+      equipments.forEach(eq => {
+        rows.push({
+          _rowKey: eq.key || `${module.key}-${eq.label}`,
+          name: eq.label || module.label,
+          health: eq.health || module.health || "ok"
+        });
+      });
+    });
+    return rows;
+  }, [cyberModules, cloudModules]);
 
   const contractKpis = hasContractInfo
     ? [
@@ -306,127 +412,254 @@ export default function ReportSummarySupervision({
   if (!snapshot) return null;
 
   return (
-    <div className={infraStyles.root}>
-      <div className={infraStyles.overviewContainer}>
-        <div className={infraStyles.globalIntro}>
-          <div className={infraStyles.globalIntroHeader}>
-            <span className={infraStyles.globalIntroIcon}>
-              <IconifyIcon icon="mdi:clipboard-text-outline" width={22} height={22} />
-            </span>
-            <h3 className={infraStyles.globalIntroTitle}>Synthèse de supervision</h3>
-          </div>
-          <p className={infraStyles.globalIntroText}>
-            {clientPrefix ? `${clientPrefix} — ` : ""}
-            {clientMainLabel}
-            {periodLabel ? ` · ${periodLabel}` : ""}
-          </p>
+    <div className={styles.executiveRoot}>
+      <header className={styles.executiveHeader}>
+        <h3 className={styles.executiveTitle}>Synthèse de supervision</h3>
+        <p className={styles.executiveClient}>{clientLine}</p>
+        <div className={styles.executiveMeta}>
+          {periodLong ? <span className={styles.executivePeriod}>{periodLong}</span> : null}
+          <span className={styles.executiveBadge}>{reportKind}</span>
         </div>
-        <ReportCategoryKpisBlock items={overviewKpis} />
-      </div>
+      </header>
 
-      <SectionShell
-        icon="mdi:eye-check-outline"
-        title="Points à surveiller"
-        subtitle="Périphériques à attention et motifs associés sur la période."
-      >
-        <ReportTableBlock
-          title="Vigilance"
-          count={watchRows.length}
-          columns={WATCH_COLUMNS}
-          rows={watchRows}
-          emptyMessage="Aucun point à surveiller identifié sur la période."
-        />
-      </SectionShell>
-
-      <SectionShell
-        icon="mdi:file-sign"
-        title="Contrat et crédits"
-        subtitle="Informations contractuelles et consommation de crédits support."
-      >
-        {hasContractInfo ? (
-          <ReportCategoryKpisBlock items={contractKpis} />
-        ) : (
-          <div className={infraStyles.sectionHelperMuted}>Aucune information contractuelle ou crédit renseignée.</div>
-        )}
-      </SectionShell>
-
-      <SectionShell
-        icon="mdi:view-dashboard-outline"
-        title="État des lieux"
-        subtitle="Volumes par famille et inventaire détaillé des éléments suivis."
-      >
-        {moduleKpis.length > 0 ? (
-          <>
-            <p className={infraStyles.kpiSectionTitle}>Volumes par module</p>
-            <ReportCategoryKpisBlock items={moduleKpis} />
-          </>
-        ) : null}
-
-        <ReportTableBlock
-          title="Infrastructure"
-          count={infraRows.length}
-          columns={INVENTORY_COLUMNS}
-          rows={infraRows}
-          emptyMessage={null}
-        />
-        <ReportTableBlock
-          title="Cybersécurité"
-          count={cyberRows.length}
-          columns={INVENTORY_COLUMNS}
-          rows={cyberRows}
-          emptyMessage={null}
-        />
-        <ReportTableBlock
-          title="Services & cloud"
-          count={cloudRows.length}
-          columns={INVENTORY_COLUMNS}
-          rows={cloudRows}
-          emptyMessage={null}
-        />
-
-        {!infraRows.length && !cyberRows.length && !cloudRows.length ? (
-          <div className={infraStyles.sectionHelperMuted}>Aucun module activé pour ce rapport.</div>
-        ) : null}
-      </SectionShell>
-
-      <SectionShell
-        icon="mdi:headset"
-        title="Activité support"
-        subtitle="Tickets créés sur la période du rapport."
-      >
-        <ReportCategoryKpisBlock items={supportKpis} />
-      </SectionShell>
-
-      <SectionShell
-        icon="mdi:notebook-outline"
-        title="Notes du rapport"
-        subtitle="Commentaires globaux ajoutés pendant la construction du rapport."
-      >
-        <div data-export-comments="true">
-          {notes.length > 0 ? (
-            <div className={infraStyles.infraTableWrapper}>
-              <table className={infraStyles.infraTable}>
-                <thead>
-                  <tr>
-                    <th className={infraStyles.infraTableHeaderCell}>Date</th>
-                    <th className={infraStyles.infraTableHeaderCell}>Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {notes.map((comment, idx) => (
-                    <tr key={comment.id || idx} className={infraStyles.infraTableRow}>
-                      <td className={infraStyles.infraTableCell}>{comment.dateLabel || "—"}</td>
-                      <td className={infraStyles.infraTableCell}>{renderTextWithLinks(comment.text)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      <section>
+        <h4 className={styles.overviewTitle}>Vue d&apos;ensemble</h4>
+        <div className={styles.overviewGrid}>
+          <article className={styles.overviewCard}>
+            <div className={styles.overviewCardHead}>
+              <IconifyIcon icon="mdi:view-grid-outline" width={16} height={16} />
+              Éléments suivis
             </div>
-          ) : (
-            <div className={infraStyles.sectionHelperMuted}>Aucune note globale pour ce rapport.</div>
-          )}
+            <div className={styles.overviewCardValue}>{equipmentCount}</div>
+            <div className={styles.overviewCardHint}>Infrastructure, cybersécurité et services cloud</div>
+          </article>
+
+          <article className={styles.overviewCard}>
+            <div className={styles.overviewCardHead}>
+              <IconifyIcon icon={globalState.icon} width={16} height={16} color={globalState.iconColor} />
+              État global
+            </div>
+            <div className={`${styles.overviewCardValue} ${globalState.valueClass}`}>{globalState.label}</div>
+            <div className={styles.overviewCardHint}>{globalState.hint}</div>
+          </article>
+
+          <article className={styles.overviewCard}>
+            <div className={styles.overviewCardHead}>
+              <IconifyIcon icon="mdi:alert" width={16} height={16} color={watchCount > 0 ? "#d97706" : "#059669"} />
+              Points à surveiller
+            </div>
+            <div className={`${styles.overviewCardValue} ${watchCount > 0 ? styles.overviewCardValueWarn : ""}`}>
+              {watchCount}
+            </div>
+            <div className={styles.overviewCardHint}>{watchHint}</div>
+          </article>
+
+          <article className={styles.overviewCard}>
+            <div className={styles.overviewCardHead}>
+              <IconifyIcon icon="mdi:headset" width={16} height={16} />
+              Activité support
+            </div>
+            <div className={styles.overviewCardValue}>{ticketCreated}</div>
+            <div className={styles.overviewCardHint}>
+              {ticketCreated === 1 ? "Ticket créé sur la période" : "Tickets créés sur la période"}
+            </div>
+          </article>
         </div>
-      </SectionShell>
+      </section>
+
+      <p className={styles.synthesisBlock}>
+        <span className={styles.synthesisLabel}>Synthèse :</span> {synthesisText}
+      </p>
+
+      <section className={styles.sectionBlock}>
+        <h4 className={styles.sectionHeading}>Points à surveiller</h4>
+        <p className={`${styles.sectionLead} ${watchCount === 0 ? styles.sectionLeadOk : ""}`.trim()}>
+          <IconifyIcon
+            icon={watchCount > 0 ? "mdi:alert" : "mdi:check-circle"}
+            width={16}
+            height={16}
+          />
+          {watchCount > 0
+            ? `${watchCount} ${plural(watchCount, "élément")} ${watchCount > 1 ? "nécessitent" : "nécessite"} une vérification`
+            : "Aucun élément à surveiller sur la période"}
+        </p>
+
+        {watchCount > 0 ? (
+          <div className={styles.watchTableWrap}>
+            <table className={styles.watchTable}>
+              <thead>
+                <tr>
+                  <th>Équipement</th>
+                  <th>Type</th>
+                  <th>Site</th>
+                  <th>Constat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {watchPoints.map(point => (
+                  <tr key={point.id || point.equipmentKey || point.label}>
+                    <td>
+                      <span className={styles.equipmentChip}>{point.label || "—"}</span>
+                    </td>
+                    <td>{point.moduleLabel || "—"}</td>
+                    <td>{point.site || "—"}</td>
+                    <td>{buildWatchConstat(point)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        <p className={styles.sectionFootnote}>
+          Les détails des alertes et les actions associées peuvent être consultés dans l&apos;outil de supervision
+          ou dans le détail technique du rapport.
+        </p>
+      </section>
+
+      <section className={styles.sectionBlock}>
+        <h4 className={styles.sectionHeading}>Périmètre supervisé</h4>
+        <p className={styles.perimeterLead}>
+          {equipmentCount} éléments référencés · {monitoredCount} éléments supervisés activement
+        </p>
+
+        {infraModules.length > 0 ? (
+          <div className={styles.familyCard}>
+            <h5 className={styles.familyCardTitle}>Infrastructure — {infraCount} éléments</h5>
+            <div className={styles.familyModules}>
+              {infraModules.map(module => (
+                <div key={module.key} className={styles.familyModule}>
+                  <span className={styles.familyModuleName}>{module.label}</span>
+                  <span className={styles.familyModuleValue}>{module.count}</span>
+                  {module.monitored > 0 ? (
+                    <span className={styles.familyModuleHint}>{module.monitored} supervisé{module.monitored > 1 ? "s" : ""}</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {cyberModules.length > 0 ? (
+          <div className={styles.familyCard}>
+            <h5 className={styles.familyCardTitle}>Cybersécurité — {cyberCount} éléments</h5>
+            <p className={styles.familySummaryLine}>
+              {cyberModules.map(module => module.label).join(" · ")}
+            </p>
+            <p className={styles.familySummaryLine}>
+              {cyberHealthy} / {cyberModules.length} sains
+            </p>
+          </div>
+        ) : null}
+
+        {cloudModules.length > 0 ? (
+          <div className={styles.familyCard}>
+            <h5 className={styles.familyCardTitle}>Services cloud — {cloudCount} éléments</h5>
+            <p className={styles.familySummaryLine}>
+              {cloudModules.map(module => module.label).join(" · ")}
+            </p>
+            <p className={styles.familySummaryLine}>
+              {cloudHealthy} / {cloudModules.length} sains
+            </p>
+          </div>
+        ) : null}
+      </section>
+
+      <section className={styles.sectionBlock}>
+        <h4 className={styles.sectionHeading}>Activité support</h4>
+        <div className={styles.supportGrid}>
+          <div className={styles.supportCard}>
+            <span className={styles.supportCardLabel}>Créés</span>
+            <span className={styles.supportCardValue}>{ticketCreated}</span>
+          </div>
+          <div className={styles.supportCard}>
+            <span className={styles.supportCardLabel}>Clôturés</span>
+            <span className={styles.supportCardValue}>{ticketClosed}</span>
+          </div>
+          <div className={styles.supportCard}>
+            <span className={styles.supportCardLabel}>Ouverts</span>
+            <span className={styles.supportCardValue}>{ticketOpen}</span>
+          </div>
+        </div>
+        {ticketCreated === 0 && ticketClosed === 0 && ticketOpen === 0 ? (
+          <p className={styles.sectionFootnote}>Aucune activité support enregistrée sur la période.</p>
+        ) : null}
+      </section>
+
+      {notes.length > 0 ? (
+        <section className={styles.sectionBlock} data-export-comments="true">
+          <h4 className={styles.sectionHeading}>Notes du rapport</h4>
+          <div className={infraStyles.infraTableWrapper}>
+            <table className={infraStyles.infraTable}>
+              <thead>
+                <tr>
+                  <th className={infraStyles.infraTableHeaderCell}>Date</th>
+                  <th className={infraStyles.infraTableHeaderCell}>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {notes.map((comment, idx) => (
+                  <tr key={comment.id || idx} className={infraStyles.infraTableRow}>
+                    <td className={infraStyles.infraTableCell}>{comment.dateLabel || "—"}</td>
+                    <td className={infraStyles.infraTableCell}>{renderTextWithLinks(comment.text)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      <section className={styles.sectionBlock} data-export-hide="true">
+        <button
+          type="button"
+          className={styles.detailToggle}
+          onClick={() => setShowTechnicalDetail(prev => !prev)}
+          aria-expanded={showTechnicalDetail}
+        >
+          <IconifyIcon icon={showTechnicalDetail ? "mdi:chevron-up" : "mdi:chevron-down"} width={18} height={18} />
+          {showTechnicalDetail ? "Masquer le détail technique" : "Voir le détail de l'infrastructure"}
+        </button>
+
+        {showTechnicalDetail ? (
+          <div className={styles.detailPanel}>
+            {hasContractInfo ? (
+              <div>
+                <h5 className={styles.detailSectionTitle}>Contrat et crédits</h5>
+                <ReportCategoryKpisBlock items={contractKpis} />
+              </div>
+            ) : null}
+
+            {serverTechRows.length > 0 ? (
+              <div>
+                <h5 className={styles.detailSectionTitle}>Serveurs</h5>
+                <ReportTableBlock title={null} columns={TECH_COLUMNS} rows={serverTechRows} emptyMessage={null} />
+              </div>
+            ) : null}
+
+            {storageTechRows.length > 0 ? (
+              <div>
+                <h5 className={styles.detailSectionTitle}>Stockage</h5>
+                <ReportTableBlock title={null} columns={TECH_COLUMNS} rows={storageTechRows} emptyMessage={null} />
+              </div>
+            ) : null}
+
+            {serviceTechRows.length > 0 ? (
+              <div>
+                <h5 className={styles.detailSectionTitle}>Services cloud et cybersécurité</h5>
+                <ReportTableBlock title={null} columns={SERVICE_TECH_COLUMNS} rows={serviceTechRows} emptyMessage={null} />
+              </div>
+            ) : null}
+
+            <div>
+              <h5 className={styles.detailSectionTitle}>Inventaire complet</h5>
+              <ReportTableBlock title="Infrastructure" count={infraRows.length} columns={INVENTORY_COLUMNS} rows={infraRows} emptyMessage={null} />
+              <ReportTableBlock title="Cybersécurité" count={cyberRows.length} columns={INVENTORY_COLUMNS} rows={cyberRows} emptyMessage={null} />
+              <ReportTableBlock title="Services & cloud" count={cloudRows.length} columns={INVENTORY_COLUMNS} rows={cloudRows} emptyMessage={null} />
+            </div>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

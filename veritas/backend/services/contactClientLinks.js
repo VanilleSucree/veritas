@@ -1,4 +1,10 @@
 import { pool } from "../database/db.js";
+import {
+  deleteSiteLinksForContactClient,
+  replaceSiteLinksForContactClient,
+  attachSiteLinksToContacts,
+  normalizeSiteLinksInput
+} from "./contactSiteLinks.js";
 
 function db(client) {
   return client || pool;
@@ -80,16 +86,32 @@ function pickPrimaryFromRows(contacts) {
  * Accepts memberships[], client_ids[], or a single client_id fallback.
  */
 export function normalizeMembershipsInput(payload = {}, fallbackClientId = null) {
+  const hasSitesKeys = row => Boolean(row)
+    && (Object.prototype.hasOwnProperty.call(row, "sites")
+      || Object.prototype.hasOwnProperty.call(row, "site_ids")
+      || Object.prototype.hasOwnProperty.call(row, "site_id"));
+
   if (Array.isArray(payload?.memberships) && payload.memberships.length > 0) {
     return payload.memberships
       .map((row, idx) => {
         const clientId = toInt(row?.client_id ?? row?.id);
         if (!clientId) return null;
-        return {
+        const base = {
           client_id: clientId,
           poste: row?.poste != null ? String(row.poste).trim() || null : null,
           is_primary: row?.is_primary === true,
           _order: idx
+        };
+        if (!hasSitesKeys(row)) return base;
+        const siteLinks = normalizeSiteLinksInput(row, clientId);
+        return {
+          ...base,
+          sites: siteLinks.map(link => ({
+            id: link.site_id,
+            site_id: link.site_id,
+            is_primary: Boolean(link.is_primary)
+          })),
+          site_ids: siteLinks.map(link => link.site_id)
         };
       })
       .filter(Boolean);
@@ -110,11 +132,22 @@ export function normalizeMembershipsInput(payload = {}, fallbackClientId = null)
   }
   const single = toInt(payload?.client_id ?? fallbackClientId);
   if (!single) return [];
-  return [{
+  const base = {
     client_id: single,
     poste: payload?.poste != null ? String(payload.poste).trim() || null : null,
     is_primary: Boolean(payload?.is_primary) || String(payload?.poste || "").toLowerCase().includes("principal"),
     _order: 0
+  };
+  if (!hasSitesKeys(payload)) return [base];
+  const siteLinks = normalizeSiteLinksInput(payload, single);
+  return [{
+    ...base,
+    sites: siteLinks.map(link => ({
+      id: link.site_id,
+      site_id: link.site_id,
+      is_primary: Boolean(link.is_primary)
+    })),
+    site_ids: siteLinks.map(link => link.site_id)
   }];
 }
 
@@ -232,7 +265,7 @@ export async function attachMembershipsToContacts(contacts = [], { client } = {}
   const list = Array.isArray(contacts) ? contacts : [];
   if (list.length === 0) return list;
   const byId = await listMembershipsByContactIds(list.map(c => c?.id), { client });
-  return list.map(contact => {
+  const withMemberships = list.map(contact => {
     const memberships = byId.get(Number(contact.id)) || [];
     const homeId = toInt(contact.client_id);
     const home = memberships.find(m => m.client_id === homeId) || memberships[0] || null;
@@ -244,6 +277,7 @@ export async function attachMembershipsToContacts(contacts = [], { client } = {}
       client_id: home?.client_id ?? contact.client_id ?? null
     };
   });
+  return attachSiteLinksToContacts(withMemberships, { client });
 }
 
 export async function contactBelongsToClient(contactId, clientId, { client } = {}) {
@@ -365,6 +399,7 @@ export async function removeMembership(contactId, clientId, { client } = {}) {
     `DELETE FROM v_b_contact_client_links WHERE contact_id = $1 AND client_id = $2`,
     [cId, clId]
   );
+  await deleteSiteLinksForContactClient(cId, clId, { client });
   await syncHomeClientId(cId, null, { client });
   return listMembershipsForContact(cId, { client });
 }
@@ -400,10 +435,16 @@ export async function replaceMemberships(contactId, memberships = [], { preferre
     .map((row, idx) => {
       const clientId = toInt(row?.client_id ?? row?.id);
       if (!clientId) return null;
+      const siteLinks = normalizeSiteLinksInput(row, clientId);
       return {
         client_id: clientId,
         poste: row?.poste != null ? String(row.poste).trim() || null : null,
         is_primary: row?.is_primary === true,
+        sites: siteLinks.map(link => ({
+          id: link.site_id,
+          site_id: link.site_id,
+          is_primary: Boolean(link.is_primary)
+        })),
         _order: idx
       };
     })
@@ -433,6 +474,7 @@ export async function replaceMemberships(contactId, memberships = [], { preferre
         `DELETE FROM v_b_contact_client_links WHERE contact_id = $1 AND client_id = $2`,
         [cId, old.client_id]
       );
+      await deleteSiteLinksForContactClient(cId, old.client_id, { client });
     }
   }
 
@@ -447,6 +489,17 @@ export async function replaceMemberships(contactId, memberships = [], { preferre
       [cId, row.client_id, row.poste, Boolean(row.is_primary)]
     );
     if (row.is_primary) await clearPrimaryForClient(row.client_id, { client, exceptContactId: cId });
+    // Always sync site links when membership payload includes sites / site_ids keys
+    const source = (Array.isArray(memberships) ? memberships : []).find(
+      m => toInt(m?.client_id ?? m?.id) === row.client_id
+    );
+    const hasSitesPayload = source
+      && (Object.prototype.hasOwnProperty.call(source, "sites")
+        || Object.prototype.hasOwnProperty.call(source, "site_ids")
+        || Object.prototype.hasOwnProperty.call(source, "site_id"));
+    if (hasSitesPayload) {
+      await replaceSiteLinksForContactClient(cId, row.client_id, row.sites, { client });
+    }
   }
 
   const home = await syncHomeClientId(cId, preferredHomeClientId || unique[0]?.client_id || null, { client });

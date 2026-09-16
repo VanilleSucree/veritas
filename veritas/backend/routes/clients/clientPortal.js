@@ -1218,6 +1218,7 @@ router.get("/vault-files/:id/preview", [param("id").isUUID()], async (req, res) 
     });
     res.setHeader("Content-Type", file.mime_type || "application/octet-stream");
     res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.file_name)}"`);
+    allowAssetEmbedding(res);
     fs.createReadStream(fullPath).pipe(res);
   } catch (err) {
     console.error("GET /client-portal/vault-files/:id/preview:", err);

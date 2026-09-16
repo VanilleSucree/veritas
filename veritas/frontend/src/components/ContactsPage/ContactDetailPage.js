@@ -39,6 +39,7 @@ import PageGuideTour from "../PageGuide/PageGuideTour";
 import { getContactDetailGuideSteps } from "../PageGuide/contactDetailGuideSteps";
 import { useRegisterPageGuide } from "../../hooks/useRegisterPageGuide";
 import { createTrackedAbortController } from "../../utils/pageLoadAbort";
+import { getSiteDisplayName, normalizeClientSites } from "../../utils/clientSites";
 const normalizePhone = value => {
   let normalized = (value || "").toString().trim();
   if (normalized.startsWith("'")) {
@@ -204,7 +205,13 @@ export default function ContactDetailPage({
         id: row.id ?? row.client_id,
         name: row.name || row.client_name || `Client #${row.id ?? row.client_id}`,
         poste: row.poste || "",
-        is_primary: Boolean(row.is_primary)
+        is_primary: Boolean(row.is_primary),
+        sites: Array.isArray(row.sites) ? row.sites : [],
+        site_ids: Array.isArray(row.site_ids)
+          ? row.site_ids
+          : Array.isArray(row.sites)
+            ? row.sites.map(site => site.site_id || site.id)
+            : []
       })).filter(row => row.id != null);
     }
     if (contact?.client_id || client?.id) {
@@ -1169,6 +1176,25 @@ export default function ContactDetailPage({
                                   </button>
                                 </div> : null}
                             </div>
+                            {(() => {
+                              const listed = allClients.find(c => String(c.id) === String(company.id));
+                              const availableSites = normalizeClientSites(listed?.sites);
+                              const siteById = new Map(availableSites.map(site => [String(site.id), site]));
+                              const linkedIds = [...new Set((company.site_ids || []).map(id => String(id || "").trim()).filter(Boolean))];
+                              if (linkedIds.length === 0) return null;
+                              const primaryIds = new Set((company.sites || []).filter(site => site?.is_primary).map(site => String(site.site_id || site.id || "").trim()).filter(Boolean));
+                              return <div className={styles.sidebarContactSites}>
+                                  {linkedIds.map(siteId => {
+                                const site = siteById.get(siteId);
+                                const label = site ? getSiteDisplayName(site) : siteId;
+                                return <span key={siteId} className={styles.sidebarContactSiteChip} title={label}>
+                                      <Icon icon="mdi:map-marker-outline" aria-hidden />
+                                      <span>{label}</span>
+                                      {primaryIds.has(siteId) ? <span className={styles.sitePreviewPrimary}>{copy.sitePrimaryBadge}</span> : null}
+                                    </span>;
+                              })}
+                                </div>;
+                            })()}
                           </div>
                         </SmartTooltip>)}
                     </ul>}

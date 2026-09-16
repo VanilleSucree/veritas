@@ -4,7 +4,7 @@ import { FaTimes } from "react-icons/fa";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { addClientCustomEquipment, deleteClientCustomEquipment, updateClientCustomEquipment } from "../../api/clients";
-import { normalizeClientSites } from "../../utils/clientSites";
+import { getSiteLocationValue, normalizeClientSites } from "../../utils/clientSites";
 import ModalDiscardConfirm from "../Misc/ModalDiscardConfirm";
 import { useModalCloseGuard } from "../../hooks/useModalCloseGuard";
 import styles from "./EnterpriseFormModal.module.css";
@@ -14,13 +14,14 @@ import { interpolate } from "../../i18n/translate";
 import { getSharedEquipmentFieldDefs, getSharedEquipmentFieldLabel, mergeCustomEquipmentFamilyFields } from "../EquipementPage/sharedEquipmentFields";
 import { getFormFields } from "../EquipementPage/equipmentFormFieldsI18n";
 import FormNumberStepper from "../EquipementPage/FormNumberStepper";
+import SiteSuggestInput from "../EquipementPage/SiteSuggestInput";
 import { getEquipmentFieldSelectOptions, groupEquipmentFieldsBySection, isEquipmentLayoutField } from "../../utils/equipmentFamilyFieldUtils";
-import { readEquipmentIsActive } from "../EquipementPage/equipmentFormConfig";
+import { buildAvailableSites, readEquipmentIsActive } from "../EquipementPage/equipmentFormConfig";
 const STATUS_FIELD_KEYS = new Set(["actif", "active", "is_active", "isActive"]);
 const SECTIONS = [{
   id: "identity",
   label: "Identity",
-  description: "Equipment name",
+  description: "Name and site",
   icon: "mdi:tag-outline"
 }, {
   id: "common",
@@ -33,13 +34,39 @@ const SECTIONS = [{
   description: "Specific information",
   icon: "mdi:tune-variant"
 }];
-const LOCATION_FIELD_KEYS = new Set(["location", "lieu", "site", "emplacement"]);
+const LOCATION_FIELD_KEYS = new Set(["location", "lieu", "site", "emplacement", "localisation"]);
 function readItemIsActive(item) {
   return readEquipmentIsActive(item);
 }
-function buildEmptyForm(fields = []) {
+function resolveItemSiteValue(item) {
+  const layers = [item, item?.fields, item?.data, item?.rawData, item?.rawData?.data];
+  for (const layer of layers) {
+    if (!layer || typeof layer !== "object") continue;
+    for (const key of ["site", "location", "lieu", "emplacement", "localisation"]) {
+      const value = layer[key];
+      if (value != null && String(value).trim() !== "") {
+        return String(value).trim();
+      }
+    }
+  }
+  return "";
+}
+function applySiteToForm(form, siteValue) {
+  const next = {
+    ...form,
+    site: siteValue
+  };
+  LOCATION_FIELD_KEYS.forEach(key => {
+    if (Object.prototype.hasOwnProperty.call(next, key)) {
+      next[key] = siteValue;
+    }
+  });
+  return next;
+}
+function buildEmptyForm(fields = [], defaultSite = "") {
   const form = {
     name: "",
+    site: "",
     is_active: true
   };
   fields.forEach(field => {
@@ -47,7 +74,7 @@ function buildEmptyForm(fields = []) {
     if (field.fieldType === "section") return;
     form[field.fieldKey] = field.fieldType === "boolean" ? false : "";
   });
-  return form;
+  return applySiteToForm(form, String(defaultSite || "").trim());
 }
 function buildFormFromItem(item, fields = []) {
   const form = buildEmptyForm(fields);
@@ -66,7 +93,7 @@ function buildFormFromItem(item, fields = []) {
       form[field.fieldKey] = field.fieldType === "date" ? String(value).slice(0, 10) : String(value);
     }
   });
-  return form;
+  return applySiteToForm(form, resolveItemSiteValue(item) || form.site || "");
 }
 function cloneFormSnapshot(form) {
   return JSON.parse(JSON.stringify(form));
@@ -84,14 +111,15 @@ export default function CustomEquipmentModal({
   item = null,
   client = null,
   clientId,
+  defaultSite = null,
   onRefresh
 }) {
   const locale = useAppLocale();
   const configCopy = useMemo(() => getEnterpriseConfigModalsCopy(locale), [locale]);
   const formFields = useMemo(() => getFormFields(locale).fields || {}, [locale]);
   const [activeSection, setActiveSection] = useState("identity");
-  const [form, setForm] = useState(() => buildEmptyForm(mergeCustomEquipmentFamilyFields(family?.fields || [])));
-  const [initialSnapshot, setInitialSnapshot] = useState(() => buildEmptyForm(mergeCustomEquipmentFamilyFields(family?.fields || [])));
+  const [form, setForm] = useState(() => buildEmptyForm(mergeCustomEquipmentFamilyFields(family?.fields || []), defaultSite));
+  const [initialSnapshot, setInitialSnapshot] = useState(() => buildEmptyForm(mergeCustomEquipmentFamilyFields(family?.fields || []), defaultSite));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fields = useMemo(() => mergeCustomEquipmentFamilyFields(family?.fields || []), [family?.fields]);
@@ -100,9 +128,12 @@ export default function CustomEquipmentModal({
     [fields]
   );
   const sharedFieldKeys = useMemo(() => new Set(getSharedEquipmentFieldDefs().map(field => field.key)), []);
-  const commonFields = useMemo(() => fields.filter(field => sharedFieldKeys.has(field.fieldKey) && !STATUS_FIELD_KEYS.has(field.fieldKey)), [fields, sharedFieldKeys]);
+  const commonFields = useMemo(
+    () => fields.filter(field => sharedFieldKeys.has(field.fieldKey) && !STATUS_FIELD_KEYS.has(field.fieldKey) && !isLocationField(field)),
+    [fields, sharedFieldKeys]
+  );
   const detailFields = useMemo(
-    () => fields.filter(field => !sharedFieldKeys.has(field.fieldKey) && !STATUS_FIELD_KEYS.has(field.fieldKey)),
+    () => fields.filter(field => !sharedFieldKeys.has(field.fieldKey) && !STATUS_FIELD_KEYS.has(field.fieldKey) && !isLocationField(field)),
     [fields, sharedFieldKeys]
   );
   const detailInputFields = useMemo(() => detailFields.filter(field => !isEquipmentLayoutField(field)), [detailFields]);
@@ -110,21 +141,42 @@ export default function CustomEquipmentModal({
   const isAddMode = !item?.id;
   const itemId = item?.id ?? null;
   const familyKey = family?.familyKey || "";
-  const siteOptions = useMemo(() => normalizeClientSites(client?.sites || []).map(site => site.name).filter(Boolean), [client?.sites]);
+  const availableSites = useMemo(() => {
+    const sites = buildAvailableSites(client, item);
+    const current = String(form.site || "").trim();
+    if (current && current !== "Sans site" && !sites.includes(current)) {
+      return [...sites, current].sort((a, b) => a.localeCompare(b, "fr"));
+    }
+    return sites;
+  }, [client, item, form.site]);
+  const siteOptions = useMemo(
+    () => normalizeClientSites(client?.sites || []).map(site => getSiteLocationValue(site)).filter(Boolean),
+    [client?.sites]
+  );
   useEffect(() => {
     if (!isOpen || !family) return;
-    const nextForm = item ? buildFormFromItem(item, fields) : buildEmptyForm(fields);
+    const nextForm = item
+      ? buildFormFromItem(item, fields)
+      : buildEmptyForm(fields, defaultSite || "");
     setForm(nextForm);
     setInitialSnapshot(cloneFormSnapshot(nextForm));
     setActiveSection("identity");
     // Re-init only when the modal opens or the edited entity / field schema identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally ignore unstable item/family object identity
-  }, [isOpen, familyKey, itemId, fieldsSignature]);
+  }, [isOpen, familyKey, itemId, fieldsSignature, defaultSite]);
   const patchForm = useCallback(patch => {
-    setForm(prev => ({
-      ...prev,
-      ...patch
-    }));
+    setForm(prev => {
+      if (Object.prototype.hasOwnProperty.call(patch, "site")) {
+        return applySiteToForm({
+          ...prev,
+          ...patch
+        }, String(patch.site || "").trim());
+      }
+      return {
+        ...prev,
+        ...patch
+      };
+    });
   }, []);
   const hasChanges = useMemo(() => !formsEqual(form, initialSnapshot), [form, initialSnapshot]);
   const {
@@ -168,6 +220,7 @@ export default function CustomEquipmentModal({
     }
     for (const field of fields) {
       if (isEquipmentLayoutField(field)) continue;
+      if (isLocationField(field)) continue;
       if (!field.required) continue;
       const value = form[field.fieldKey];
       if (field.fieldType === "boolean") continue;
@@ -177,10 +230,15 @@ export default function CustomEquipmentModal({
         return;
       }
     }
+    const siteValue = String(form.site || "").trim();
     const payloadFields = {};
     fields.forEach(field => {
       if (isEquipmentLayoutField(field)) return;
       if (STATUS_FIELD_KEYS.has(field.fieldKey)) return;
+      if (isLocationField(field)) {
+        payloadFields[field.fieldKey] = siteValue || null;
+        return;
+      }
       const value = form[field.fieldKey];
       if (field.fieldType === "boolean") {
         payloadFields[field.fieldKey] = Boolean(value);
@@ -199,6 +257,10 @@ export default function CustomEquipmentModal({
         payloadFields[field.fieldKey] = null;
       }
     });
+    payloadFields.site = siteValue || null;
+    payloadFields.location = siteValue || null;
+    payloadFields.emplacement = siteValue || null;
+    payloadFields.lieu = siteValue || null;
     setSaving(true);
     try {
       const payload = {
@@ -244,15 +306,12 @@ export default function CustomEquipmentModal({
     const value = form[field.fieldKey];
     const id = `custom-equipment-${field.fieldKey}`;
     const labelClass = field.required ? `${styles.label} ${styles.labelRequired}` : styles.label;
-    if (isLocationField(field) && siteOptions.length > 0) {
+    if (isLocationField(field)) {
       return <div className={styles.field}>
-          <label className={labelClass} htmlFor={id}>{field.label}</label>
-          <select id={id} className={styles.input} value={value || ""} onChange={e => patchForm({
-          [field.fieldKey]: e.target.value
-        })}>
-            <option value="">- Select a location -</option>
-            {siteOptions.map(siteName => <option key={siteName} value={siteName}>{siteName}</option>)}
-          </select>
+          <label className={labelClass} htmlFor={id}>{field.label || formFields.location || "Lieux"}</label>
+          <SiteSuggestInput id={id} value={value || ""} onChange={nextValue => patchForm({
+          site: nextValue
+        })} sites={availableSites} placeholder={formFields.locationPlaceholder || "Rechercher ou saisir un lieu…"} />
         </div>;
     }
     if (field.fieldType === "textarea") {
@@ -353,7 +412,7 @@ export default function CustomEquipmentModal({
                 <div className={styles.sectionHead}>
                   <h3 className={styles.sectionTitle}>Identity</h3>
                   <p className={styles.sectionDesc}>
-                    Name displayed on the map and in the device list.
+                    Name and site displayed on the map and in the device list.
                   </p>
                 </div>
                 <div className={styles.fieldGrid2}>
@@ -364,6 +423,18 @@ export default function CustomEquipmentModal({
                     <input id="custom-equipment-name" type="text" className={styles.input} value={form.name} onChange={e => patchForm({
                     name: e.target.value
                   })} placeholder="Meeting room A" required />
+                  </div>
+                  <div className={`${styles.field} ${styles.fieldFull}`}>
+                    <label className={styles.label} htmlFor="custom-equipment-site">
+                      {formFields.location || "Lieux"}
+                    </label>
+                    <SiteSuggestInput
+                      id="custom-equipment-site"
+                      value={form.site || ""}
+                      onChange={nextValue => patchForm({ site: nextValue })}
+                      sites={availableSites.length ? availableSites : siteOptions}
+                      placeholder={formFields.locationPlaceholder || "Rechercher ou saisir un lieu…"}
+                    />
                   </div>
                   <div className={`${styles.field} ${styles.fieldFull}`}>
                     <span className={styles.label}>{formFields.status || "Statut"}</span>

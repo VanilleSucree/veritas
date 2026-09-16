@@ -456,71 +456,85 @@ export default function ClientTicketDetailPage() {
                   </div>}
               </div> : null}
 
-            {ticket.description ? <article className={`${tdStyles.descriptionSticky} ${tdStyles.commentItem} ${tdStyles.descriptionItem}`}>
-                <div className={tdStyles.commentMeta}>
-                  <span>{td.initialDescription}</span>
+            {ticket.description ? <article className={`${tdStyles.commentItem} ${tdStyles.commentItemInitial}`}>
+                <UserAvatar className={tdStyles.commentAvatarSide} name={td.initialDescription} size={40} variant="client" />
+                <div className={tdStyles.commentBubble}>
+                  <div className={tdStyles.commentHeader}>
+                    <div className={tdStyles.commentHeaderMain}>
+                      <div className={tdStyles.commentMetaStrip}>
+                        <span className={tdStyles.initialRequestBadge}>{td.initialDescription}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <PortalRichContent content={ticket.description} attachments={ticket.attachments} className={`${tdStyles.commentBody} ${portalStyles.richHtml}`} />
                 </div>
-                <PortalRichContent content={ticket.description} attachments={ticket.attachments} className={`${tdStyles.commentBody} ${portalStyles.richHtml}`} />
               </article> : null}
 
-            <div className={tdStyles.timelineWrap}>
+            <div className={`${tdStyles.timelineWrap} ${portalStyles.portalTimelineWrap}`}>
               <div className={tdStyles.timeline} ref={timelineRef}>
                 {(ticket.comments || []).length === 0 ? <p className={layout.emptyStateHint}>{td.noMessages}</p> : ticket.comments.map(comment => {
                 const isOwn = isOwnPortalComment(comment, user);
                 const isEditingComment = String(editingCommentId) === String(comment.id);
                 const showEditAction = isOwn && canReply && !isEditingComment;
                 const authorAvatar = isOwn && user?.avatar ? user.avatar : comment.author_avatar || null;
+                const authorName = comment.author_name || td.supportAuthor;
                 return <article key={comment.id} className={tdStyles.commentItem}>
-                        <div className={tdStyles.commentHeader}>
-                          <div className={tdStyles.commentHeaderMain}>
-                            <UserAvatar name={comment.author_name || td.supportAuthor} avatar={authorAvatar} size={26} variant={isOwn ? "client" : "agent"} />
-                            <div className={tdStyles.commentMeta}>
-                              <span className={tdStyles.commentAuthor}>
-                                {comment.author_name || td.supportAuthor}
-                              </span>
+                        <UserAvatar className={tdStyles.commentAvatarSide} name={authorName} avatar={authorAvatar} size={40} variant={isOwn ? "client" : "agent"} />
+                        <div className={tdStyles.commentBubble}>
+                          <div className={tdStyles.commentHeader}>
+                            <div className={tdStyles.commentHeaderMain}>
+                              <div className={tdStyles.commentMetaStrip}>
+                                <span className={tdStyles.commentMetaLabel}>{td.createdLabel}</span>
+                                <span className={tdStyles.commentMetaValue}>
+                                  <Icon icon="mdi:clock-outline" aria-hidden />
+                                  {copy.formatPortalDateTime(comment.created_at)}
+                                  {isCommentEdited(comment) ? <span className={tdStyles.commentEditedMark}> · {copy.common.edited}</span> : null}
+                                </span>
+                                <span className={tdStyles.commentMetaLabel}>{td.byLabel}</span>
+                                <span className={tdStyles.commentMetaAuthor}>
+                                  <Icon icon="mdi:account-outline" aria-hidden />
+                                  {authorName}
+                                </span>
+                              </div>
+                            </div>
+                            <div className={tdStyles.commentHeaderRight}>
+                              {showEditAction ? <button type="button" className={tdStyles.commentEditBtn} onClick={() => startEditComment(comment)} disabled={savingCommentEdit} aria-label={td.editMessageAria} title={td.editMessageTitle}>
+                                  <Icon icon="mdi:pencil-outline" aria-hidden />
+                                </button> : null}
                             </div>
                           </div>
-                          <div className={tdStyles.commentHeaderRight}>
-                            <span className={tdStyles.commentTimestamp}>
-                              {copy.formatPortalDateTime(comment.created_at)}
-                              {isCommentEdited(comment) ? <span className={tdStyles.commentEditedMark}> · {copy.common.edited}</span> : null}
-                            </span>
-                            {showEditAction ? <button type="button" className={tdStyles.commentEditBtn} onClick={() => startEditComment(comment)} disabled={savingCommentEdit} aria-label={td.editMessageAria} title={td.editMessageTitle}>
-                                <Icon icon="mdi:pencil-outline" aria-hidden />
-                              </button> : null}
-                          </div>
-                        </div>
-                        {isEditingComment ? <div className={tdStyles.commentEditBox}>
-                            <textarea className={tdStyles.commentEditEditor} value={editingCommentDraft} onChange={e => setEditingCommentDraft(e.target.value)} disabled={savingCommentEdit} rows={4} />
-                            <div className={tdStyles.commentEditActions}>
-                              <button type="button" className={tdStyles.secondaryBtn} onClick={cancelEditComment} disabled={savingCommentEdit}>
-                                {copy.common.cancel}
-                              </button>
-                              <button type="button" className={tdStyles.primaryBtn} onClick={saveEditComment} disabled={savingCommentEdit}>
-                                {savingCommentEdit ? <>
-                                    <Icon icon="mdi:loading" className={layout.spinning} aria-hidden />
-                                    {copy.common.saving}
-                                  </> : copy.common.save}
-                              </button>
-                            </div>
-                          </div> : comment.content ? <PortalRichContent content={comment.content} attachments={comment.attachments} className={`${tdStyles.commentBody} ${portalStyles.richHtml}`} /> : null}
-                        {Array.isArray(comment.attachments) && comment.attachments.length > 0 && !isIncomingEmailContent(comment.content) ? <div className={tdStyles.attachmentsList}>
-                            {comment.attachments.map(file => {
-                      const attachment = normalizePortalAttachment(file, copy.common.attachment);
-                      if (!attachment) return null;
-                      const label = attachment.file_name;
-                      const openTitle = `${label} ${copy.common.openInNewTab}`;
-                      if (isImageAttachment(attachment)) {
-                        return <a key={attachment.id || attachment.url} href={attachment.url} target="_blank" rel="noopener noreferrer" className={tdStyles.attachmentPreviewLink} title={openTitle}>
-                                    <img src={attachment.url} alt={label} className={tdStyles.attachmentPreviewImage} loading="lazy" />
+                          {isEditingComment ? <div className={tdStyles.commentEditBox}>
+                              <textarea className={tdStyles.commentEditEditor} value={editingCommentDraft} onChange={e => setEditingCommentDraft(e.target.value)} disabled={savingCommentEdit} rows={4} />
+                              <div className={tdStyles.commentEditActions}>
+                                <button type="button" className={tdStyles.secondaryBtn} onClick={cancelEditComment} disabled={savingCommentEdit}>
+                                  {copy.common.cancel}
+                                </button>
+                                <button type="button" className={tdStyles.primaryBtn} onClick={saveEditComment} disabled={savingCommentEdit}>
+                                  {savingCommentEdit ? <>
+                                      <Icon icon="mdi:loading" className={layout.spinning} aria-hidden />
+                                      {copy.common.saving}
+                                    </> : copy.common.save}
+                                </button>
+                              </div>
+                            </div> : comment.content ? <PortalRichContent content={comment.content} attachments={comment.attachments} className={`${tdStyles.commentBody} ${portalStyles.richHtml}`} /> : null}
+                          {Array.isArray(comment.attachments) && comment.attachments.length > 0 && !isIncomingEmailContent(comment.content) ? <div className={tdStyles.attachmentsList}>
+                              {comment.attachments.map(file => {
+                        const attachment = normalizePortalAttachment(file, copy.common.attachment);
+                        if (!attachment) return null;
+                        const label = attachment.file_name;
+                        const openTitle = `${label} ${copy.common.openInNewTab}`;
+                        if (isImageAttachment(attachment)) {
+                          return <a key={attachment.id || attachment.url} href={attachment.url} target="_blank" rel="noopener noreferrer" className={tdStyles.attachmentPreviewLink} title={openTitle}>
+                                      <img src={attachment.url} alt={label} className={tdStyles.attachmentPreviewImage} loading="lazy" />
+                                    </a>;
+                        }
+                        return <a key={attachment.id || attachment.url} href={attachment.url} target="_blank" rel="noopener noreferrer" className={tdStyles.attachmentLink} title={openTitle}>
+                                    <Icon icon="mdi:paperclip" aria-hidden />
+                                    {label}
                                   </a>;
-                      }
-                      return <a key={attachment.id || attachment.url} href={attachment.url} target="_blank" rel="noopener noreferrer" className={tdStyles.attachmentLink} title={openTitle}>
-                                  <Icon icon="mdi:paperclip" aria-hidden />
-                                  {label}
-                                </a>;
-                    })}
-                          </div> : null}
+                      })}
+                            </div> : null}
+                        </div>
                       </article>;
               })}
               </div>

@@ -69,6 +69,52 @@ function uniqueNonEmpty(values, limit = 3) {
   }
   return out;
 }
+
+/** Normalize CheckMK service/host state to 0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN. */
+function normalizeServiceStateNum(rawState) {
+  if (rawState == null || rawState === "") return null;
+  if (typeof rawState === "number" && Number.isFinite(rawState)) {
+    if (rawState >= 0 && rawState <= 3) return rawState;
+    return null;
+  }
+  const asString = String(rawState).trim();
+  if (!asString) return null;
+  const asInt = Number(asString);
+  if (Number.isFinite(asInt) && asInt >= 0 && asInt <= 3 && String(Math.trunc(asInt)) === asString) {
+    return Math.trunc(asInt);
+  }
+  const match =
+    asString.match(/\((OK|WARN(?:ING)?|CRIT(?:ICAL)?|UNKNOWN|UP|DOWN|UNREACH)\)/i) ||
+    asString.match(/\b(OK|WARN(?:ING)?|CRIT(?:ICAL)?|UNKNOWN|UP|DOWN|UNREACH(?:ABLE)?)\b/i);
+  if (match) {
+    const token = match[1].toUpperCase();
+    if (token === "OK" || token === "UP") return 0;
+    if (token === "WARN" || token === "WARNING") return 1;
+    if (token === "CRIT" || token === "CRITICAL" || token === "DOWN" || token === "UNREACH" || token === "UNREACHABLE") {
+      return 2;
+    }
+    return 3;
+  }
+  return parseEventStateRaw(rawState);
+}
+
+function getServiceStateNum(service) {
+  const candidates = [
+    service?.state,
+    service?.state_num,
+    service?.hard_state,
+    service?.soft_state,
+    service?.extensions?.state,
+    service?.attributes?.state,
+    Array.isArray(service?.raw) ? service.raw[1] : null
+  ];
+  for (const candidate of candidates) {
+    const n = normalizeServiceStateNum(candidate);
+    if (n != null) return n;
+  }
+  return 3;
+}
+
 export function computeMonitoringSummary(monitoringData, lastSyncedAt) {
   if (!monitoringData || typeof monitoringData !== 'object') {
     return {
@@ -87,8 +133,8 @@ export function computeMonitoringSummary(monitoringData, lastSyncedAt) {
   const services = Array.isArray(servicesRaw) ? servicesRaw : [];
   const eventsRaw = monitoringData?.events?.events ?? monitoringData?.events;
   const events = Array.isArray(eventsRaw) ? eventsRaw : [];
-  const critServiceRows = services.filter(s => (s.state ?? 3) === 2);
-  const warnServiceRows = services.filter(s => (s.state ?? 3) === 1);
+  const critServiceRows = services.filter(s => getServiceStateNum(s) === 2);
+  const warnServiceRows = services.filter(s => getServiceStateNum(s) === 1);
   const critServices = critServiceRows.length;
   const warnServices = warnServiceRows.length;
   const cutoff = Date.now() - RECENT_ALERT_DAYS * 24 * 60 * 60 * 1000;
@@ -99,8 +145,16 @@ export function computeMonitoringSummary(monitoringData, lastSyncedAt) {
   });
   const recentCritAlerts = recentAlertEvents.filter(e => getEventStateNum(e) === 2).length;
   const recentWarnAlerts = recentAlertEvents.filter(e => getEventStateNum(e) === 1).length;
+  const hostWorstRaw =
+    monitoringData?.hostDetails?.worst_service_state ??
+    monitoringData?.hostDetails?.worstServiceState ??
+    monitoringData?.host_details?.worst_service_state ??
+    monitoringData?.host?.worst_service_state ??
+    null;
+  const hostWorst = normalizeServiceStateNum(hostWorstRaw);
   let status = 'ok';
-  if (critServices > 0 || recentCritAlerts > 0) status = 'critical';else if (warnServices > 0 || recentWarnAlerts > 0) status = 'warning';
+  if (critServices > 0 || recentCritAlerts > 0 || hostWorst === 2) status = 'critical';
+  else if (warnServices > 0 || recentWarnAlerts > 0 || hostWorst === 1) status = 'warning';
   let failingServices = uniqueNonEmpty(
     (critServiceRows.length ? critServiceRows : warnServiceRows).map(serviceDisplayName)
   );

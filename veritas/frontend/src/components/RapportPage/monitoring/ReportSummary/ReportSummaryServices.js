@@ -3,6 +3,7 @@ import { Icon as IconifyIcon } from "@iconify/react";
 import { getLicenseDisplayName, isFreeLicense } from "../../../ServicePage/TenantDetailTabs/utils";
 import infraStyles from "./ReportSummaryInfrastructure.module.css";
 import { REPORT_SERVICES_MODULES, sumEquipmentCountsForModules } from "./reportCategoryCounts";
+import { ReportSummarySection } from "./ReportSummaryBlocks";
 import { getClientMfaDetails } from "../../../../api/clientOffice365";
 import { filterExchangeDataByPeriod, filterTeamsDataByPeriod } from "../../../ServicePage/TenantDetailTabs/office365Period";
 function formatDate(value) {
@@ -203,7 +204,8 @@ export default function ReportSummaryServices({
   client,
   equipmentComments = {},
   equipmentCommentCounts = {},
-  equipmentTicketCounts = {}
+  equipmentTicketCounts = {},
+  embedded = false
 }) {
   const modules = client?.modules_monitoring || {};
   const clientId = client?.id ?? client?.uuid ?? null;
@@ -414,32 +416,21 @@ export default function ReportSummaryServices({
   }, [o365Data]);
   const servicesCommentTotal = useMemo(() => sumEquipmentCountsForModules(equipmentCommentCounts, REPORT_SERVICES_MODULES, equipmentComments), [equipmentCommentCounts, equipmentComments]);
   const servicesTicketTotal = useMemo(() => sumEquipmentCountsForModules(equipmentTicketCounts, REPORT_SERVICES_MODULES, equipmentComments), [equipmentTicketCounts, equipmentComments]);
-  return <div className={infraStyles.root}>
-      {modules.Office365 && <div className={infraStyles.overviewContainer}>
+  const Wrapper = embedded ? React.Fragment : "div";
+  const wrapperProps = embedded ? {} : { className: infraStyles.root };
+  return <Wrapper {...wrapperProps}>
+      {!embedded && modules.Office365 ? <div className={infraStyles.overviewContainer}>
           <ServicesNotificationLegend commentTotal={servicesCommentTotal} ticketTotal={servicesTicketTotal} />
-        </div>}
+        </div> : null}
 
-      {}
-      {modules.Office365 && <section className={infraStyles.section}>
-        <div className={infraStyles.sectionHeader}>
-          <div className={infraStyles.sectionTitleWrapper}>
-            <span className={infraStyles.sectionIcon}>
-              <IconifyIcon icon="mdi:microsoft-office" width={34} height={34} color="#f97316" />
-            </span>
-            <div>
-              <h4 className={infraStyles.sectionTitle}>Office 365</h4>
-              <div className={infraStyles.sectionSubtitle}>
-                Microsoft 365 — licences et statistiques utilisateurs
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className={infraStyles.sectionTitleSeparator} />
-
+      {modules.Office365 && <ReportSummarySection
+        icon="mdi:microsoft-office"
+        title="Office 365"
+        subtitle="Microsoft 365 — licences et statistiques utilisateurs"
+      >
         {!o365Data ? <div className={infraStyles.infraTableEmpty}>
             Aucune donnée Office 365 disponible pour ce client.
           </div> : <>
-            {}
             {o365Data.usersKpi && o365Data.usersKpi.totalUsers > 0 && <div style={{
           marginTop: "0.75rem"
         }}>
@@ -1229,25 +1220,13 @@ export default function ReportSummaryServices({
               </section>}
 
           </>}
-      </section>}
+      </ReportSummarySection>}
 
-      {}
-      {modules.NDD && <section className={infraStyles.section}>
-        <div className={infraStyles.sectionHeader}>
-          <div className={infraStyles.sectionTitleWrapper}>
-            <span className={infraStyles.sectionIcon}>
-              <IconifyIcon icon="mdi:domain" width={34} height={34} color="#8b5cf6" />
-            </span>
-            <div>
-              <h4 className={infraStyles.sectionTitle}>Noms de domaine</h4>
-              <div className={infraStyles.sectionSubtitle}>
-                Inventaire des domaines et dates d&apos;expiration
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className={infraStyles.sectionTitleSeparator} />
-
+      {modules.NDD && <ReportSummarySection
+        icon="mdi:domain"
+        title="Noms de domaine"
+        subtitle="Inventaire des domaines et dates d'expiration"
+      >
         {domains.length === 0 ? <div className={infraStyles.infraTableEmpty}>
             Aucun nom de domaine enregistré pour ce client.
           </div> : (() => {
@@ -1371,6 +1350,6 @@ export default function ReportSummaryServices({
           })}
               </div>;
       })()}
-      </section>}
-    </div>;
+      </ReportSummarySection>}
+    </Wrapper>;
 }

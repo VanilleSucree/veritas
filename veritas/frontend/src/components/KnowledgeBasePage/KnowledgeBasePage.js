@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PageGuideTour from "../PageGuide/PageGuideTour";
 import { getKnowledgeBaseGuide } from "../PageGuide/knowledgeBaseGuideSteps";
 import { useRegisterPageGuide } from "../../hooks/useRegisterPageGuide";
@@ -11,7 +11,7 @@ import { interpolate } from "../../i18n/translate";
 import { formatPageInfo } from "../../i18n/commonI18n";
 import { useCommonCopy } from "../../hooks/useCommonCopy";
 import { useDefaultPageSize } from "../../hooks/useDefaultPageSize";
-import { createKnowledgeArticle, createKnowledgeFolder, deleteKnowledgeArticle, deleteKnowledgeArticles, deleteKnowledgeFolder, fetchKnowledgeArticles, fetchKnowledgeCategories, fetchKnowledgeFolders, moveKnowledgeArticles, updateKnowledgeFolder } from "../../api/knowledgeBase";
+import { createKnowledgeArticle, createKnowledgeFolder, deleteKnowledgeArticle, deleteKnowledgeArticles, deleteKnowledgeFolder, fetchKnowledgeArticles, fetchKnowledgeCategories, fetchKnowledgeEmojis, fetchKnowledgeFolders, moveKnowledgeArticles, updateKnowledgeFolder } from "../../api/knowledgeBase";
 import ConfirmModal from "../Misc/ConfirmModal/ConfirmModal";
 import MspPageHero from "../Misc/MspPageHero/MspPageHero";
 import SmartTooltip from "../SmartTooltip";
@@ -20,6 +20,7 @@ import layout from "../EnterprisesPage/EnterprisesPage.module.css";
 import { getKnowledgeBaseCopy } from "./knowledgeBaseI18n";
 import KnowledgeArticleEditor from "./KnowledgeArticleEditor";
 import KnowledgeCategoryModal from "./KnowledgeCategoryModal";
+import KnowledgeEmojiModal from "./KnowledgeEmojiModal";
 import KnowledgeFolderModal from "./KnowledgeFolderModal";
 import KnowledgeFolderTree, { flattenFolderOptions } from "./KnowledgeFolderTree";
 import { articleTemplates, templateToHtml } from "./knowledgeArticleHelpers";
@@ -76,6 +77,9 @@ export default function KnowledgeBasePage({ onNavigate }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [folderTree, setFolderTree] = useState([]);
+  const [navArticles, setNavArticles] = useState([]);
+  const [navEmojis, setNavEmojis] = useState([]);
+  const [emojiModal, setEmojiModal] = useState(false);
   const [currentFolder, setCurrentFolder] = useState("all");
   const [folderModal, setFolderModal] = useState(null);
   const [folderBusy, setFolderBusy] = useState(false);
@@ -84,6 +88,7 @@ export default function KnowledgeBasePage({ onNavigate }) {
   const [categories, setCategories] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [categoryModal, setCategoryModal] = useState(false);
+  const searchInputRef = useRef(null);
 
   const loadFolders = useCallback(async () => {
     try {
@@ -91,6 +96,29 @@ export default function KnowledgeBasePage({ onNavigate }) {
       setFolderTree(result.tree || []);
     } catch {
       setFolderTree([]);
+    }
+  }, []);
+
+  const loadNavArticles = useCallback(async () => {
+    try {
+      const rows = await fetchKnowledgeArticles({ status: "all" });
+      setNavArticles((rows || []).map(row => ({
+        id: row.id,
+        title: row.title,
+        folderId: row.folderId || null,
+        status: row.status,
+        icon: row.icon || null
+      })));
+    } catch {
+      setNavArticles([]);
+    }
+  }, []);
+
+  const loadNavEmojis = useCallback(async () => {
+    try {
+      setNavEmojis(await fetchKnowledgeEmojis());
+    } catch {
+      setNavEmojis([]);
     }
   }, []);
 
@@ -127,8 +155,10 @@ export default function KnowledgeBasePage({ onNavigate }) {
   useEffect(() => {
     if (articleId) return undefined;
     loadFolders();
+    loadNavArticles();
+    loadNavEmojis();
     loadCategories();
-  }, [loadFolders, loadCategories, articleId]);
+  }, [loadFolders, loadNavArticles, loadNavEmojis, loadCategories, articleId]);
 
   useEffect(() => {
     if (articleId) return undefined;
@@ -195,12 +225,13 @@ export default function KnowledgeBasePage({ onNavigate }) {
         return next;
       });
       await load();
+      await loadNavArticles();
     } catch (err) {
       toast.error(err.message || copy.deleteError);
     } finally {
       setDeleting(false);
     }
-  }, [confirmDelete, copy.deleted, copy.deleteError, load]);
+  }, [confirmDelete, copy.deleted, copy.deleteError, load, loadNavArticles]);
 
   const confirmBulkDelete = useCallback(async () => {
     const ids = [...selected];
@@ -218,18 +249,19 @@ export default function KnowledgeBasePage({ onNavigate }) {
       setConfirmDelete(null);
       setSelected(new Set());
       await load();
+      await loadNavArticles();
     } catch (err) {
       toast.error(err.message || copy.bulkDeleteError);
     } finally {
       setDeleting(false);
     }
-  }, [selected, copy.bulkDeleted, copy.bulkDeletePartial, copy.bulkDeleteError, load]);
+  }, [selected, copy.bulkDeleted, copy.bulkDeletePartial, copy.bulkDeleteError, load, loadNavArticles]);
 
   const saveFolder = useCallback(async (payload) => {
     setFolderBusy(true);
     try {
       if (folderModal?.mode === "create") {
-        await createKnowledgeFolder({ name: payload.name, parentId: folderModal.parentId });
+        await createKnowledgeFolder({ name: payload.name, parentId: folderModal.parentId, icon: payload.icon });
         toast.success(copy.folderCreated);
       } else if (folderModal?.folder?.id) {
         await updateKnowledgeFolder(folderModal.folder.id, payload);
@@ -254,12 +286,13 @@ export default function KnowledgeBasePage({ onNavigate }) {
       setConfirmFolderDelete(null);
       await loadFolders();
       await load();
+      await loadNavArticles();
     } catch (err) {
       toast.error(err.message || copy.folderError);
     } finally {
       setFolderBusy(false);
     }
-  }, [confirmFolderDelete, currentFolder, copy.folderDeleted, copy.folderError, loadFolders, load]);
+  }, [confirmFolderDelete, currentFolder, copy.folderDeleted, copy.folderError, loadFolders, load, loadNavArticles]);
 
   const moveSelected = useCallback(async () => {
     const ids = [...selected];
@@ -271,10 +304,11 @@ export default function KnowledgeBasePage({ onNavigate }) {
       setMoveTarget("");
       await loadFolders();
       await load();
+      await loadNavArticles();
     } catch (err) {
       toast.error(err.message || copy.moveError);
     }
-  }, [selected, moveTarget, copy.moved, copy.moveError, loadFolders, load]);
+  }, [selected, moveTarget, copy.moved, copy.moveError, loadFolders, load, loadNavArticles]);
 
   const folderOptions = useMemo(() => flattenFolderOptions(folderTree), [folderTree]);
 
@@ -357,8 +391,18 @@ export default function KnowledgeBasePage({ onNavigate }) {
               copy={copy}
               tree={folderTree}
               currentFolder={currentFolder}
+              status={status}
+              articles={navArticles}
+              emojis={navEmojis}
               canManage={canEdit}
               onSelect={setCurrentFolder}
+              onStatusChange={setStatus}
+              onSearchFocus={() => {
+                searchInputRef.current?.focus();
+                searchInputRef.current?.select?.();
+              }}
+              onOpenArticle={openArticle}
+              onManageEmojis={() => setEmojiModal(true)}
               onCreate={parentId => setFolderModal({ mode: "create", parentId })}
               onRename={node => setFolderModal({ mode: "rename", folder: node })}
               onShare={node => setFolderModal({ mode: "share", folder: node })}
@@ -373,6 +417,7 @@ export default function KnowledgeBasePage({ onNavigate }) {
               </label>
             ) : null : null}
             <input
+              ref={searchInputRef}
               className={`${styles.search} ${styles.toolbarSearch}`}
               value={search}
               onChange={event => setSearch(event.target.value)}
@@ -604,6 +649,13 @@ export default function KnowledgeBasePage({ onNavigate }) {
           loadCategories();
           load();
         }}
+      />
+      <KnowledgeEmojiModal
+        open={emojiModal}
+        copy={copy}
+        canManage={canEdit}
+        onClose={() => setEmojiModal(false)}
+        onChanged={() => loadNavEmojis()}
       />
       {templateOpen ? (
         <div className={styles.modalOverlay} onClick={() => { if (!creating) setTemplateOpen(false); }}>

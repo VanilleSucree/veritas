@@ -50,6 +50,12 @@
   width: 100%;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+
+.pageColumn .content > :global(*) {
+  flex: 1;
+  min-height: 0;
 }
 
 .brandMarkSupervision {

@@ -671,157 +671,170 @@ export default function TicketChatPanel({
             const isDeletingComment = String(deletingCommentId) === String(comment.id);
             return (
               <article key={comment.id || `${comment.created_at}-${author}`} className={`${styles.commentItem} ${internal ? styles.commentItemInternal : ""}`.trim()}>
-                <div className={styles.commentHeader}>
-                  <div className={styles.commentHeaderMain}>
-                    <UserAvatar name={author} size={26} variant={internal ? "neutral" : "agent"} />
-                    <div className={styles.commentMeta}>
-                      <span className={styles.commentAuthor}>{author}</span>
-                    </div>
-                  </div>
-                  <div className={styles.commentHeaderRight}>
-                    <span className={styles.commentTimestamp}>
-                      {formatDateTime?.(comment.created_at || comment.createdAt)}
-                      {isCommentEdited(comment) ? <span className={styles.commentEditedMark}>{copy.comment.editedMark}</span> : null}
-                    </span>
-                    {internal ? (
-                      <span className={styles.commentInternal} title={copy.comment?.privateTitle || copy.reply.modePrivate}>
-                        <Icon icon="mdi:lock-outline" />
-                      </span>
-                    ) : null}
-                    {showEditAction && !isEditingComment ? (
-                      <SmartTooltip content={copy.comment.editTooltip}>
-                        <button type="button" className={styles.commentEditBtn} onClick={() => startEditComment(comment)} disabled={disabled} aria-label={copy.comment.editAria}>
-                          <Icon icon="mdi:pencil-outline" />
-                        </button>
-                      </SmartTooltip>
-                    ) : null}
-                    {showDeleteAction && !isEditingComment ? (
-                      <SmartTooltip content={copy.comment.deleteTooltip}>
-                        <button
-                          type="button"
-                          className={styles.commentDeleteBtn}
-                          onClick={() => deleteComment(comment.id)}
-                          disabled={disabled || isDeletingComment}
-                          aria-label={copy.comment.deleteAria}
-                        >
-                          <Icon icon="mdi:trash-can-outline" />
-                        </button>
-                      </SmartTooltip>
-                    ) : null}
-                  </div>
-                </div>
-
-                {isEditingComment ? (
-                  <div className={styles.commentEditBox}>
-                    <div
-                      ref={commentEditEditorRef}
-                      className={styles.commentEditEditor}
-                      contentEditable={!disabled && !savingCommentEdit}
-                      suppressContentEditableWarning
-                      onInput={e => setEditingCommentDraft(e.currentTarget?.innerHTML || "")}
-                      style={{
-                        minHeight: "96px",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto"
-                      }}
-                    />
-                    {attachments.length > 0 ? (
-                      <div className={styles.commentEditAttachments}>
-                        {attachments.map((attachment, attachmentIndex) => {
-                          const removalKey = getAttachmentRemovalKey(attachment) || `index:${attachmentIndex}`;
-                          const isMarkedForRemoval = isAttachmentMarkedForRemoval(attachment, editingCommentRemovedAttachmentKeys);
-                          const attachmentLabel = attachment.filename || attachment.name || copy.attachmentDefault || "file";
-                          return (
-                            <div key={removalKey} className={`${styles.commentEditAttachmentItem} ${isMarkedForRemoval ? styles.commentEditAttachmentItemRemoved : ""}`.trim()}>
-                              <Icon icon="mdi:paperclip" className={styles.commentEditAttachmentIcon} />
-                              <span className={styles.commentEditAttachmentName}>{attachmentLabel}</span>
-                              {canDeleteAttachments ? (
-                                <button
-                                  type="button"
-                                  className={styles.commentEditAttachmentRemoveBtn}
-                                  onClick={() => toggleEditingCommentAttachmentRemoval(attachment)}
-                                  disabled={savingCommentEdit || disabled}
-                                  aria-label={
-                                    isMarkedForRemoval
-                                      ? interpolate(copy.comment.editKeepAttachmentAria, { name: attachmentLabel })
-                                      : interpolate(copy.comment.editRemoveAttachmentAria, { name: attachmentLabel })
-                                  }
-                                  title={isMarkedForRemoval ? copy.comment.editUndoRemoveTitle : copy.comment.editRemoveTitle}
-                                >
-                                  <Icon icon={isMarkedForRemoval ? "mdi:undo" : "mdi:close"} />
-                                </button>
-                              ) : null}
-                            </div>
-                          );
-                        })}
+                <UserAvatar
+                  className={styles.commentAvatarSide}
+                  name={author}
+                  size={40}
+                  variant={internal ? "neutral" : "agent"}
+                />
+                <div className={styles.commentBubble}>
+                  <div className={styles.commentHeader}>
+                    <div className={styles.commentHeaderMain}>
+                      <div className={styles.commentMetaStrip}>
+                        <span className={styles.commentMetaLabel}>{copy.comment.createdLabel}</span>
+                        <span className={styles.commentMetaValue}>
+                          <Icon icon="mdi:clock-outline" aria-hidden />
+                          {formatDateTime?.(comment.created_at || comment.createdAt)}
+                          {isCommentEdited(comment) ? <span className={styles.commentEditedMark}>{copy.comment.editedMark}</span> : null}
+                        </span>
+                        <span className={styles.commentMetaLabel}>{copy.comment.byLabel}</span>
+                        <span className={styles.commentMetaAuthor}>
+                          <Icon icon="mdi:account-outline" aria-hidden />
+                          {author}
+                        </span>
+                        {internal ? (
+                          <span className={styles.commentInternal} title={copy.comment?.privateTitle || copy.reply.modePrivate}>
+                            <Icon icon="mdi:lock-outline" />
+                          </span>
+                        ) : null}
                       </div>
-                    ) : null}
-                    <div className={styles.commentEditActions}>
-                      <button
-                        type="button"
-                        className={`${styles.replyModeBtn} ${styles.commentEditVisibility} ${editingCommentInternal ? styles.replyModeBtnPrivate : ""}`.trim()}
-                        onClick={() => {
-                          if (!canPublicReply) {
-                            setEditingCommentInternal(true);
-                            return;
-                          }
-                          setEditingCommentInternal(prev => !prev);
-                        }}
-                        disabled={savingCommentEdit || disabled || !canPublicReply}
-                        title={editingCommentInternal ? copy.reply.modePrivateTitle : copy.reply.modePublicTitle}
-                      >
-                        <Icon icon={editingCommentInternal ? "mdi:lock-outline" : "mdi:earth"} />
-                        {editingCommentInternal ? copy.reply.modePrivate : copy.reply.modePublic}
-                      </button>
-                      <button type="button" className={styles.commentEditSaveBtn} onClick={saveEditComment} disabled={savingCommentEdit || disabled}>
-                        {savingCommentEdit ? copy.comment.editSaving : copy.comment.editSave}
-                      </button>
-                      <button type="button" className={styles.commentEditCancelBtn} onClick={cancelEditComment} disabled={savingCommentEdit}>
-                        {copy.comment.editCancel}
-                      </button>
                     </div>
-                  </div>
-                ) : isIncomingEmailContent(comment.content || comment.body || "") ? (
-                  <div className={styles.commentBody}>
-                    <IncomingEmailMessage content={comment.content || comment.body || ""} attachments={attachments} attachmentLinkClassName={styles.attachmentLink} />
-                  </div>
-                ) : (
-                  <div
-                    className={styles.commentBody}
-                    onClick={handleInlineImageClick}
-                    dangerouslySetInnerHTML={{
-                      __html: toRichPreviewHtml(comment.content || comment.body || "")
-                    }}
-                  />
-                )}
-
-                {!isEditingComment && attachments.length > 0 && !isIncomingEmailContent(comment.content || comment.body || "") ? (
-                  <div className={styles.attachmentsList}>
-                    {attachments.map(attachment => {
-                      const attachmentUrl = attachment.url || attachment.path;
-                      if (!attachmentUrl) return null;
-                      const attachmentLabel = attachment.filename || attachment.name || "file";
-                      if (isImageAttachment(attachment)) {
-                        return (
+                    <div className={styles.commentHeaderRight}>
+                      {showEditAction && !isEditingComment ? (
+                        <SmartTooltip content={copy.comment.editTooltip}>
+                          <button type="button" className={styles.commentEditBtn} onClick={() => startEditComment(comment)} disabled={disabled} aria-label={copy.comment.editAria}>
+                            <Icon icon="mdi:pencil-outline" />
+                          </button>
+                        </SmartTooltip>
+                      ) : null}
+                      {showDeleteAction && !isEditingComment ? (
+                        <SmartTooltip content={copy.comment.deleteTooltip}>
                           <button
                             type="button"
-                            key={attachment.id || attachmentUrl}
-                            className={styles.attachmentPreviewLink}
-                            onClick={() => openImageLightbox(attachmentUrl, attachmentLabel)}
+                            className={styles.commentDeleteBtn}
+                            onClick={() => deleteComment(comment.id)}
+                            disabled={disabled || isDeletingComment}
+                            aria-label={copy.comment.deleteAria}
                           >
-                            <img src={attachmentUrl} alt={attachmentLabel} className={styles.attachmentPreviewImage} loading="lazy" />
+                            <Icon icon="mdi:trash-can-outline" />
                           </button>
-                        );
-                      }
-                      return (
-                        <a key={attachment.id || attachmentUrl} href={attachmentUrl} target="_blank" rel="noopener noreferrer" className={styles.attachmentLink}>
-                          <Icon icon="mdi:paperclip" />
-                          {attachmentLabel}
-                        </a>
-                      );
-                    })}
+                        </SmartTooltip>
+                      ) : null}
+                    </div>
                   </div>
-                ) : null}
+
+                  {isEditingComment ? (
+                    <div className={styles.commentEditBox}>
+                      <div
+                        ref={commentEditEditorRef}
+                        className={styles.commentEditEditor}
+                        contentEditable={!disabled && !savingCommentEdit}
+                        suppressContentEditableWarning
+                        onInput={e => setEditingCommentDraft(e.currentTarget?.innerHTML || "")}
+                        style={{
+                          minHeight: "96px",
+                          whiteSpace: "pre-wrap",
+                          overflowY: "auto"
+                        }}
+                      />
+                      {attachments.length > 0 ? (
+                        <div className={styles.commentEditAttachments}>
+                          {attachments.map((attachment, attachmentIndex) => {
+                            const removalKey = getAttachmentRemovalKey(attachment) || `index:${attachmentIndex}`;
+                            const isMarkedForRemoval = isAttachmentMarkedForRemoval(attachment, editingCommentRemovedAttachmentKeys);
+                            const attachmentLabel = attachment.filename || attachment.name || copy.attachmentDefault || "file";
+                            return (
+                              <div key={removalKey} className={`${styles.commentEditAttachmentItem} ${isMarkedForRemoval ? styles.commentEditAttachmentItemRemoved : ""}`.trim()}>
+                                <Icon icon="mdi:paperclip" className={styles.commentEditAttachmentIcon} />
+                                <span className={styles.commentEditAttachmentName}>{attachmentLabel}</span>
+                                {canDeleteAttachments ? (
+                                  <button
+                                    type="button"
+                                    className={styles.commentEditAttachmentRemoveBtn}
+                                    onClick={() => toggleEditingCommentAttachmentRemoval(attachment)}
+                                    disabled={savingCommentEdit || disabled}
+                                    aria-label={
+                                      isMarkedForRemoval
+                                        ? interpolate(copy.comment.editKeepAttachmentAria, { name: attachmentLabel })
+                                        : interpolate(copy.comment.editRemoveAttachmentAria, { name: attachmentLabel })
+                                    }
+                                    title={isMarkedForRemoval ? copy.comment.editUndoRemoveTitle : copy.comment.editRemoveTitle}
+                                  >
+                                    <Icon icon={isMarkedForRemoval ? "mdi:undo" : "mdi:close"} />
+                                  </button>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <div className={styles.commentEditActions}>
+                        <button
+                          type="button"
+                          className={`${styles.replyModeBtn} ${styles.commentEditVisibility} ${editingCommentInternal ? styles.replyModeBtnPrivate : ""}`.trim()}
+                          onClick={() => {
+                            if (!canPublicReply) {
+                              setEditingCommentInternal(true);
+                              return;
+                            }
+                            setEditingCommentInternal(prev => !prev);
+                          }}
+                          disabled={savingCommentEdit || disabled || !canPublicReply}
+                          title={editingCommentInternal ? copy.reply.modePrivateTitle : copy.reply.modePublicTitle}
+                        >
+                          <Icon icon={editingCommentInternal ? "mdi:lock-outline" : "mdi:earth"} />
+                          {editingCommentInternal ? copy.reply.modePrivate : copy.reply.modePublic}
+                        </button>
+                        <button type="button" className={styles.commentEditSaveBtn} onClick={saveEditComment} disabled={savingCommentEdit || disabled}>
+                          {savingCommentEdit ? copy.comment.editSaving : copy.comment.editSave}
+                        </button>
+                        <button type="button" className={styles.commentEditCancelBtn} onClick={cancelEditComment} disabled={savingCommentEdit}>
+                          {copy.comment.editCancel}
+                        </button>
+                      </div>
+                    </div>
+                  ) : isIncomingEmailContent(comment.content || comment.body || "") ? (
+                    <div className={styles.commentBody}>
+                      <IncomingEmailMessage content={comment.content || comment.body || ""} attachments={attachments} attachmentLinkClassName={styles.attachmentLink} />
+                    </div>
+                  ) : (
+                    <div
+                      className={styles.commentBody}
+                      onClick={handleInlineImageClick}
+                      dangerouslySetInnerHTML={{
+                        __html: toRichPreviewHtml(comment.content || comment.body || "")
+                      }}
+                    />
+                  )}
+
+                  {!isEditingComment && attachments.length > 0 && !isIncomingEmailContent(comment.content || comment.body || "") ? (
+                    <div className={styles.attachmentsList}>
+                      {attachments.map(attachment => {
+                        const attachmentUrl = attachment.url || attachment.path;
+                        if (!attachmentUrl) return null;
+                        const attachmentLabel = attachment.filename || attachment.name || "file";
+                        if (isImageAttachment(attachment)) {
+                          return (
+                            <button
+                              type="button"
+                              key={attachment.id || attachmentUrl}
+                              className={styles.attachmentPreviewLink}
+                              onClick={() => openImageLightbox(attachmentUrl, attachmentLabel)}
+                            >
+                              <img src={attachmentUrl} alt={attachmentLabel} className={styles.attachmentPreviewImage} loading="lazy" />
+                            </button>
+                          );
+                        }
+                        return (
+                          <a key={attachment.id || attachmentUrl} href={attachmentUrl} target="_blank" rel="noopener noreferrer" className={styles.attachmentLink}>
+                            <Icon icon="mdi:paperclip" />
+                            {attachmentLabel}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               </article>
             );
           })}

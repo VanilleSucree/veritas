@@ -4,18 +4,36 @@
   box-sizing: border-box;
 }
 
+/* Pull out of .mainScroll uneven padding, then re-apply a single equal inset. */
 .portalDetailShell {
+  --portal-detail-inset: 12px;
+  box-sizing: border-box;
   flex: 1;
   min-height: 0;
-  padding: 0.75rem 1rem 1rem;
+  width: auto;
+  max-width: none;
+  margin: calc(var(--portal-scroll-pad-top, 20px) * -1)
+    calc(var(--portal-scroll-pad-x, 24px) * -1)
+    calc(var(--portal-scroll-pad-bottom, 32px) * -1);
+  height: calc(
+    100% + var(--portal-scroll-pad-top, 20px) + var(--portal-scroll-pad-bottom, 32px)
+  );
+  padding: var(--portal-detail-inset) !important;
+  gap: var(--portal-detail-inset);
+}
+
+@media (max-width: 768px) {
+  .portalDetailShell {
+    --portal-detail-inset: 10px;
+  }
 }
 
 .portalWorkspace {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  gap: 0.65rem;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: var(--portal-detail-inset, 12px);
   align-items: stretch;
 }
 
@@ -23,9 +41,17 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding: 0.75rem 0.85rem !important;
+  box-sizing: border-box;
+}
+
+.portalTimelineWrap {
+  flex: 1;
+  min-height: 0;
 }
 
 .portalChatTopBanners {
@@ -76,6 +102,7 @@
 .portalTicketAside {
   min-width: 0;
   min-height: 0;
+  height: 100%;
   border: 1px solid var(--portal-border, #e4e8ee);
   border-radius: var(--msp-radius, 16px);
   background: var(--portal-surface, #fff);

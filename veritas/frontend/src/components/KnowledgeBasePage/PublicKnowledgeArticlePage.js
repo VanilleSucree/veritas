@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { fetchPublicKnowledgeArticle, resolveKnowledgeHtml } from "../../api/knowledgeBase";
+import { fetchPublicKnowledgeArticle, fetchPublicKnowledgeEmojis, resolveKnowledgeEmojiUrl, resolveKnowledgeHtml } from "../../api/knowledgeBase";
 import { useAppLocale } from "../../hooks/useAppGeneralSettings";
 import { sanitizeHtml } from "../../utils/sanitizeHtml";
 import { extractHeadings, withHeadingIds } from "../KnowledgeBasePage/knowledgeArticleHelpers";
+import { buildEmojiMap, expandEmojiShortcodesInHtml, renderEmojiShortcodes } from "../KnowledgeBasePage/knowledgeEmojiHelpers";
 import { KNOWLEDGE_ARTICLE_HTML_CONFIG } from "../KnowledgeBasePage/knowledgeEditorNodes";
 import { getKnowledgeBaseCopy } from "../KnowledgeBasePage/knowledgeBaseI18n";
 import kbStyles from "../KnowledgeBasePage/knowledgeBase.module.css";
@@ -22,6 +23,7 @@ export default function PublicKnowledgeArticlePage() {
   const locale = useAppLocale();
   const copy = useMemo(() => getKnowledgeBaseCopy(locale), [locale]);
   const [article, setArticle] = useState(null);
+  const [emojis, setEmojis] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,8 +31,14 @@ export default function PublicKnowledgeArticlePage() {
     (async () => {
       setLoading(true);
       try {
-        const loaded = await fetchPublicKnowledgeArticle(token);
-        if (!cancelled) setArticle(loaded);
+        const [loaded, emojiRows] = await Promise.all([
+          fetchPublicKnowledgeArticle(token),
+          fetchPublicKnowledgeEmojis().catch(() => [])
+        ]);
+        if (!cancelled) {
+          setArticle(loaded);
+          setEmojis(emojiRows);
+        }
       } catch {
         if (!cancelled) setArticle(null);
       } finally {
@@ -40,17 +48,29 @@ export default function PublicKnowledgeArticlePage() {
     return () => { cancelled = true; };
   }, [token]);
 
+  const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
   const headings = useMemo(() => extractHeadings(withHeadingIds(article?.contentHtml)), [article?.contentHtml]);
   const html = useMemo(() => {
     if (!article) return "";
-    return sanitizeHtml(resolveKnowledgeHtml(withHeadingIds(article.contentHtml)), KNOWLEDGE_ARTICLE_HTML_CONFIG);
-  }, [article]);
+    return sanitizeHtml(
+      expandEmojiShortcodesInHtml(resolveKnowledgeHtml(withHeadingIds(article.contentHtml)), emojiMap),
+      KNOWLEDGE_ARTICLE_HTML_CONFIG
+    );
+  }, [article, emojiMap]);
+  const titleHtml = useMemo(
+    () => renderEmojiShortcodes(article?.title || copy.publicPageNotFound, emojiMap),
+    [article?.title, copy.publicPageNotFound, emojiMap]
+  );
+  const iconEmoji = article?.icon ? emojiMap.get(String(article.icon).toLowerCase()) : null;
 
   return (
     <div className={styles.page}>
       <header className={styles.top}>
         <span className={styles.eyebrow}>{copy.publicPageEyebrow}</span>
-        <h1 className={styles.title}>{article?.title || copy.publicPageNotFound}</h1>
+        <div className={kbStyles.readerTitleRow}>
+          {iconEmoji ? <img src={resolveKnowledgeEmojiUrl(iconEmoji)} alt="" className={kbStyles.pageIconLarge} /> : null}
+          <h1 className={styles.title} dangerouslySetInnerHTML={{ __html: titleHtml }} />
+        </div>
         {article?.category ? <span className={styles.cat}>{article.category}</span> : null}
         {article?.updatedAt || article?.publishedAt ? (
           <p className={styles.meta}>{copy.publicPageUpdated} {formatDate(article.updatedAt || article.publishedAt, locale)}</p>

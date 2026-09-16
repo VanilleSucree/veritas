@@ -31,8 +31,8 @@ const COPY = {
         content: "Suivez le volume total, les brouillons encore à publier et les articles déjà en ligne."
       },
       folders: {
-        title: "Dossiers",
-        content: "Organisez la base en arborescence. Sélectionnez un dossier pour filtrer, ou créez / renommez / partagez un dossier selon vos droits."
+        title: "Navigation",
+        content: "Accueil, recherche et brouillons en un clic. Sous Collections, parcourez l’arborescence et ouvrez un article directement depuis le menu."
       },
       toolbar: {
         title: "Recherche et filtres",
@@ -56,8 +56,8 @@ const COPY = {
         content: "Track the total volume, drafts still to publish and articles already live."
       },
       folders: {
-        title: "Folders",
-        content: "Organise the base as a tree. Select a folder to filter, or create / rename / share a folder according to your rights."
+        title: "Navigation",
+        content: "Home, search and drafts in one click. Under Collections, browse the tree and open an article directly from the menu."
       },
       toolbar: {
         title: "Search and filters",

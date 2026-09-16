@@ -1,0 +1,387 @@
+.executiveRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.executiveHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.executiveTitle {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--msp-text, #0f1c2e);
+  font-family: "Montserrat", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+.executiveClient {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--msp-text, #0f1c2e);
+}
+
+.executiveMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.executivePeriod {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(43, 95, 171, 0.12);
+  color: var(--msp-accent, #2b5fab);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.executiveBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #4b5563;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.overviewTitle {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--msp-text, #0f1c2e);
+}
+
+.overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.overviewCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.05rem;
+  border-radius: 12px;
+  border: 1px solid var(--msp-border, #d5dee9);
+  background: var(--msp-surface, #ffffff);
+  min-height: 108px;
+}
+
+.overviewCardHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--msp-muted, #5c6b82);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.overviewCardValue {
+  font-size: 1.65rem;
+  font-weight: 750;
+  line-height: 1.15;
+  color: var(--msp-text, #0f1c2e);
+}
+
+.overviewCardValueOk {
+  color: #059669;
+}
+
+.overviewCardValueWarn {
+  color: #d97706;
+}
+
+.overviewCardValueCritical {
+  color: #dc2626;
+}
+
+.overviewCardHint {
+  font-size: 0.78rem;
+  color: var(--msp-muted, #5c6b82);
+  line-height: 1.35;
+}
+
+.synthesisBlock {
+  margin: 0;
+  padding: 0.85rem 1rem 0.85rem 1.05rem;
+  border-left: 4px solid #94a3b8;
+  color: var(--msp-text, #0f1c2e);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 0 10px 10px 0;
+}
+
+.synthesisLabel {
+  font-weight: 700;
+}
+
+.sectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: var(--msp-text, #0f1c2e);
+}
+
+.sectionLead {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: #d97706;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.sectionLeadOk {
+  color: #059669;
+}
+
+.watchTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--msp-border, #d5dee9);
+  border-radius: 10px;
+}
+
+.watchTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.watchTable th {
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--msp-muted, #5c6b82);
+  background: #f8fafc;
+  border-bottom: 1px solid var(--msp-border, #d5dee9);
+}
+
+.watchTable td {
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid #e8eef5;
+  color: var(--msp-text, #0f1c2e);
+  vertical-align: middle;
+}
+
+.watchTable tr:last-child td {
+  border-bottom: none;
+}
+
+.equipmentChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.45rem;
+  border-radius: 6px;
+  background: #eef2f7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.sectionFootnote {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--msp-muted, #5c6b82);
+  line-height: 1.45;
+}
+
+.perimeterLead {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--msp-muted, #5c6b82);
+}
+
+.familyCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--msp-border, #d5dee9);
+  border-radius: 12px;
+  background: var(--msp-surface, #ffffff);
+}
+
+.familyCardTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--msp-text, #0f1c2e);
+}
+
+.familyModules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+}
+
+.familyModule {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e8eef5;
+}
+
+.familyModuleName {
+  font-size: 0.78rem;
+  color: var(--msp-muted, #5c6b82);
+  font-weight: 600;
+}
+
+.familyModuleValue {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: var(--msp-text, #0f1c2e);
+}
+
+.familyModuleHint {
+  font-size: 0.72rem;
+  color: var(--msp-muted, #5c6b82);
+}
+
+.familySummaryLine {
+  font-size: 0.86rem;
+  color: var(--msp-muted, #5c6b82);
+}
+
+.supportGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.supportCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 10px;
+  border: 1px solid var(--msp-border, #d5dee9);
+  background: #f8fafc;
+}
+
+.supportCardLabel {
+  font-size: 0.78rem;
+  color: var(--msp-muted, #5c6b82);
+  font-weight: 600;
+}
+
+.supportCardValue {
+  font-size: 1.35rem;
+  font-weight: 750;
+  color: var(--msp-text, #0f1c2e);
+}
+
+.detailToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--msp-border, #c5d0df);
+  background: var(--msp-surface, #fff);
+  color: var(--msp-accent, #2b5fab);
+  font-size: 0.86rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.detailToggle:hover {
+  background: rgba(43, 95, 171, 0.06);
+}
+
+.detailPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--msp-border, #d5dee9);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.detailSectionTitle {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--msp-text, #0f1c2e);
+}
+
+@media (max-width: 820px) {
+  .overviewGrid,
+  .supportGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+:global(html.dark) .executiveTitle,
+:global(html.dark) .executiveClient,
+:global(html.dark) .overviewTitle,
+:global(html.dark) .sectionHeading,
+:global(html.dark) .overviewCardValue,
+:global(html.dark) .familyCardTitle,
+:global(html.dark) .familyModuleValue,
+:global(html.dark) .supportCardValue,
+:global(html.dark) .detailSectionTitle {
+  color: var(--msp-text, #e8edf5);
+}
+
+:global(html.dark) .executiveBadge,
+:global(html.dark) .equipmentChip,
+:global(html.dark) .familyModule,
+:global(html.dark) .supportCard,
+:global(html.dark) .detailPanel,
+:global(html.dark) .watchTable th {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--msp-muted, #8fa8c4);
+}
+
+:global(html.dark) .overviewCard,
+:global(html.dark) .familyCard,
+:global(html.dark) .watchTableWrap,
+:global(html.dark) .detailToggle {
+  background: var(--msp-surface, #1a2540);
+  border-color: var(--msp-border, #2f4260);
+}
+
+:global(html.dark) .synthesisBlock {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--msp-text, #e8edf5);
+}
+
+:global(html.dark) .watchTable td {
+  border-bottom-color: #2f4260;
+  color: var(--msp-text, #e8edf5);
+}

@@ -17,6 +17,7 @@ import { ensureSupervisionAlertsSchema } from "./ensureSupervisionAlertsSchema.j
 import { ensurePermissionsSchema } from "./ensurePermissionsSchema.js";
 import { ensureSalesTicketCategoriesSchema } from "./ensureSalesTicketCategoriesSchema.js";
 import { ensureContactClientLinksSchema } from "./ensureContactClientLinksSchema.js";
+import { ensureContactSiteLinksSchema } from "./ensureContactSiteLinksSchema.js";
 import { ensureKpiReportSchedulesSchema } from "./ensureKpiReportSchedulesSchema.js";
 import { ensurePortalTicketRoleSchema } from "./ensurePortalTicketRoleSchema.js";
 import { ensureKnowledgeArticlesSchema } from "./ensureKnowledgeArticlesSchema.js";
@@ -45,6 +46,7 @@ export async function runPostSetupSchemaMigrations() {
   await ensureSupervisionAlertsSchema();
   await ensureSalesTicketCategoriesSchema();
   await ensureContactClientLinksSchema();
+  await ensureContactSiteLinksSchema();
   await ensureKpiReportSchedulesSchema();
   await ensurePortalTicketRoleSchema();
   await ensureKnowledgeArticlesSchema();
@@ -60,6 +62,7 @@ export async function runPostSetupSchemaMigrations() {
   await ensurePermissionsSchema();
   await ensureSalesTicketCategoriesSchema();
   await ensureContactClientLinksSchema();
+  await ensureContactSiteLinksSchema();
   await ensurePortalTicketRoleSchema();
   await ensureKnowledgeArticlesSchema();
   await ensurePrestatairesSchema();

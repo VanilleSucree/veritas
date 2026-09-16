@@ -1,9 +1,31 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import SmartTooltip from "../SmartTooltip";
+import { resolveKnowledgeEmojiUrl } from "../../api/knowledgeBase";
+import { buildEmojiMap } from "./knowledgeEmojiHelpers";
 import styles from "./knowledgeBase.module.css";
 
 const EXPANDED_STORAGE_KEY = "veritas.kb.folderExpanded";
+
+const COLLECTION_COLORS = [
+  "#F5C242",
+  "#E67E22",
+  "#E74C3C",
+  "#9B59B6",
+  "#3498DB",
+  "#1ABC9C",
+  "#2ECC71",
+  "#E84393",
+  "#00B894",
+  "#6C5CE7"
+];
+
+function collectionColor(seed) {
+  const s = String(seed || "");
+  let hash = 0;
+  for (let i = 0; i < s.length; i += 1) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return COLLECTION_COLORS[hash % COLLECTION_COLORS.length];
+}
 
 function collectExpandableIds(nodes, out = []) {
   for (const node of nodes || []) {
@@ -43,34 +65,64 @@ function persistExpandedIds(ids) {
   }
 }
 
+function ArticleNavRow({ article, depth, copy, emojiMap, onOpenArticle, untitledLabel }) {
+  const customIcon = article.icon ? emojiMap?.get(String(article.icon).toLowerCase()) : null;
+  return (
+    <button
+      type="button"
+      className={`${styles.navRow} ${styles.navArticleRow}`}
+      style={{ paddingLeft: `${0.55 + depth * 0.9}rem` }}
+      onClick={() => onOpenArticle?.(article.id, "read", article.title || untitledLabel)}
+      title={article.title || untitledLabel}
+    >
+      {customIcon ? (
+        <img src={resolveKnowledgeEmojiUrl(customIcon)} alt="" className={styles.navEmojiIcon} />
+      ) : (
+        <span className={styles.navArticleIcon} aria-hidden>
+          <Icon icon="mdi:file-document-outline" />
+        </span>
+      )}
+      <span className={styles.navRowLabel}>{article.title || untitledLabel}</span>
+      {article.status === "draft" ? <span className={styles.navDraftDot} title={copy.filterDraft} aria-label={copy.filterDraft} /> : null}
+    </button>
+  );
+}
+
 function FolderNode({
   node,
   copy,
   currentFolder,
   depth,
   expandedIds,
+  articlesByFolder,
+  emojiMap,
   onToggle,
   onSelect,
   onCreate,
   onRename,
   onShare,
   onDelete,
+  onOpenArticle,
   canManage
 }) {
   const children = node.children || [];
   const hasChildren = children.length > 0;
+  const folderArticles = articlesByFolder.get(node.id) || [];
+  const canExpand = hasChildren || folderArticles.length > 0;
   const expanded = expandedIds.has(node.id);
+  const color = collectionColor(node.id || node.name);
+  const customIcon = node.icon ? emojiMap?.get(String(node.icon).toLowerCase()) : null;
 
   return (
-    <div>
+    <div className={styles.navFolderBlock}>
       <div
-        className={`${styles.folderRow} ${currentFolder === node.id ? styles.folderRowActive : ""}`}
-        style={{ paddingLeft: `${0.35 + depth * 0.85}rem` }}
+        className={`${styles.navRow} ${styles.navFolderRow} ${currentFolder === node.id ? styles.navRowActive : ""}`}
+        style={{ paddingLeft: `${0.35 + depth * 0.9}rem` }}
       >
-        {hasChildren ? (
+        {canExpand ? (
           <button
             type="button"
-            className={styles.folderToggle}
+            className={styles.navChevron}
             aria-expanded={expanded}
             aria-label={expanded ? copy.collapseFolder : copy.expandFolder}
             title={expanded ? copy.collapseFolder : copy.expandFolder}
@@ -82,43 +134,65 @@ function FolderNode({
             <Icon icon={expanded ? "mdi:chevron-down" : "mdi:chevron-right"} />
           </button>
         ) : (
-          <span className={styles.folderToggleSpacer} aria-hidden />
+          <span className={styles.navChevronSpacer} aria-hidden />
         )}
-        <SmartTooltip content={node.name} className={styles.folderNameTip}>
-          <button type="button" className={styles.folderMain} onClick={() => onSelect(node.id)}>
-            <Icon icon="mdi:folder-outline" />
-            <span className={styles.folderName}>{node.name}</span>
-            <span className={styles.folderCount}>{node.articleCount || 0}</span>
+        <SmartTooltip content={node.name} className={styles.navNameTip}>
+          <button type="button" className={styles.navMain} onClick={() => onSelect(node.id)}>
+            {customIcon ? (
+              <img src={resolveKnowledgeEmojiUrl(customIcon)} alt="" className={styles.navEmojiIcon} />
+            ) : (
+              <span className={styles.navCollectionIcon} style={{ background: color }} aria-hidden>
+                <Icon icon="mdi:cube-outline" />
+              </span>
+            )}
+            <span className={styles.navRowLabel}>{node.name}</span>
+            {node.articleCount ? <span className={styles.navCount}>{node.articleCount}</span> : null}
           </button>
         </SmartTooltip>
         {canManage ? (
-          <div className={styles.folderTools}>
-            <button type="button" className={styles.folderTool} title={copy.shareFolder} onClick={() => onShare(node)}><Icon icon="mdi:share-variant-outline" /></button>
-            <button type="button" className={styles.folderTool} title={copy.renameFolder} onClick={() => onRename(node)}><Icon icon="mdi:pencil-outline" /></button>
-            <button type="button" className={styles.folderTool} title={copy.newSubfolder} onClick={() => onCreate(node.id)}><Icon icon="mdi:folder-plus-outline" /></button>
-            <button type="button" className={styles.folderTool} title={copy.deleteFolder} onClick={() => onDelete(node)}><Icon icon="mdi:trash-can-outline" /></button>
+          <div className={styles.navTools}>
+            <button type="button" className={styles.navTool} title={copy.shareFolder} onClick={() => onShare(node)}><Icon icon="mdi:share-variant-outline" /></button>
+            <button type="button" className={styles.navTool} title={copy.renameFolder} onClick={() => onRename(node)}><Icon icon="mdi:pencil-outline" /></button>
+            <button type="button" className={styles.navTool} title={copy.newSubfolder} onClick={() => onCreate(node.id)}><Icon icon="mdi:folder-plus-outline" /></button>
+            <button type="button" className={styles.navTool} title={copy.deleteFolder} onClick={() => onDelete(node)}><Icon icon="mdi:trash-can-outline" /></button>
           </div>
         ) : null}
       </div>
-      {hasChildren && expanded
-        ? children.map(child => (
-          <FolderNode
-            key={child.id}
-            node={child}
-            copy={copy}
-            currentFolder={currentFolder}
-            depth={depth + 1}
-            expandedIds={expandedIds}
-            onToggle={onToggle}
-            onSelect={onSelect}
-            onCreate={onCreate}
-            onRename={onRename}
-            onShare={onShare}
-            onDelete={onDelete}
-            canManage={canManage}
-          />
-        ))
-        : null}
+      {canExpand && expanded ? (
+        <div className={styles.navChildren}>
+          {children.map(child => (
+            <FolderNode
+              key={child.id}
+              node={child}
+              copy={copy}
+              currentFolder={currentFolder}
+              depth={depth + 1}
+              expandedIds={expandedIds}
+              articlesByFolder={articlesByFolder}
+              emojiMap={emojiMap}
+              onToggle={onToggle}
+              onSelect={onSelect}
+              onCreate={onCreate}
+              onRename={onRename}
+              onShare={onShare}
+              onDelete={onDelete}
+              onOpenArticle={onOpenArticle}
+              canManage={canManage}
+            />
+          ))}
+          {folderArticles.map(article => (
+            <ArticleNavRow
+              key={article.id}
+              article={article}
+              depth={depth + 1}
+              copy={copy}
+              emojiMap={emojiMap}
+              onOpenArticle={onOpenArticle}
+              untitledLabel={copy.untitled}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -127,23 +201,49 @@ export default function KnowledgeFolderTree({
   copy,
   tree,
   currentFolder,
+  status = "all",
   canManage,
+  articles = [],
+  emojis = [],
   onSelect,
+  onStatusChange,
+  onSearchFocus,
+  onManageEmojis,
   onCreate,
   onRename,
   onShare,
-  onDelete
+  onDelete,
+  onOpenArticle
 }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const hydrated = useRef(false);
   const knownExpandable = useRef(new Set());
+  const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
+
+  const articlesByFolder = useMemo(() => {
+    const map = new Map();
+    for (const article of articles || []) {
+      const key = article.folderId || "root";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(article);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }));
+    }
+    return map;
+  }, [articles]);
+
+  const rootArticles = articlesByFolder.get("root") || [];
 
   useEffect(() => {
     setExpandedIds(prev => {
       const expandable = collectExpandableIds(tree);
+      for (const [folderId, list] of articlesByFolder.entries()) {
+        if (folderId !== "root" && list.length) expandable.push(folderId);
+      }
       const next = new Set(prev);
       if (!hydrated.current) {
-        if (!tree.length) return prev;
+        if (!tree.length && !articles.length) return prev;
         hydrated.current = true;
         const stored = loadExpandedState();
         if (stored) stored.forEach(id => next.add(id));
@@ -156,9 +256,10 @@ export default function KnowledgeFolderTree({
       knownExpandable.current = new Set(expandable);
       const path = findFolderPath(tree, currentFolder);
       if (path) path.slice(0, -1).forEach(id => next.add(id));
+      if (currentFolder === "root" && rootArticles.length) next.add("root");
       return next;
     });
-  }, [tree, currentFolder]);
+  }, [tree, currentFolder, articles, rootArticles.length]);
 
   const onToggle = useCallback(id => {
     setExpandedIds(prev => {
@@ -170,50 +271,130 @@ export default function KnowledgeFolderTree({
     });
   }, []);
 
+  const goHome = useCallback(() => {
+    onSelect?.("all");
+    onStatusChange?.("all");
+  }, [onSelect, onStatusChange]);
+
+  const goDrafts = useCallback(() => {
+    onSelect?.("all");
+    onStatusChange?.("draft");
+  }, [onSelect, onStatusChange]);
+
+  const selectCollection = useCallback(folderId => {
+    onSelect?.(folderId);
+    onStatusChange?.("all");
+  }, [onSelect, onStatusChange]);
+
+  const rootExpanded = expandedIds.has("root");
+
   return (
     <aside className={styles.folderPanel}>
-      <div className={styles.folderHead}>
-        <div className={styles.sideTitle}>{copy.foldersTitle}</div>
-        {canManage ? (
-          <button type="button" className={styles.folderAdd} onClick={() => onCreate(null)}>
-            <Icon icon="mdi:plus" /> {copy.newFolder}
-          </button>
-        ) : null}
-      </div>
-      <div className={styles.folderList}>
+      <nav className={styles.navQuick} aria-label={copy.navQuickAria}>
         <button
           type="button"
-          className={`${styles.folderRow} ${styles.folderMainOnly} ${currentFolder === "all" ? styles.folderRowActive : ""}`}
-          onClick={() => onSelect("all")}
+          className={`${styles.navQuickItem} ${currentFolder === "all" && status === "all" ? styles.navRowActive : ""}`}
+          onClick={goHome}
         >
-          <Icon icon="mdi:book-open-page-variant-outline" />
-          <span className={styles.folderName}>{copy.allArticles}</span>
+          <Icon icon="mdi:home-outline" />
+          <span>{copy.navHome}</span>
+        </button>
+        <button type="button" className={styles.navQuickItem} onClick={() => onSearchFocus?.()}>
+          <Icon icon="mdi:magnify" />
+          <span>{copy.navSearch}</span>
         </button>
         <button
           type="button"
-          className={`${styles.folderRow} ${styles.folderMainOnly} ${currentFolder === "root" ? styles.folderRowActive : ""}`}
-          onClick={() => onSelect("root")}
+          className={`${styles.navQuickItem} ${status === "draft" && currentFolder === "all" ? styles.navRowActive : ""}`}
+          onClick={goDrafts}
         >
-          <Icon icon="mdi:folder-hidden" />
-          <span className={styles.folderName}>{copy.noFolder}</span>
+          <Icon icon="mdi:notebook-edit-outline" />
+          <span>{copy.navDrafts}</span>
         </button>
-        {tree.map(node => (
-          <FolderNode
-            key={node.id}
-            node={node}
-            copy={copy}
-            currentFolder={currentFolder}
-            depth={0}
-            expandedIds={expandedIds}
-            onToggle={onToggle}
-            onSelect={onSelect}
-            onCreate={onCreate}
-            onRename={onRename}
-            onShare={onShare}
-            onDelete={onDelete}
-            canManage={canManage}
-          />
-        ))}
+      </nav>
+
+      <div className={styles.navSection}>
+        <div className={styles.navSectionHead}>
+          <span className={styles.navSectionTitle}>{copy.collectionsTitle}</span>
+          <div className={styles.navSectionActions}>
+            {canManage ? (
+              <button type="button" className={styles.navSectionAdd} onClick={() => onManageEmojis?.()} title={copy.emojiManageTitle}>
+                <Icon icon="mdi:emoticon-outline" />
+              </button>
+            ) : null}
+            {canManage ? (
+              <button type="button" className={styles.navSectionAdd} onClick={() => onCreate(null)} title={copy.newFolder}>
+                <Icon icon="mdi:plus" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className={styles.folderList}>
+          <div className={styles.navFolderBlock}>
+            <div
+              className={`${styles.navRow} ${styles.navFolderRow} ${currentFolder === "root" ? styles.navRowActive : ""}`}
+              style={{ paddingLeft: "0.35rem" }}
+            >
+              {rootArticles.length ? (
+                <button
+                  type="button"
+                  className={styles.navChevron}
+                  aria-expanded={rootExpanded}
+                  aria-label={rootExpanded ? copy.collapseFolder : copy.expandFolder}
+                  onClick={() => onToggle("root")}
+                >
+                  <Icon icon={rootExpanded ? "mdi:chevron-down" : "mdi:chevron-right"} />
+                </button>
+              ) : (
+                <span className={styles.navChevronSpacer} aria-hidden />
+              )}
+              <button type="button" className={styles.navMain} onClick={() => selectCollection("root")}>
+                <span className={`${styles.navCollectionIcon} ${styles.navCollectionIconMuted}`} aria-hidden>
+                  <Icon icon="mdi:folder-hidden" />
+                </span>
+                <span className={styles.navRowLabel}>{copy.noFolder}</span>
+                {rootArticles.length ? <span className={styles.navCount}>{rootArticles.length}</span> : null}
+              </button>
+            </div>
+            {rootExpanded && rootArticles.length ? (
+              <div className={styles.navChildren}>
+                {rootArticles.map(article => (
+                  <ArticleNavRow
+                    key={article.id}
+                    article={article}
+                    depth={1}
+                    copy={copy}
+                    emojiMap={emojiMap}
+                    onOpenArticle={onOpenArticle}
+                    untitledLabel={copy.untitled}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {tree.map(node => (
+            <FolderNode
+              key={node.id}
+              node={node}
+              copy={copy}
+              currentFolder={currentFolder}
+              depth={0}
+              expandedIds={expandedIds}
+              articlesByFolder={articlesByFolder}
+              emojiMap={emojiMap}
+              onToggle={onToggle}
+              onSelect={selectCollection}
+              onCreate={onCreate}
+              onRename={onRename}
+              onShare={onShare}
+              onDelete={onDelete}
+              onOpenArticle={onOpenArticle}
+              canManage={canManage}
+            />
+          ))}
+        </div>
       </div>
     </aside>
   );

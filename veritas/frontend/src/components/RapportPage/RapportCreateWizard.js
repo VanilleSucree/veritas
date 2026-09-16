@@ -2,11 +2,25 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { fetchTickets } from "../../api/tickets";
 import { fetchMonitoringDocuments } from "../../api/monitoringDocuments";
-import { fetchClientGeneral } from "../../api/clients";
+import {
+  fetchClientGeneral,
+  fetchClientLicences,
+  fetchClientModules,
+  fetchClientSslCertificates
+} from "../../api/clients";
+import { listClientOffice365Credentials } from "../../api/clientOffice365";
+import { getClientCampaigns } from "../../api/campaigns";
+import { getEquipmentCountValue } from "../../i18n/equipmentFamilyLabels";
 import { normalizeClientSites } from "../../utils/clientSites";
 import { getReportTypeLabel } from "./rapportPageI18n";
 import ReportEnterpriseRecap from "./RapportEnterpriseRecap";
 import styles from "./RapportCreateWizard.module.css";
+
+function getClientEquipmentTotal(client) {
+  const counts = client?.equipmentCounts;
+  if (!counts || typeof counts !== "object") return 0;
+  return Object.keys(counts).reduce((sum, key) => sum + getEquipmentCountValue(counts, key), 0);
+}
 
 function getClientName(client, copy) {
   return client?.name || client?.nom || copy.create.getClientLabel(client?.id);
@@ -55,9 +69,25 @@ export default function ReportCreateWizard({
   const [openTicketLoading, setOpenTicketLoading] = useState(false);
   const [clientSites, setClientSites] = useState([]);
   const [sitesLoading, setSitesLoading] = useState(false);
+  const [clientModules, setClientModules] = useState(null);
+  const [sslCertificates, setSslCertificates] = useState([]);
+  const [licences, setLicences] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [microsoftTenants, setMicrosoftTenants] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
   const [recentDocs, setRecentDocs] = useState([]);
   const [recentLoading, setRecentLoading] = useState(true);
-  const selectedClient = clients.find(client => String(client.id) === String(selectedClientId)) || null;
+  const baseSelectedClient = clients.find(client => String(client.id) === String(selectedClientId)) || null;
+  const selectedClient = useMemo(() => {
+    if (!baseSelectedClient) return null;
+    if (!clientModules) return baseSelectedClient;
+    return {
+      ...baseSelectedClient,
+      equipements: clientModules.equipements || baseSelectedClient.equipements || {},
+      modules_monitoring: clientModules.modules_monitoring || baseSelectedClient.modules_monitoring || {},
+      modules: clientModules.modules || baseSelectedClient.modules || {}
+    };
+  }, [baseSelectedClient, clientModules]);
   const filteredClients = useMemo(() => {
     const query = enterpriseSearch.trim().toLowerCase();
     const sorted = [...clients].sort((left, right) => getClientName(left, copy).localeCompare(getClientName(right, copy), undefined, {
@@ -102,11 +132,23 @@ export default function ReportCreateWizard({
       setOpenTicketLoading(false);
       setClientSites([]);
       setSitesLoading(false);
+      setClientModules(null);
+      setSslCertificates([]);
+      setLicences([]);
+      setCampaigns([]);
+      setMicrosoftTenants([]);
+      setServicesLoading(false);
       return;
     }
     const ac = new AbortController();
     setOpenTicketLoading(true);
     setSitesLoading(true);
+    setServicesLoading(true);
+    setClientModules(null);
+    setSslCertificates([]);
+    setLicences([]);
+    setCampaigns([]);
+    setMicrosoftTenants([]);
     fetchTickets({
       clientId: selectedClientId,
       includeClosed: false,
@@ -133,6 +175,22 @@ export default function ReportCreateWizard({
       setClientSites([]);
     }).finally(() => {
       if (!ac.signal.aborted) setSitesLoading(false);
+    });
+    Promise.all([
+      fetchClientModules(selectedClientId, { signal: ac.signal }).catch(() => null),
+      fetchClientSslCertificates(selectedClientId, { signal: ac.signal }).catch(() => []),
+      fetchClientLicences(selectedClientId, { signal: ac.signal }).catch(() => []),
+      getClientCampaigns(selectedClientId, {}, { signal: ac.signal }).catch(() => []),
+      listClientOffice365Credentials(selectedClientId).catch(() => [])
+    ]).then(([modules, ssl, licenceRows, campaignRows, tenantRows]) => {
+      if (ac.signal.aborted) return;
+      setClientModules(modules);
+      setSslCertificates(Array.isArray(ssl) ? ssl : []);
+      setLicences(Array.isArray(licenceRows) ? licenceRows : []);
+      setCampaigns(Array.isArray(campaignRows) ? campaignRows : []);
+      setMicrosoftTenants(Array.isArray(tenantRows) ? tenantRows : []);
+    }).finally(() => {
+      if (!ac.signal.aborted) setServicesLoading(false);
     });
     return () => ac.abort();
   }, [selectedClientId]);
@@ -201,11 +259,18 @@ export default function ReportCreateWizard({
                   {filteredClients.map(client => {
             const name = getClientName(client, copy);
             const clientNumber = client.client_number || client.clientNumber;
+            const equipmentTotal = getClientEquipmentTotal(client);
             const selected = String(client.id) === String(selectedClientId);
             return <button key={client.id} type="button" role="option" aria-selected={selected} className={`${styles.row} ${selected ? styles.rowSelected : ""}`.trim()} onClick={() => handlePickClient(client)}>
+                        <span className={styles.rowIcon} aria-hidden>
+                          <Icon icon="mdi:office-building-outline" />
+                        </span>
                         <span className={styles.rowMain}>
                           <span className={styles.rowName}>{name}</span>
-                          {clientNumber ? <span className={styles.rowMeta}>{clientNumber}</span> : null}
+                          <span className={styles.rowMeta}>
+                            {clientNumber ? <span>{clientNumber}</span> : null}
+                            {equipmentTotal > 0 ? <span>{equipmentTotal} {copy.recap?.equipmentTotal || "équipements"}</span> : null}
+                          </span>
                         </span>
                         <Icon icon="mdi:chevron-right" className={styles.rowChevron} aria-hidden />
                       </button>;
@@ -214,7 +279,23 @@ export default function ReportCreateWizard({
 
             {selectedClient && !showClientList ? <>
                 <div className={styles.recapScroll}>
-                  <ReportEnterpriseRecap client={selectedClient} copy={copy} openTicketCount={openTicketCount} openTicketLoading={openTicketLoading} sites={clientSites} sitesLoading={sitesLoading} embedded onChangeClient={handleChangeClient} changeLabel={wizard.changeClient} />
+                  <ReportEnterpriseRecap
+                    client={selectedClient}
+                    copy={copy}
+                    openTicketCount={openTicketCount}
+                    openTicketLoading={openTicketLoading}
+                    sites={clientSites}
+                    sitesLoading={sitesLoading}
+                    modulesData={clientModules}
+                    sslCertificates={sslCertificates}
+                    licences={licences}
+                    campaigns={campaigns}
+                    microsoftTenants={microsoftTenants}
+                    servicesLoading={servicesLoading}
+                    embedded
+                    onChangeClient={handleChangeClient}
+                    changeLabel={wizard.changeClient}
+                  />
                 </div>
                 <div className={styles.continueRow}>
                   <button type="button" className={styles.continueBtn} onClick={handleContinue}>

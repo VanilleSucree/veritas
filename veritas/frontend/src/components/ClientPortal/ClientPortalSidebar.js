@@ -6,8 +6,11 @@ import { Icon } from "@iconify/react";
 import sidebarStyles from "../Misc/Sidebar/Sidebar.module.css";
 import SidebarTooltip from "../Misc/Sidebar/SidebarTooltip";
 import UserAvatar from "../shared/UserAvatar/UserAvatar";
+import PageGuideTour from "../PageGuide/PageGuideTour";
+import { buildClientPortalGuideSteps } from "../PageGuide/clientPortalGuideI18n";
 import { useTheme } from "../../hooks/useTheme";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
+import { useSidebarGuide } from "../../hooks/useSidebarGuide";
 import { useAppLocale, setUserLocaleOverride } from "../../hooks/useAppGeneralSettings";
 import { APP_LOCALES } from "../../i18n/locales";
 import portalStyles from "./ClientPortalSidebar.module.css";
@@ -107,6 +110,21 @@ export default function ClientPortalSidebar({
     toggleTheme
   } = useTheme();
   const { isMobile } = useBreakpoint();
+  const {
+    open: portalGuideOpen,
+    close: closePortalGuide,
+    start: startPortalGuide
+  } = useSidebarGuide(user?.id, {
+    scope: "portal"
+  });
+  const showContextGuide = companies.length > 0 || Boolean(clientName) || sites.length > 0;
+  const portalGuide = useMemo(
+    () => buildClientPortalGuideSteps({
+      locale,
+      showContext: showContextGuide
+    }),
+    [locale, showContextGuide]
+  );
   const [showMenu, setShowMenu] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
@@ -279,10 +297,25 @@ export default function ClientPortalSidebar({
       }
       return btn;
     };
-    return <div className={portalStyles.settingsSection} ref={langMenuRef}>
+    const renderHelpBtn = () => {
+      const helpAria = portalGuide.helpAria;
+      const btn = <button type="button" className={`${portalStyles.settingsSquareBtn} ${portalGuideOpen ? portalStyles.settingsSquareBtnActive : ""}`.trim()} onClick={startPortalGuide} aria-label={helpAria}>
+          <span className={portalStyles.helpBtnLabel} aria-hidden>
+            ?
+          </span>
+        </button>;
+      if (showIconTooltip) {
+        return <SidebarTooltip as="span" content={helpAria}>
+            {btn}
+          </SidebarTooltip>;
+      }
+      return btn;
+    };
+    return <div className={portalStyles.settingsSection} ref={langMenuRef} data-portal-guide="utilities">
         <div className={portalStyles.settingsBtnRow} role="group" aria-label={t.themeAria}>
           {renderThemeToggleBtn()}
           {renderLangBtn()}
+          {renderHelpBtn()}
         </div>
       </div>;
   };
@@ -291,7 +324,7 @@ export default function ClientPortalSidebar({
           ☰
         </button> : null}
 
-      {(showMenu || !isMobile) && <motion.nav className={`${sidebarStyles.sidebar} ${portalStyles.portalSidebar} ${isMobile ? sidebarStyles.mobileSidebar : ""}`.trim()} initial={{
+      {(showMenu || !isMobile) && <motion.nav className={`${sidebarStyles.sidebar} ${portalStyles.portalSidebar} ${isMobile ? sidebarStyles.mobileSidebar : ""}`.trim()} data-portal-guide="sidebar-root" initial={{
       x: isMobile ? "-100%" : 0,
       opacity: 1
     }} animate={{
@@ -305,7 +338,7 @@ export default function ClientPortalSidebar({
       ease: "easeOut"
     }} aria-label={t.navAria}>
           <div className={sidebarStyles.sidebarContent}>
-            <div className={sidebarStyles.logoHeader}>
+            <div className={sidebarStyles.logoHeader} data-portal-guide="brand">
               {showIconTooltip ? <SidebarTooltip as="span" content={t.brandSub} className={sidebarStyles.sidebarTooltipHost}>
                   <NavLink to="/client" end className={sidebarStyles.logoWrapper} onClick={closeMobileMenu}>
                     <div className={sidebarStyles.brandMark}>V</div>
@@ -316,7 +349,7 @@ export default function ClientPortalSidebar({
                   {!isCollapsed && <span className={sidebarStyles.logoText}>Veritas</span>}
                 </NavLink>}
               {(!isCollapsed || isMobile) && (companies.length > 0 || clientName || sites.length > 0) ? (
-                <div className={portalStyles.contextFilters}>
+                <div className={portalStyles.contextFilters} data-portal-guide="context">
                   {(companies.length > 0 || clientName) ? (
                     <div className={portalStyles.companySwitch}>
                       <label className={portalStyles.companySwitchLabel} htmlFor="portal-company-switch">
@@ -380,7 +413,7 @@ export default function ClientPortalSidebar({
 
             <hr className={sidebarStyles.separator} />
 
-            <ul className={sidebarStyles.navList}>
+            <ul className={sidebarStyles.navList} data-portal-guide="nav">
               {NAV_ITEMS.map(item => <PortalNavItem key={item.to} item={item} t={t} showTooltip={showIconTooltip} isCollapsed={isCollapsed} isMobile={isMobile} badge={item.badgeKey === "actionRequired" ? actionRequiredCount : 0} onNavigate={closeMobileMenu} />)}
             </ul>
 
@@ -388,7 +421,7 @@ export default function ClientPortalSidebar({
 
             {renderPreferencesSection()}
 
-            <div className={sidebarStyles.userSection} ref={userMenuRef}>
+            <div className={sidebarStyles.userSection} ref={userMenuRef} data-portal-guide="account">
               <div className={`${sidebarStyles.userMenuTriggerRow} ${isCollapsed && !isMobile ? sidebarStyles.userMenuTriggerRowCollapsed : ""}`}>
                 {showIconTooltip ? <SidebarTooltip as="span" content={t.accountMenu} className={sidebarStyles.userAvatarTooltipHost}>
                     <button type="button" className={`${sidebarStyles.userAvatarButton} ${userMenuOpen ? sidebarStyles.userAvatarButtonOpen : ""} ${isProfileActive ? sidebarStyles.userAvatarButtonActive : ""}`} onClick={() => {
@@ -445,5 +478,7 @@ export default function ClientPortalSidebar({
           </div>, document.body)}
 
       {isMobile && showMenu ? <div className={sidebarStyles.overlay} onClick={() => setShowMenu(false)} aria-hidden /> : null}
+
+      <PageGuideTour open={portalGuideOpen} steps={portalGuide.steps} title={portalGuide.tourTitle} locale={locale} onClose={closePortalGuide} />
     </>;
 }

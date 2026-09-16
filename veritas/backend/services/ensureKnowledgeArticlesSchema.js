@@ -16,6 +16,7 @@ const REVISIONS_MIGRATION = "schema/patches/20260827_knowledge_article_revisions
 const FEEDBACK_MIGRATION = "schema/patches/20260827_knowledge_article_feedback.sql";
 const EXTRAS_MIGRATION = "schema/patches/20260827_knowledge_article_extras.sql";
 const PUBLIC_MIGRATION = "schema/patches/20260828_knowledge_article_public.sql";
+const EMOJIS_MIGRATION = "schema/patches/20260916_knowledge_emojis.sql";
 let ensured = false;
 
 async function tableExists(client, table) {
@@ -102,6 +103,20 @@ export async function ensureKnowledgeArticlesSchema() {
     }
     if (await tableExists(client, "v_b_knowledge_articles")) {
       await runPatch(client, PUBLIC_MIGRATION);
+    }
+    if (!(await tableExists(client, "v_b_knowledge_emojis"))) {
+      await runPatch(client, EMOJIS_MIGRATION);
+    } else {
+      await client.query(`
+        ALTER TABLE v_b_knowledge_articles
+          ADD COLUMN IF NOT EXISTS icon VARCHAR(32) NULL
+      `);
+      if (await tableExists(client, "v_b_knowledge_folders")) {
+        await client.query(`
+          ALTER TABLE v_b_knowledge_folders
+            ADD COLUMN IF NOT EXISTS icon VARCHAR(32) NULL
+        `);
+      }
     }
     ensured = true;
   } catch (err) {

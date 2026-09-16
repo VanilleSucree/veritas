@@ -9,6 +9,7 @@ import { requirePermission, requireAnyPermission } from "../../middleware/permis
 import { resolveFileUploadedBy } from "../../utils/fileUploadedBy.js";
 import { ensureVisibleToClientColumn, hasVisibleToClientColumn, parseVisibleToClient, visibilitySelectSql } from "../../utils/clientFilesVisibility.js";
 import { notifyVaultDocumentShared } from "../../services/systemNotificationService.js";
+import { allowAssetEmbedding } from "../../middleware/securityHeaders.js";
 const router = express.Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, "..", "..", "uploads", "client-files");
@@ -168,6 +169,7 @@ router.get("/:id/preview", verifyJWT, requireAnyPermission("documents.view", "cl
     });
     res.setHeader("Content-Type", mime_type);
     res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file_name)}"`);
+    allowAssetEmbedding(res);
     fs.createReadStream(fullPath).pipe(res);
   } catch (err) {
     console.error("[GET /client-files/:id/preview]", err.message);
