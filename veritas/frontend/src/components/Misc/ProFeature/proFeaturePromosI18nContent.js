@@ -259,6 +259,32 @@ export const PRO_FEATURE_PROMOS_I18N = {
       bullets: ["Logo y nombre de su organización", "Colores e imagen de fondo por espacio agente / cliente", "Títulos, subtítulos y puntos destacados personalizados", "Vista previa en directo desde la administración"]
     }
   },
+  adminReports: {
+    en: {
+      title: "Reports",
+      subtitle: "Customize the identity of your HTML exports.",
+      description: "Configure the company name, contact details and social networks shown in the header and footer of your supervision, backup and services reports.",
+      bullets: ["Company name and brand signature", "Email, phone, website and address", "Social links in the footer", "Legal note and generation date"]
+    },
+    de: {
+      title: "Berichte",
+      subtitle: "Passen Sie die Identität Ihrer Exporte an.",
+      description: "Konfigurieren Sie Firmenname, Kontaktdaten und soziale Netzwerke in Kopf- und Fußzeile Ihrer Supervisions-, Backup- und Serviceberichte.",
+      bullets: ["Firmenname und Markensignatur", "E-Mail, Telefon, Website und Adresse", "Soziale Links in der Fußzeile", "Rechtlicher Hinweis und Erstellungsdatum"]
+    },
+    it: {
+      title: "Rapporti",
+      subtitle: "Personalizza l'identità dei tuoi export HTML.",
+      description: "Configura nome azienda, contatti e social mostrati nell'intestazione e nel piè di pagina dei report di supervisione, backup e servizi.",
+      bullets: ["Nome azienda e firma del brand", "Email, telefono, sito e indirizzo", "Link social nel piè di pagina", "Nota legale e data di generazione"]
+    },
+    es: {
+      title: "Informes",
+      subtitle: "Personalice la identidad de sus exports HTML.",
+      description: "Configure el nombre de la empresa, los contactos y las redes sociales mostrados en el encabezado y el pie de página de sus informes de supervisión, copias de seguridad y servicios.",
+      bullets: ["Nombre de empresa y firma de marca", "Correo, teléfono, web y dirección", "Enlaces sociales en el pie", "Nota legal y fecha de generación"]
+    }
+  },
   adminTeams: {
     en: {
       title: "Teams",

@@ -79,6 +79,13 @@ export const PRO_FEATURE_PROMOS = {
     description: "Personnalisez la page de connexion Veritas pour vos agents et vos clients : logo, couleurs, fond d'écran et textes d'accroche distincts par espace.",
     bullets: ["Logo et nom de votre organisation", "Couleurs et image de fond par espace agent / client", "Titres, sous-titres et points forts personnalisés", "Aperçu en direct since l'administration"]
   },
+  adminReports: {
+    title: "Rapports",
+    icon: "mdi:file-document-outline",
+    subtitle: "Personnalisez l'identité de vos exports PDF/HTML.",
+    description: "Configurez le nom de société, les coordonnées et les réseaux sociaux affichés dans l'en-tête et le pied de page de vos rapports de supervision, sauvegardes et services.",
+    bullets: ["Nom de société et signature de marque", "E-mail, téléphone, site et adresse", "Réseaux sociaux affichés dans le pied de page", "Mention légale et date de génération"]
+  },
   adminTeams: {
     title: "Teams",
     icon: "mdi:account-multiple-outline",

@@ -26,10 +26,11 @@ export async function fetchUnifiSites(hostId) {
   return handleJson(res);
 }
 
-export async function fetchUnifiDevices({ hostId, siteId } = {}) {
+export async function fetchUnifiDevices({ hostId, siteId, siteName } = {}) {
   const params = new URLSearchParams();
   if (hostId) params.set("hostId", hostId);
   if (siteId) params.set("siteId", siteId);
+  if (siteName) params.set("siteName", siteName);
   const res = await fetch(`${API_BASE_URL}/unifi/devices?${params.toString()}`, {
     credentials: "include"
   });

@@ -1170,10 +1170,23 @@ export async function saveClientModules(clientId, data) {
             // from a previous sync and must not overwrite the real primary key.
             const {
               id: _nestedId,
+              data: _nestedData,
+              created_at: _createdAt,
+              updated_at: _updatedAt,
+              createdAt: _createdAtCamel,
+              updatedAt: _updatedAtCamel,
+              is_active: _isActive,
+              agent_id: _agentId,
+              agentId: _agentIdCamel,
+              checkmkMapping: _checkmkMapping,
+              checkmk_host_name: _ckHost,
+              checkmk_site: _ckSite,
+              checkmk_service_name: _ckService,
               ...domainData
             } = cleanedItem || {};
+            const rowId = isValidUuid(cleanedItem.id) ? cleanedItem.id : undefined;
             return {
-              id: cleanedItem.id,
+              id: rowId,
               item_key: domainKey,
               name: cleanedItem.nom || cleanedItem.name || 'Unnamed',
               data: category === 'NDD' ? domainData : cleanedItem,
@@ -1193,7 +1206,8 @@ export async function saveClientModules(clientId, data) {
           });
           if (!syncRes.ok) {
             const errorData = await syncRes.json().catch(() => ({}));
-            throw new Error(errorData.error || `Unable to save ${category}`);
+            const detail = errorData.details && errorData.details !== errorData.error ? ` (${errorData.details})` : "";
+            throw new Error((errorData.error || `Unable to save ${category}`) + detail);
           }
         } else if (items && typeof items === 'object' && !Array.isArray(items)) {
           if ((category === 'Sauvegarde' || category === 'Backup') && Array.isArray(items.instances)) {

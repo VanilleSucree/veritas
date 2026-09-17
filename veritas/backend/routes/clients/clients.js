@@ -4211,8 +4211,19 @@ modulesRouter.post('/:clientId/:family/sync', requireModulePermission("edit"), a
           await client.query(`DELETE FROM ${table} WHERE id = ANY($1::uuid[]) AND client_id = $2`, [idsToDelete, clientId]);
         }
       } else {
-        const existingIdsResult = await client.query(`SELECT id FROM ${table} WHERE client_id = $1`, [clientId]);
-        const existingIds = new Set(existingIdsResult.rows.map(row => row.id.toString()));
+        const existingRowsResult = await client.query(`SELECT id, item_key, name, data FROM ${table} WHERE client_id = $1`, [clientId]);
+        const existingIds = new Set(existingRowsResult.rows.map(row => row.id.toString()));
+        const existingByKey = new Map();
+        existingRowsResult.rows.forEach(row => {
+          const data = row.data && typeof row.data === "object" ? row.data : {};
+          const keys = [row.item_key, row.name, data.nom, data.name, data.domaine, data.domain]
+            .filter(Boolean)
+            .map(value => String(value).trim().toLowerCase());
+          keys.forEach(key => {
+            if (key && !existingByKey.has(key)) existingByKey.set(key, row.id.toString());
+          });
+        });
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
         const processedIds = new Set();
         for (const item of items) {
           const {
@@ -4222,26 +4233,39 @@ modulesRouter.post('/:clientId/:family/sync', requireModulePermission("edit"), a
             data,
             is_active
           } = item;
-          const itemId = id ? id.toString() : null;
+          const rawId = id != null ? String(id) : "";
+          const itemId = uuidRegex.test(rawId) ? rawId : null;
           const itemName = name || item_key || data?.nom || null;
           if (itemName) newNames.add(itemName);
           if (data && typeof data === 'object') {
             const dataName = data.name || data.nom || data.item_key;
             if (dataName) newNames.add(dataName);
           }
-          if (itemId && existingIds.has(itemId)) {
+          const lookupKeys = [item_key, name, data?.nom, data?.name, data?.domaine, data?.domain]
+            .filter(Boolean)
+            .map(value => String(value).trim().toLowerCase());
+          let resolvedId = itemId && existingIds.has(itemId) ? itemId : null;
+          if (!resolvedId) {
+            for (const key of lookupKeys) {
+              if (existingByKey.has(key)) {
+                resolvedId = existingByKey.get(key);
+                break;
+              }
+            }
+          }
+          if (resolvedId) {
             const result = await updateModuleRowPreservingCheckmk(client, table, {
               item_key,
               name,
               data,
               is_active,
-              itemId,
+              itemId: resolvedId,
               clientId,
               item
             });
             if (result.rows.length > 0) {
               inserted.push(result.rows[0]);
-              processedIds.add(itemId);
+              processedIds.add(resolvedId);
             }
           } else if (itemId) {
             const result = await client.query(`INSERT INTO ${table} (id, client_id, item_key, name, data, is_active)

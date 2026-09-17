@@ -382,6 +382,9 @@ export const PERMISSION_CATALOG = [{
     action: "login_branding",
     label: "Login page"
   }, {
+    action: "reports",
+    label: "Reports branding"
+  }, {
     action: "tech_news",
     label: "News feeds"
   }, {

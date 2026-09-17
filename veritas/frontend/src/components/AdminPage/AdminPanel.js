@@ -11,6 +11,7 @@ import layout from "./AdminPanelLayout.module.css";
 import AdminAccessDenied from "./AdminAccessDenied";
 import AdminGeneralSettings from "./AdminGeneralSettings";
 import AdminLoginBranding from "./AdminLoginBranding";
+import AdminReports from "./AdminReports";
 import AdminTechNewsFeeds from "./AdminTechNewsFeeds";
 import AdminContractModuleOptions from "./AdminContractModuleOptions";
 import AdminEquipmentFamilies from "./AdminEquipmentFamilies";
@@ -43,6 +44,7 @@ import { disableAdminToastPosition, enableAdminToastPosition } from "../../utils
 const TAB_COMPONENTS = {
   general: AdminGeneralSettings,
   "login-branding": AdminLoginBranding,
+  reports: AdminReports,
   "tech-news-feeds": AdminTechNewsFeeds,
   "contract-modules": AdminContractModuleOptions,
   "equipment-families": AdminEquipmentFamilies,
@@ -71,6 +73,7 @@ const TAB_COMPONENTS = {
 };
 const ADMIN_PANEL_PRO_PROMO = {
   "login-branding": "adminLoginBranding",
+  reports: "adminReports",
   "tech-news-feeds": "adminTechNewsFeeds",
   teams: "adminTeams",
   "contract-modules": "adminContractModules",

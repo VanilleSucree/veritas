@@ -222,22 +222,107 @@ export async function listDevicesForHost(apiKey, hostId) {
   return items;
 }
 
-export async function fetchNetworkDevicesViaConnector({ networkApiKey, hostId, siteId }) {
-  if (!networkApiKey || !hostId || !siteId) return [];
-  const path = `/v1/connector/consoles/${encodeURIComponent(hostId)}/proxy/network/integration/v1/sites/${encodeURIComponent(siteId)}/devices`;
+export async function listNetworkSitesViaConnector({ networkApiKey, hostId }) {
+  if (!networkApiKey || !hostId) return [];
+  const path = `/v1/connector/consoles/${encodeURIComponent(hostId)}/proxy/network/integration/v1/sites`;
   try {
-    const payload = await fetchUiApi(path, {
-      apiKey: networkApiKey,
-      query: {
-        offset: 0,
-        limit: 200
-      }
-    });
-    return extractUiList(payload);
+    const items = [];
+    let offset = 0;
+    const limit = 100;
+    for (;;) {
+      const payload = await fetchUiApi(path, {
+        apiKey: networkApiKey,
+        query: { offset, limit }
+      });
+      const page = extractUiList(payload);
+      items.push(...page);
+      const total = Number(payload?.totalCount ?? payload?.total ?? NaN);
+      offset += page.length;
+      if (!page.length || (Number.isFinite(total) && offset >= total) || page.length < limit) break;
+    }
+    return items.map(raw => ({
+      id: raw.id || raw.siteId || raw.site_id || null,
+      name: raw.name || raw.meta?.desc || raw.meta?.name || raw.siteName || raw.id || null,
+      raw
+    })).filter(site => site.id);
   } catch (err) {
     if (err.status === 404 || err.status === 501) return [];
     throw err;
   }
+}
+
+function normalizeSiteLabel(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Site Manager site IDs and Network Integration site IDs can differ.
+ * Resolve the Network site UUID for a linked Site Manager site.
+ */
+export async function resolveNetworkSiteId({
+  networkApiKey,
+  hostId,
+  siteId,
+  siteName = null
+}) {
+  if (!networkApiKey || !hostId || !siteId) return null;
+  const networkSites = await listNetworkSitesViaConnector({ networkApiKey, hostId });
+  if (!networkSites.length) return null;
+
+  const byId = networkSites.find(site => String(site.id) === String(siteId));
+  if (byId) return byId.id;
+
+  const targetNames = [siteName]
+    .filter(Boolean)
+    .map(normalizeSiteLabel);
+  if (targetNames.length) {
+    const byName = networkSites.find(site => targetNames.includes(normalizeSiteLabel(site.name)));
+    if (byName) return byName.id;
+  }
+
+  // Single-site console: safe to use the only Network site.
+  if (networkSites.length === 1) return networkSites[0].id;
+  return null;
+}
+
+export async function fetchNetworkDevicesViaConnector({ networkApiKey, hostId, siteId }) {
+  if (!networkApiKey || !hostId || !siteId) return [];
+  const path = `/v1/connector/consoles/${encodeURIComponent(hostId)}/proxy/network/integration/v1/sites/${encodeURIComponent(siteId)}/devices`;
+  try {
+    const items = [];
+    let offset = 0;
+    const limit = 200;
+    for (;;) {
+      const payload = await fetchUiApi(path, {
+        apiKey: networkApiKey,
+        query: { offset, limit }
+      });
+      const page = extractUiList(payload);
+      items.push(...page);
+      const total = Number(payload?.totalCount ?? payload?.total ?? NaN);
+      offset += page.length;
+      if (!page.length || (Number.isFinite(total) && offset >= total) || page.length < limit) break;
+    }
+    return items;
+  } catch (err) {
+    if (err.status === 404 || err.status === 501) return [];
+    throw err;
+  }
+}
+
+export function extractDeviceSiteId(device = {}) {
+  return (
+    device.siteId ||
+    device.site_id ||
+    device.site?.siteId ||
+    device.site?.id ||
+    device.site?.site_id ||
+    (Array.isArray(device.sites) ? device.sites[0]?.siteId || device.sites[0]?.id : null) ||
+    null
+  );
 }
 
 export async function listCarrierSubscribers(apiKey) {

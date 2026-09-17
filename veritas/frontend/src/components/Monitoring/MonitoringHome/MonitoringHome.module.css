@@ -708,16 +708,12 @@
   font-family: inherit;
   cursor: pointer;
   transition: border-color 0.2s;
+  color-scheme: dark;
 }
 
 .modalSelect:focus {
   outline: none;
   border-color: #15D1A0;
-}
-
-.modalSelect option {
-  background: var(--bg-secondary, #1a1a2e);
-  color: var(--text-primary, #f9fafb);
 }
 
 .modalRow {

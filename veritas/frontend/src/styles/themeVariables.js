@@ -55,13 +55,15 @@ export const THEME_VARIABLES = {
 export function applyThemeToRoot(theme) {
   const root = document.documentElement;
   const palette = THEME_VARIABLES[theme] || THEME_VARIABLES.light;
+  const effective = theme === "dark" ? "dark" : "light";
   root.classList.remove("light", "dark");
-  root.classList.add(theme === "dark" ? "dark" : "light");
+  root.classList.add(effective);
+  root.style.colorScheme = effective;
   Object.entries(palette).forEach(([property, value]) => {
     root.style.setProperty(property, value);
   });
   const metaThemeColor = document.querySelector('meta[name="theme-color"]');
   if (metaThemeColor) {
-    metaThemeColor.setAttribute("content", theme === "dark" ? "#02050a" : "#b7c3d4");
+    metaThemeColor.setAttribute("content", effective === "dark" ? "#02050a" : "#b7c3d4");
   }
 }

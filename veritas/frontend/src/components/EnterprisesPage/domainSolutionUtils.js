@@ -157,11 +157,73 @@ function withDomainItemKey(domain) {
   const key = normalized.item_key || normalized.nom || normalized.name || "";
   return {
     ...normalized,
+    id: normalized.id,
     item_key: key
   };
 }
+function sanitizeDomainForSave(domain) {
+  const normalized = withDomainItemKey(domain);
+  if (!normalized) return null;
+  const {
+    id,
+    item_key,
+    nom,
+    name,
+    domaine,
+    domain,
+    registrar,
+    providerId,
+    isManual,
+    expiration,
+    expirationDate,
+    autoRenew,
+    auto_renewal,
+    manualPayment,
+    deleteAtExpiration,
+    renewalMode,
+    renewalPeriod,
+    dnsZone,
+    hasDnsZone,
+    serviceId,
+    serviceStatus,
+    creationDate,
+    nameServers,
+    whoisOwner,
+    syncData
+  } = normalized;
+  return {
+    id,
+    item_key,
+    nom: nom || name || domain || domaine || "",
+    name: name || nom || domain || domaine || "",
+    domaine: domaine || nom || name || "",
+    domain: domain || nom || name || "",
+    registrar: registrar || null,
+    providerId: providerId || null,
+    isManual: Boolean(isManual),
+    expiration: expiration || null,
+    expirationDate: expirationDate || expiration || null,
+    autoRenew: autoRenew ?? null,
+    auto_renewal: auto_renewal ?? autoRenew ?? null,
+    manualPayment: manualPayment ?? null,
+    deleteAtExpiration: deleteAtExpiration ?? null,
+    renewalMode: renewalMode || null,
+    renewalPeriod: renewalPeriod ?? null,
+    dnsZone: dnsZone || null,
+    hasDnsZone: Boolean(hasDnsZone),
+    serviceId: serviceId ?? null,
+    serviceStatus: serviceStatus ?? null,
+    creationDate: creationDate || null,
+    nameServers: Array.isArray(nameServers) ? nameServers : [],
+    whoisOwner: whoisOwner || null,
+    syncData: syncData && typeof syncData === "object" ? {
+      lastSync: syncData.lastSync || null,
+      serviceInfos: syncData.serviceInfos || null
+    } : null
+  };
+}
 export async function saveMonitoredDomains(clientId, domains) {
-  const normalized = (domains || []).map(d => withDomainItemKey(d)).filter(isDomainConfigured);
+  const normalized = (domains || []).map(d => sanitizeDomainForSave(d)).filter(isDomainConfigured);
   const modulesData = await fetchClientModules(clientId);
   await saveClientModules(clientId, {
     modules: modulesData?.modules || {
@@ -227,6 +289,8 @@ export async function refreshMonitoredDomainsFromOvh(clientId) {
     return {
       ...domain,
       ...fresh,
+      id: domain.id,
+      item_key: domain.item_key || domain.nom,
       nom: domain.nom
     };
   });
@@ -248,6 +312,8 @@ export async function refreshSingleMonitoredDomainFromOvh(clientId, domain) {
   const merged = existing.map(entry => domainMatches(entry, normalized) ? {
     ...entry,
     ...mapped,
+    id: entry.id,
+    item_key: entry.item_key || entry.nom || normalized.nom,
     nom: normalized.nom
   } : entry);
   await saveMonitoredDomains(clientId, merged);

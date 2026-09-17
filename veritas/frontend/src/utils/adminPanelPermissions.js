@@ -2,6 +2,7 @@
 export const ADMIN_NAV_PERMISSION_BY_KEY = {
   general: "admin_panel.general",
   "login-branding": "admin_panel.login_branding",
+  reports: "admin_panel.reports",
   "tech-news-feeds": "admin_panel.tech_news",
   users: "admin_panel.users",
   permissions: "admin_panel.permissions",

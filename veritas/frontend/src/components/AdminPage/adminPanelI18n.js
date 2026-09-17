@@ -8,6 +8,9 @@ export const ADMIN_NAV_STRUCTURE = [{
     key: "login-branding",
     icon: "mdi:palette-outline"
   }, {
+    key: "reports",
+    icon: "mdi:file-document-outline"
+  }, {
     key: "tech-news-feeds",
     icon: "mdi:rss"
   }]
@@ -123,6 +126,10 @@ const ADMIN_PANEL_COPY = {
       "login-branding": {
         label: "Page de connexion",
         description: "Logo, couleurs et textes agent / client"
+      },
+      reports: {
+        label: "Rapports",
+        description: "Identité, contacts et réseaux sociaux des exports"
       },
       "tech-news-feeds": {
         label: "Flux actualités",
@@ -251,6 +258,10 @@ const ADMIN_PANEL_COPY = {
         label: "Login page",
         description: "Logo, colors, and agent / client copy"
       },
+      reports: {
+        label: "Reports",
+        description: "Identity, contacts, and social links for exports"
+      },
       "tech-news-feeds": {
         label: "News feeds",
         description: "RSS sources shown on the home page"
@@ -377,6 +388,10 @@ const ADMIN_PANEL_COPY = {
       "login-branding": {
         label: "Anmeldeseite",
         description: "Logo, Farben und Texte Agent / Kunde"
+      },
+      reports: {
+        label: "Berichte",
+        description: "Identität, Kontakte und soziale Netzwerke der Exporte"
       },
       "tech-news-feeds": {
         label: "Nachrichten-Feeds",
@@ -509,6 +524,10 @@ const ADMIN_PANEL_COPY = {
         label: "Pagina di accesso",
         description: "Logo, colori e testi agente / cliente"
       },
+      reports: {
+        label: "Rapporti",
+        description: "Identità, contatti e social degli export"
+      },
       "tech-news-feeds": {
         label: "Feed notizie",
         description: "Fonti RSS mostrate in home"
@@ -639,6 +658,10 @@ const ADMIN_PANEL_COPY = {
       "login-branding": {
         label: "Página de inicio de sesión",
         description: "Logo, colores y textos agente / cliente"
+      },
+      reports: {
+        label: "Informes",
+        description: "Identidad, contactos y redes sociales de los exports"
       },
       "tech-news-feeds": {
         label: "Fuentes de noticias",

@@ -9,6 +9,8 @@ import {
   listCarrierSubscribers,
   normalizeUnifiDevice,
   fetchNetworkDevicesViaConnector,
+  resolveNetworkSiteId,
+  extractDeviceSiteId,
   extractUiList,
   fetchUiApi
 } from "./utils.js";
@@ -92,6 +94,7 @@ router.get("/devices", verifyJWT, async (req, res) => {
     if (!(await requireEnabled(res))) return;
     const hostId = String(req.query.hostId || "").trim();
     const siteId = String(req.query.siteId || "").trim();
+    const siteName = String(req.query.siteName || "").trim();
     if (!hostId) {
       return res.status(400).json({ success: false, error: "hostId is required" });
     }
@@ -100,78 +103,85 @@ router.get("/devices", verifyJWT, async (req, res) => {
       return res.status(400).json({ success: false, error: "Site Manager API key missing" });
     }
 
-    let rawDevices = await listDevicesForHost(keys.siteManager, hostId);
+    let devices = [];
+    let resolvedSiteId = siteId || null;
+    let source = "site-manager";
 
-    // Some Site Manager payloads nest devices under host entries
-    if (rawDevices.length === 0) {
+    // Prefer Network Integration (site-scoped) when a site is requested.
+    // Site Manager /devices is host-wide and often omits siteId on devices.
+    if (siteId && keys.network) {
       try {
-        const hostPayload = await fetchUiApi(`/v1/hosts/${encodeURIComponent(hostId)}`, {
-          apiKey: keys.siteManager
-        });
-        const nested =
-          extractUiList(hostPayload?.devices) ||
-          extractUiList(hostPayload?.data?.devices) ||
-          extractUiList(hostPayload);
-        if (Array.isArray(nested) && nested.length && nested[0]?.mac) {
-          rawDevices = nested;
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (siteId) {
-      rawDevices = rawDevices.filter(device => {
-        const deviceSite =
-          device.siteId ||
-          device.site_id ||
-          device.site?.siteId ||
-          device.site?.id ||
-          null;
-        if (!deviceSite) return true;
-        return String(deviceSite) === siteId;
-      });
-    }
-
-    let devices = rawDevices.map(device =>
-      normalizeUnifiDevice(device, { hostId, siteId: siteId || null })
-    );
-
-    // Enrich / fallback via Network connector when available
-    if (keys.network && siteId) {
-      try {
-        const networkDevices = await fetchNetworkDevicesViaConnector({
+        const resolved = await resolveNetworkSiteId({
           networkApiKey: keys.network,
           hostId,
-          siteId
+          siteId,
+          siteName: siteName || null
         });
-        if (networkDevices.length) {
-          const byMac = new Map();
-          devices.forEach(device => {
-            if (device.macNormalized) byMac.set(device.macNormalized, device);
+
+        if (resolved) {
+          const networkDevices = await fetchNetworkDevicesViaConnector({
+            networkApiKey: keys.network,
+            hostId,
+            siteId: resolved
           });
-          networkDevices.forEach(raw => {
-            const normalized = normalizeUnifiDevice(raw, { hostId, siteId });
-            if (normalized.macNormalized && byMac.has(normalized.macNormalized)) {
-              const existing = byMac.get(normalized.macNormalized);
-              byMac.set(normalized.macNormalized, {
-                ...existing,
-                ...normalized,
-                name: normalized.name || existing.name,
-                model: normalized.model || existing.model,
-                ip: normalized.ip || existing.ip,
-                version: normalized.version || existing.version,
-                serial: normalized.serial || existing.serial
-              });
-            } else {
-              byMac.set(normalized.macNormalized || normalized.id, normalized);
-            }
+          resolvedSiteId = resolved;
+          source = "network";
+          devices = networkDevices.map(device =>
+            normalizeUnifiDevice(device, { hostId, siteId: resolved })
+          );
+        } else {
+          // Unknown SM→Network mapping: only keep Network if it actually returns devices.
+          const networkDevices = await fetchNetworkDevicesViaConnector({
+            networkApiKey: keys.network,
+            hostId,
+            siteId
           });
-          devices = Array.from(byMac.values());
+          if (networkDevices.length) {
+            resolvedSiteId = siteId;
+            source = "network";
+            devices = networkDevices.map(device =>
+              normalizeUnifiDevice(device, { hostId, siteId })
+            );
+          }
         }
       } catch (err) {
-        console.warn("[unifi] Network connector enrichment skipped:", err.message);
+        console.warn("[unifi] Network site devices fallback to Site Manager:", err.message);
+        source = "site-manager";
+        devices = [];
       }
+    }
+
+    if (source !== "network") {
+      let rawDevices = await listDevicesForHost(keys.siteManager, hostId);
+
+      if (rawDevices.length === 0) {
+        try {
+          const hostPayload = await fetchUiApi(`/v1/hosts/${encodeURIComponent(hostId)}`, {
+            apiKey: keys.siteManager
+          });
+          const nested =
+            extractUiList(hostPayload?.devices) ||
+            extractUiList(hostPayload?.data?.devices) ||
+            extractUiList(hostPayload);
+          if (Array.isArray(nested) && nested.length && nested[0]?.mac) {
+            rawDevices = nested;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (siteId) {
+        // Strict filter: never keep devices without a matching siteId.
+        rawDevices = rawDevices.filter(device => {
+          const deviceSite = extractDeviceSiteId(device);
+          return deviceSite && String(deviceSite) === String(siteId);
+        });
+      }
+
+      devices = rawDevices.map(device =>
+        normalizeUnifiDevice(device, { hostId, siteId: resolvedSiteId })
+      );
     }
 
     const switches = devices.filter(d => d.category === "switch");
@@ -181,7 +191,8 @@ router.get("/devices", verifyJWT, async (req, res) => {
     return res.json({
       success: true,
       hostId,
-      siteId: siteId || null,
+      siteId: resolvedSiteId,
+      source,
       devices,
       switches,
       accessPoints,

@@ -451,9 +451,9 @@ export default function SalesFormModal({
     };
     if (isSupport) {
       payload.publicEnabled = formDraft.publicEnabled === true;
-      payload.publicSlug = formDraft.publicEnabled === true
-        ? slugifyPublicSlug(formDraft.publicSlug, key)
-        : null;
+      if (formDraft.publicEnabled === true) {
+        payload.publicSlug = slugifyPublicSlug(formDraft.publicSlug, key);
+      }
     }
     return payload;
   };

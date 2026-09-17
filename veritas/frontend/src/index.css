@@ -33,6 +33,19 @@ code {
   box-sizing: border-box;
 }
 
+/*
+ * Native <select> popups follow the app theme.
+ * Forcing option { background } without a matching color-scheme makes
+ * Windows/Chrome render hovered options as white text on white.
+ */
+html.light select {
+  color-scheme: light;
+}
+
+html.dark select {
+  color-scheme: dark;
+}
+
 
 #root {
   background-color: var(--bg-primary);

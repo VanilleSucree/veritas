@@ -1714,11 +1714,7 @@
   height: 100%;
   opacity: 0;
   cursor: pointer;
-}
-
-.footerSubmitSelectOverlay option {
-  color: var(--msp-text, #0f1c2e);
-  background: var(--msp-surface, #fff);
+  color-scheme: light;
 }
 
 .submitActionBtn {

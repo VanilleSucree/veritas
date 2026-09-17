@@ -1236,6 +1236,7 @@
   color: var(--msp-text);
   background: var(--msp-surface-2);
   box-sizing: border-box;
+  color-scheme: inherit;
 }
 
 .numberStepper {

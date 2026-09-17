@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { fetchReportBranding } from "../../api/reportBranding";
 import { REPORT_META, buildExportHeaderHtml, buildReportDocumentHtml, buildReportPeriodLabel } from "./exportRapportHtmlTemplate";
 
 const MAX_COLLECTED_CSS_CHARS = 350_000;
@@ -62,14 +63,15 @@ const REPORT_EXPORT_META = {
   }
 };
 
-function buildSingleReportHtml({ clone, clientName, periodLabel, reportKey, collectedCss }) {
+function buildSingleReportHtml({ clone, clientName, periodLabel, reportKey, collectedCss, branding }) {
   const meta = REPORT_EXPORT_META[reportKey] || REPORT_EXPORT_META.supervision;
   const reportMeta = REPORT_META[meta.metaKey] || REPORT_META.supervision;
   const title = clone?.getAttribute?.("data-report-title") || meta.fileLabel;
   const headerHtml = buildExportHeaderHtml({
     clientName,
     periodLabel,
-    reportType: meta.metaKey
+    reportType: meta.metaKey,
+    branding
   });
   const bodyContent = `
   ${headerHtml}
@@ -81,9 +83,54 @@ function buildSingleReportHtml({ clone, clientName, periodLabel, reportKey, coll
     html: buildReportDocumentHtml({
       documentTitle: `${clientName} - ${title || reportMeta.label}`,
       collectedCss,
-      bodyContent
+      bodyContent,
+      branding
     })
   };
+}
+
+async function resolveReportBranding() {
+  try {
+    return (await fetchReportBranding()) || null;
+  } catch (err) {
+    console.warn("Report export: branding unavailable", err);
+    return null;
+  }
+}
+
+function collectReportParts(root, { clientName, periodLabel, collectedCss, branding }) {
+  const parts = Array.from(root.querySelectorAll("[data-report-export]"));
+  if (!parts.length) {
+    return [
+      buildSingleReportHtml({
+        clone: stripExportHidden(root.cloneNode(true)),
+        clientName,
+        periodLabel,
+        reportKey: "supervision",
+        collectedCss,
+        branding
+      })
+    ];
+  }
+  return parts.map(part => {
+    const clone = stripExportHidden(part.cloneNode(true));
+    if (clone.style) {
+      clone.style.setProperty("display", "block", "important");
+      clone.style.removeProperty("visibility");
+    }
+    clone.removeAttribute?.("aria-hidden");
+    Array.from(clone.classList || []).forEach(cls => {
+      if (/hidden/i.test(cls)) clone.classList.remove(cls);
+    });
+    return buildSingleReportHtml({
+      clone,
+      clientName,
+      periodLabel,
+      reportKey: part.getAttribute("data-report-export") || "supervision",
+      collectedCss,
+      branding
+    });
+  });
 }
 
 export async function buildReportZipBlob(ref, config) {
@@ -94,41 +141,14 @@ export async function buildReportZipBlob(ref, config) {
     throw new Error("Configuration client manquante.");
   }
   const root = ref.current;
-  const parts = Array.from(root.querySelectorAll("[data-report-export]"));
   const collectedCss = collectDocumentCSS();
   const clientName = config.client.name || config.client.nom || "CLIENT";
   const periodLabel = buildReportPeriodLabel(config.client);
   const safeName = String(clientName).replace(/\s+/g, " ").trim() || "CLIENT";
+  const branding = await resolveReportBranding();
 
   const zip = new JSZip();
-  const reports = parts.length
-    ? parts.map(part => {
-        const clone = stripExportHidden(part.cloneNode(true));
-        if (clone.style) {
-          clone.style.setProperty("display", "block", "important");
-          clone.style.removeProperty("visibility");
-        }
-        clone.removeAttribute?.("aria-hidden");
-        Array.from(clone.classList || []).forEach(cls => {
-          if (/hidden/i.test(cls)) clone.classList.remove(cls);
-        });
-        return buildSingleReportHtml({
-          clone,
-          clientName,
-          periodLabel,
-          reportKey: part.getAttribute("data-report-export") || "supervision",
-          collectedCss
-        });
-      })
-    : [
-        buildSingleReportHtml({
-          clone: stripExportHidden(root.cloneNode(true)),
-          clientName,
-          periodLabel,
-          reportKey: "supervision",
-          collectedCss
-        })
-      ];
+  const reports = collectReportParts(root, { clientName, periodLabel, collectedCss, branding });
 
   reports.forEach(report => {
     const safeLabel = String(report.fileLabel || "Rapport").replace(/[<>:"/\\|?*]+/g, " ").trim();
@@ -164,40 +184,13 @@ export async function buildReportHtmlParts(ref, config) {
     throw new Error("Configuration client manquante.");
   }
   const root = ref.current;
-  const parts = Array.from(root.querySelectorAll("[data-report-export]"));
   const collectedCss = collectDocumentCSS();
   const clientName = config.client.name || config.client.nom || "CLIENT";
   const periodLabel = buildReportPeriodLabel(config.client);
   const safeName = String(clientName).replace(/\s+/g, " ").trim() || "CLIENT";
+  const branding = await resolveReportBranding();
 
-  const reports = parts.length
-    ? parts.map(part => {
-        const clone = stripExportHidden(part.cloneNode(true));
-        if (clone.style) {
-          clone.style.setProperty("display", "block", "important");
-          clone.style.removeProperty("visibility");
-        }
-        clone.removeAttribute?.("aria-hidden");
-        Array.from(clone.classList || []).forEach(cls => {
-          if (/hidden/i.test(cls)) clone.classList.remove(cls);
-        });
-        return buildSingleReportHtml({
-          clone,
-          clientName,
-          periodLabel,
-          reportKey: part.getAttribute("data-report-export") || "supervision",
-          collectedCss
-        });
-      })
-    : [
-        buildSingleReportHtml({
-          clone: stripExportHidden(root.cloneNode(true)),
-          clientName,
-          periodLabel,
-          reportKey: "supervision",
-          collectedCss
-        })
-      ];
+  const reports = collectReportParts(root, { clientName, periodLabel, collectedCss, branding });
 
   const start = config.client.reportStartDate;
   const end = config.client.reportEndDate;

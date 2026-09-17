@@ -1495,11 +1495,6 @@
   box-shadow: 0 0 0 3px rgba(90, 143, 212, 0.2);
 }
 
-:global(html.dark) .control option {
-  background: var(--msp-surface-2, #152035);
-  color: var(--msp-text, #e8edf5);
-}
-
 :global(html.dark) .label,
 :global(html.dark) .sectionMeta,
 :global(html.dark) .progressHint {

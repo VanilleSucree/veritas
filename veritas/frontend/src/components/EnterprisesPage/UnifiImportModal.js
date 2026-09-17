@@ -145,7 +145,8 @@ export default function UnifiImportModal({
         }
         const devicesRes = await fetchUnifiDevices({
           hostId: current.hostId,
-          siteId: current.siteId
+          siteId: current.siteId,
+          siteName: current.siteName || undefined
         });
         if (cancelled) return;
         setDevices(devicesRes.devices || []);

@@ -3449,11 +3449,6 @@ button.switch:disabled {
   box-shadow: 0 0 0 3px var(--msp-accent-soft, rgba(90, 143, 212, 0.15));
 }
 
-:global(html.dark) .select option {
-  background: var(--msp-surface-2, #152035);
-  color: var(--msp-text, #e8edf5);
-}
-
 :global(html.dark) .contactInputWrap:focus-within,
 :global(html.dark) .fieldShell:focus-within {
   background: var(--msp-surface-2, #152035);
