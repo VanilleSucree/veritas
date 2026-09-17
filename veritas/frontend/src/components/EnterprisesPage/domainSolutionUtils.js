@@ -161,8 +161,8 @@ function withDomainItemKey(domain) {
     item_key: key
   };
 }
-function sanitizeDomainForSave(domain) {
-  const normalized = withDomainItemKey(domain);
+function sanitizeDomainForSave(item) {
+  const normalized = withDomainItemKey(item);
   if (!normalized) return null;
   const {
     id,
@@ -170,7 +170,7 @@ function sanitizeDomainForSave(domain) {
     nom,
     name,
     domaine,
-    domain,
+    domain: domainName,
     registrar,
     providerId,
     isManual,
@@ -194,10 +194,10 @@ function sanitizeDomainForSave(domain) {
   return {
     id,
     item_key,
-    nom: nom || name || domain || domaine || "",
-    name: name || nom || domain || domaine || "",
+    nom: nom || name || domainName || domaine || "",
+    name: name || nom || domainName || domaine || "",
     domaine: domaine || nom || name || "",
-    domain: domain || nom || name || "",
+    domain: domainName || nom || name || "",
     registrar: registrar || null,
     providerId: providerId || null,
     isManual: Boolean(isManual),
