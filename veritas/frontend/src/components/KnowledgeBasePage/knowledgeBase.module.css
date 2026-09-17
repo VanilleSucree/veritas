@@ -1098,6 +1098,52 @@ button.heroActionBtn {
   gap: 0.15rem;
 }
 
+.folderModalShell {
+  width: min(920px, calc(100vw - 2rem));
+  max-height: min(860px, calc(100vh - 2rem));
+}
+
+.folderModalContent {
+  overflow: auto;
+}
+
+.folderModalFields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.folderModalLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--msp-text, #1a2b3c);
+}
+
+.folderIconPreviewRow {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.folderIconPreviewBtn {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.folderIconPreviewBtn img {
+  width: 28px;
+  height: 28px;
+}
+
+.folderIconPreviewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
 .folderIconPicker {
   margin-top: 0.75rem;
   display: flex;
@@ -2426,6 +2472,63 @@ button.heroActionBtn {
   min-height: 0;
   overflow: auto;
   padding: 0.1rem 0.4rem 0.75rem;
+}
+
+.navDragHandle {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--msp-muted, #8a97a8);
+  cursor: grab;
+  padding: 0;
+  border-radius: 4px;
+  opacity: 0.55;
+}
+
+.navDragHandle:hover {
+  opacity: 1;
+  color: var(--msp-text, #1a2b3c);
+  background: rgba(15, 28, 46, 0.06);
+}
+
+.navDragHandle:active {
+  cursor: grabbing;
+}
+
+.navRowDragging {
+  opacity: 0.45;
+}
+
+.navDropTarget {
+  outline: 1.5px dashed var(--msp-accent, #2b5fab);
+  outline-offset: -1px;
+  border-radius: 8px;
+  background: rgba(43, 95, 171, 0.08);
+}
+
+.navDragOverlay {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  background: var(--msp-surface, #fff);
+  border: 1px solid var(--msp-border-light, #e8eef5);
+  box-shadow: 0 8px 24px rgba(15, 28, 46, 0.16);
+  font-size: 0.85rem;
+  color: var(--msp-text, #1a2b3c);
+  max-width: 220px;
+}
+
+.navDragOverlay span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .navFolderBlock {

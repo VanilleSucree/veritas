@@ -11,7 +11,7 @@ import { interpolate } from "../../i18n/translate";
 import { formatPageInfo } from "../../i18n/commonI18n";
 import { useCommonCopy } from "../../hooks/useCommonCopy";
 import { useDefaultPageSize } from "../../hooks/useDefaultPageSize";
-import { createKnowledgeArticle, createKnowledgeFolder, deleteKnowledgeArticle, deleteKnowledgeArticles, deleteKnowledgeFolder, fetchKnowledgeArticles, fetchKnowledgeCategories, fetchKnowledgeEmojis, fetchKnowledgeFolders, moveKnowledgeArticles, updateKnowledgeArticle, updateKnowledgeFolder } from "../../api/knowledgeBase";
+import { createKnowledgeArticle, createKnowledgeFolder, deleteKnowledgeArticle, deleteKnowledgeArticles, deleteKnowledgeFolder, fetchKnowledgeArticles, fetchKnowledgeCategories, fetchKnowledgeEmojis, fetchKnowledgeFolders, moveKnowledgeArticles, reorderKnowledgeArticles, reorderKnowledgeFolders, updateKnowledgeArticle, updateKnowledgeFolder } from "../../api/knowledgeBase";
 import ConfirmModal from "../Misc/ConfirmModal/ConfirmModal";
 import MspPageHero from "../Misc/MspPageHero/MspPageHero";
 import SmartTooltip from "../SmartTooltip";
@@ -107,7 +107,8 @@ export default function KnowledgeBasePage({ onNavigate }) {
         title: row.title,
         folderId: row.folderId || null,
         status: row.status,
-        icon: row.icon || null
+        icon: row.icon || null,
+        sortOrder: Number(row.sortOrder) || 0
       })));
     } catch {
       setNavArticles([]);
@@ -294,6 +295,44 @@ export default function KnowledgeBasePage({ onNavigate }) {
     }
   }, [confirmFolderDelete, currentFolder, copy.folderDeleted, copy.folderError, loadFolders, load, loadNavArticles]);
 
+  const handleReorderFolders = useCallback(async ({ parentId, orderedIds }) => {
+    try {
+      await reorderKnowledgeFolders(parentId, orderedIds);
+      await loadFolders();
+      await loadNavArticles();
+    } catch (err) {
+      toast.error(err.message || copy.dragReorderError || copy.folderError);
+      throw err;
+    }
+  }, [copy.dragReorderError, copy.folderError, loadFolders, loadNavArticles]);
+
+  const handleReorderArticles = useCallback(async ({ folderId, orderedIds }) => {
+    const previous = navArticles;
+    setNavArticles(prev => {
+      const byId = new Map(prev.map(row => [row.id, row]));
+      const next = [...prev];
+      orderedIds.forEach((id, index) => {
+        const row = byId.get(id);
+        if (!row) return;
+        const idx = next.findIndex(item => item.id === id);
+        if (idx >= 0) {
+          next[idx] = { ...row, folderId: folderId || null, sortOrder: index };
+        }
+      });
+      return next;
+    });
+    try {
+      await reorderKnowledgeArticles(folderId, orderedIds);
+      await loadFolders();
+      await loadNavArticles();
+      await load();
+    } catch (err) {
+      setNavArticles(previous);
+      toast.error(err.message || copy.dragReorderError || copy.folderError);
+      throw err;
+    }
+  }, [copy.dragReorderError, copy.folderError, load, loadFolders, loadNavArticles, navArticles]);
+
   const moveSelected = useCallback(async () => {
     const ids = [...selected];
     if (!ids.length) return;
@@ -403,13 +442,14 @@ export default function KnowledgeBasePage({ onNavigate }) {
                 searchInputRef.current?.select?.();
               }}
               onOpenArticle={openArticle}
-              onManageEmojis={() => setEmojiModal({ mode: "manage" })}
               onCreate={parentId => setFolderModal({ mode: "create", parentId })}
               onRename={node => setFolderModal({ mode: "rename", folder: node })}
               onShare={node => setFolderModal({ mode: "share", folder: node })}
               onDelete={node => setConfirmFolderDelete(node)}
               onChangeIcon={node => setEmojiModal({ mode: "pick", target: "folder", id: node.id, title: node.name })}
               onChangeArticleIcon={article => setEmojiModal({ mode: "pick", target: "article", id: article.id, title: article.title })}
+              onReorderFolders={handleReorderFolders}
+              onReorderArticles={handleReorderArticles}
             />
             </div>
             <div className={styles.listColumn}>

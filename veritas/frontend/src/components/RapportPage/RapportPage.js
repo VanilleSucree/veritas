@@ -902,14 +902,40 @@ export default function ReportPage({
       setRecentDocs(activeDocs);
     }).catch(() => setRecentDocs([]));
   };
+  const ensureSummaryContentReady = async () => {
+    if (summaryContentRef?.current) return true;
+    if (!builderClient) return false;
+    const steps = getEnabledMonitoringSteps(builderClient);
+    const summaryIndex = steps.indexOf("summary");
+    if (summaryIndex < 0) return false;
+    if (builderStepIndex !== summaryIndex) {
+      setBuilderStepIndex(summaryIndex);
+    }
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      if (summaryContentRef?.current) return true;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return Boolean(summaryContentRef?.current);
+  };
   const archiveReportToClientVault = async ({
     visibleToClient,
     documentName,
     reportPeriod
   }) => {
-    if (!builderClient?.id || !summaryContentRef?.current) return {
-      skipped: true
-    };
+    const clientId = builderClient?.id ?? builderClient?.uuid;
+    if (!clientId) {
+      return {
+        success: false,
+        error: "Client introuvable pour l’archivage documentaire."
+      };
+    }
+    const summaryReady = await ensureSummaryContentReady();
+    if (!summaryReady) {
+      return {
+        success: false,
+        error: "Ouvrez l’étape Synthèse puis réenregistrez pour archiver le rapport."
+      };
+    }
     try {
       const {
         blob,
@@ -917,10 +943,13 @@ export default function ReportPage({
       } = await buildReportZipBlob(summaryContentRef, {
         client: builderClient
       });
+      if (!blob || blob.size < 32) {
+        throw new Error("ZIP du rapport vide ou invalide.");
+      }
       await uploadReportArchiveToClientVault({
         blob,
         fileName: documentName ? `${documentName}.zip` : fileName,
-        clientId: builderClient.id,
+        clientId,
         clientName: builderClient.name || builderClient.nom || "",
         description: reportPeriod || "",
         visibleToClient
@@ -932,7 +961,7 @@ export default function ReportPage({
       console.error("Archivage vault:", err);
       return {
         success: false,
-        error: err.message
+        error: err?.message || "Archivage documentaire impossible."
       };
     }
   };
@@ -980,15 +1009,15 @@ export default function ReportPage({
         refreshRecentDocs();
         setTimeout(() => setSaveSuccessVisible(false), 3000);
         if (vaultResult.success) {
-          toast.success(saveVisibleToClient ? "Report saved and shared with the company." : "Report saved (internal agents).");
+          toast.success(saveVisibleToClient ? "Rapport enregistré et partagé avec l’entreprise." : "Rapport enregistré (interne agents).");
         } else if (!vaultResult.skipped) {
-          toast.warn("Report saved, but document archiving failed.");
+          toast.warn(vaultResult.error ? `Rapport enregistré, mais archivage échoué : ${vaultResult.error}` : "Rapport enregistré, mais l’archivage documentaire a échoué.");
         } else {
-          toast.success("Report saved.");
+          toast.success("Rapport enregistré.");
         }
         return result;
       }
-      if (result && result.message && String(result.message).includes("déjà enregistré")) {
+      if (result && result.message && /déjà enregistré|already saved/i.test(String(result.message))) {
         setPendingSave({
           name: saveName.trim(),
           client_name: clientName,
@@ -1071,11 +1100,11 @@ export default function ReportPage({
         refreshRecentDocs();
         setTimeout(() => setSaveSuccessVisible(false), 3000);
         if (vaultResult.success) {
-          toast.success(pendingSave.visibleToClient ?? saveVisibleToClient ? "Report saved and shared with the company." : "Report saved (internal agents).");
+          toast.success(pendingSave.visibleToClient ?? saveVisibleToClient ? "Rapport enregistré et partagé avec l’entreprise." : "Rapport enregistré (interne agents).");
         } else if (!vaultResult.skipped) {
-          toast.warn("Report saved, but document archiving failed.");
+          toast.warn(vaultResult.error ? `Rapport enregistré, mais archivage échoué : ${vaultResult.error}` : "Rapport enregistré, mais l’archivage documentaire a échoué.");
         } else {
-          toast.success("Report updated.");
+          toast.success("Rapport mis à jour.");
         }
       } else {
         setSaveErrorVisible(true);

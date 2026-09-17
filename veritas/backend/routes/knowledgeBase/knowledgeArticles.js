@@ -22,6 +22,7 @@ import {
   listKnowledgeTagCatalog,
   moveKnowledgeArticles,
   publishKnowledgeArticle,
+  reorderKnowledgeArticles,
   restoreKnowledgeArticleRevision,
   setArticlePublicLink,
   unpublishKnowledgeArticle,
@@ -156,6 +157,26 @@ router.post(
 );
 
 router.post(
+  "/reorder",
+  requireAnyPermission("knowledge_base.edit", "knowledge_base.create"),
+  [
+    body("orderedIds").isArray({ min: 1, max: 500 }),
+    body("orderedIds.*").isUUID(),
+    body("folderId").optional({ nullable: true }).isUUID()
+  ],
+  async (req, res) => {
+    if (validationErrorOrNull(req, res)) return;
+    try {
+      const result = await reorderKnowledgeArticles(req.body?.folderId || null, req.body.orderedIds);
+      res.json(result);
+    } catch (err) {
+      console.error("[POST /knowledge-articles/reorder]", err);
+      res.status(err.status || 500).json({ error: err.message || "Error reordering articles." });
+    }
+  }
+);
+
+router.post(
   "/bulk-delete",
   requirePermission("knowledge_base.delete"),
   [body("ids").isArray({ min: 1, max: 100 }), body("ids.*").isUUID()],
@@ -228,6 +249,7 @@ router.patch(
         contactTagIds: req.body?.contactTagIds,
         folderId: req.body?.folderId,
         icon: req.body?.icon,
+        sortOrder: req.body?.sortOrder,
         ratingsEnabled: req.body?.ratingsEnabled,
         commentsEnabled: req.body?.commentsEnabled,
         commentsCompany: req.body?.commentsCompany,

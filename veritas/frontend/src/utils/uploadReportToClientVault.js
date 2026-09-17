@@ -1,4 +1,13 @@
 import { uploadClientFile } from "../api/clientFiles";
+
+function toZipFile(blob, fileName) {
+  const baseName = String(fileName || "monitoring-report").replace(/[<>:"/\\|?*]+/g, " ").trim().replace(/\s+/g, " ");
+  const zipName = baseName.toLowerCase().endsWith(".zip") ? baseName : `${baseName}.zip`;
+  return new File([blob], zipName, {
+    type: "application/zip"
+  });
+}
+
 export async function uploadReportArchiveToClientVault({
   blob,
   fileName,
@@ -8,22 +17,18 @@ export async function uploadReportArchiveToClientVault({
   visibleToClient = false
 }) {
   if (!blob || !clientId) {
-    throw new Error("Insufficient data to archive the report.");
+    throw new Error("Données insuffisantes pour archiver le rapport.");
   }
-  const baseName = String(fileName || "monitoring-report").replace(/[<>:"/\\|?*]+/g, " ").trim().replace(/\s+/g, " ");
-  const zipName = baseName.toLowerCase().endsWith(".zip") ? baseName : `${baseName}.zip`;
-  const file = new File([blob], zipName, {
-    type: "application/zip"
-  });
   return uploadClientFile({
     clientId,
     clientName,
     category: "Rapport",
     description,
-    file,
+    file: toZipFile(blob, fileName),
     visibleToClient: Boolean(visibleToClient)
   });
 }
+
 export async function uploadInterventionPdfToClientVault({
   blob,
   fileName,
@@ -33,7 +38,7 @@ export async function uploadInterventionPdfToClientVault({
   visibleToClient = false
 }) {
   if (!blob || !clientId) {
-    throw new Error("Insufficient data to archive the report.");
+    throw new Error("Données insuffisantes pour archiver le rapport.");
   }
   const baseName = String(fileName || "rapport-intervention").replace(/[<>:"/\\|?*]+/g, " ").trim().replace(/\s+/g, " ");
   const pdfName = baseName.toLowerCase().endsWith(".pdf") ? baseName : `${baseName}.pdf`;

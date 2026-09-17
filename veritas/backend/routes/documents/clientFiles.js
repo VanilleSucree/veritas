@@ -18,8 +18,35 @@ if (!fs.existsSync(UPLOADS_DIR)) {
     recursive: true
   });
 }
-const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain", "text/csv", "application/zip"]);
+const ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "text/csv",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/x-zip",
+  "multipart/x-zip"
+]);
 const ALLOWED_CATEGORIES = new Set(["Facture matériel", "Image client", "Baie de brassage", "Plan de réseau", "Procédure", "Contrat", "Rapport", "Autre"]);
+const ZIP_EXTENSIONS = new Set([".zip"]);
+function isAllowedUpload(file) {
+  if (!file) return false;
+  if (ALLOWED_MIME.has(file.mimetype)) return true;
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  // Some browsers send empty / octet-stream for ZIP blobs.
+  if (ZIP_EXTENSIONS.has(ext) && (!file.mimetype || file.mimetype === "application/octet-stream")) {
+    return true;
+  }
+  return false;
+}
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
   filename: (_req, file, cb) => {
@@ -31,16 +58,25 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024
+    fileSize: 50 * 1024 * 1024
   },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME.has(file.mimetype)) {
+    if (isAllowedUpload(file)) {
       cb(null, true);
     } else {
-      cb(new Error(`File type not allowed: ${file.mimetype}`));
+      cb(new Error(`File type not allowed: ${file.mimetype || "unknown"}`));
     }
   }
 });
+function runSingleFileUpload(req, res, next) {
+  upload.single("file")(req, res, err => {
+    if (!err) return next();
+    const status = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    return res.status(status).json({
+      error: err.message || "Upload failed."
+    });
+  });
+}
 async function resolveVisibilitySelect() {
   await ensureVisibleToClientColumn();
   const hasVisibility = await hasVisibleToClientColumn();
@@ -77,7 +113,7 @@ router.get("/", verifyJWT, requireAnyPermission("documents.view", "clients_detai
     });
   }
 });
-router.post("/", verifyJWT, requireAnyPermission("documents.create", "clients_detail.vault"), upload.single("file"), async (req, res) => {
+router.post("/", verifyJWT, requireAnyPermission("documents.create", "clients_detail.vault"), runSingleFileUpload, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({
       error: "No file received."
@@ -98,8 +134,23 @@ router.post("/", verifyJWT, requireAnyPermission("documents.create", "clients_de
     await ensureVisibleToClientColumn();
     const hasVisibility = await hasVisibleToClientColumn();
     const shareWithClient = hasVisibility ? parseVisibleToClient(visibleToClient) : false;
+    const resolvedClientId = Number(clientId);
+    if (!Number.isFinite(resolvedClientId) || resolvedClientId <= 0) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        error: "clientId invalide."
+      });
+    }
+    const ext = path.extname(req.file.originalname || "").toLowerCase();
+    const mimeType =
+      req.file.mimetype && req.file.mimetype !== "application/octet-stream"
+        ? req.file.mimetype
+        : ext === ".zip"
+          ? "application/zip"
+          : req.file.mimetype || "application/octet-stream";
+    const safeCategory = ALLOWED_CATEGORIES.has(category) ? category : "Autre";
     const columns = ["client_id", "client_name", "file_name", "file_path", "mime_type", "size_bytes", "category", "description", "uploaded_by"];
-    const values = [Number(clientId), clientName || null, req.file.originalname, req.file.filename, req.file.mimetype, req.file.size, category, description, resolveFileUploadedBy(req.user)];
+    const values = [resolvedClientId, clientName || null, req.file.originalname, req.file.filename, mimeType, req.file.size, safeCategory, description, resolveFileUploadedBy(req.user)];
     if (hasVisibility) {
       columns.push("visible_to_client");
       values.push(shareWithClient);

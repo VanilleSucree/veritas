@@ -179,6 +179,7 @@ function mapArticleRow(row, extras = {}) {
     updatedAt: row.updated_at,
     folderId: row.folder_id || null,
     folderName: row.folder_name || extras.folderName || null,
+    sortOrder: Number(row.sort_order) || 0,
     icon: row.icon || null,
     clientIds: extras.clientIds || [],
     contactIds: extras.contactIds || [],
@@ -441,11 +442,18 @@ export async function createKnowledgeArticle({ title, category, authorUserId, fo
   }
   const json = asJson(contentJson, EMPTY_DOC);
   const html = contentHtml != null ? String(contentHtml) : "";
+  const { rows: sortRows } = await pool.query(
+    `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next
+       FROM v_b_knowledge_articles
+      WHERE folder_id IS NOT DISTINCT FROM $1`,
+    [folder]
+  );
+  const sortOrder = Number(sortRows[0]?.next) || 0;
   const { rows } = await pool.query(
-    `INSERT INTO v_b_knowledge_articles (title, category, author_user_id, updated_by_user_id, folder_id, content_json, content_html, content_plain)
-     VALUES ($1, $2, $3, $3, $4, $5::jsonb, $6, $7)
+    `INSERT INTO v_b_knowledge_articles (title, category, author_user_id, updated_by_user_id, folder_id, sort_order, content_json, content_html, content_plain)
+     VALUES ($1, $2, $3, $3, $4, $5, $6::jsonb, $7, $8)
      RETURNING *`,
-    [String(title || "").trim() || "Sans titre", String(category || "").trim() || null, authorUserId || null, folder, JSON.stringify(json), html, htmlToPlain(html)]
+    [String(title || "").trim() || "Sans titre", String(category || "").trim() || null, authorUserId || null, folder, sortOrder, JSON.stringify(json), html, htmlToPlain(html)]
   );
   if (rows[0]?.category) await ensureKnowledgeCategory(rows[0].category);
   const article = await getKnowledgeArticle(rows[0].id);
@@ -476,6 +484,18 @@ export async function updateKnowledgeArticle(articleId, patch = {}) {
   const folderId = patch.folderId !== undefined
     ? (isUuid(patch.folderId) ? patch.folderId : null)
     : existing.folderId;
+  let sortOrder = existing.sortOrder;
+  if (patch.sortOrder != null && Number.isFinite(Number(patch.sortOrder))) {
+    sortOrder = Number(patch.sortOrder);
+  } else if (patch.folderId !== undefined && folderId !== existing.folderId) {
+    const { rows: sortRows } = await pool.query(
+      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next
+         FROM v_b_knowledge_articles
+        WHERE folder_id IS NOT DISTINCT FROM $1`,
+      [folderId]
+    );
+    sortOrder = Number(sortRows[0]?.next) || 0;
+  }
   const icon = patch.icon !== undefined
     ? normalizeKnowledgeIcon(patch.icon)
     : existing.icon;
@@ -499,15 +519,16 @@ export async function updateKnowledgeArticle(articleId, patch = {}) {
             status = $10,
             published_at = $11,
             folder_id = $12,
-            updated_by_user_id = COALESCE($13, updated_by_user_id),
-            feedback_ratings_enabled = $14,
-            feedback_comments_enabled = $15,
-            feedback_comments_company = $16,
-            icon = $17,
+            sort_order = $13,
+            updated_by_user_id = COALESCE($14, updated_by_user_id),
+            feedback_ratings_enabled = $15,
+            feedback_comments_enabled = $16,
+            feedback_comments_company = $17,
+            icon = $18,
             updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
-    [articleId, title || "Sans titre", category, visibleToAgents, visibleToAllClients, visibleToAllContacts, JSON.stringify(contentJson), contentHtml, contentPlain, status, publishedAt, folderId, editorUserId, ratingsEnabled, commentsEnabled, commentsCompany, icon]
+    [articleId, title || "Sans titre", category, visibleToAgents, visibleToAllClients, visibleToAllContacts, JSON.stringify(contentJson), contentHtml, contentPlain, status, publishedAt, folderId, sortOrder, editorUserId, ratingsEnabled, commentsEnabled, commentsCompany, icon]
   );
   if (patch.clientIds != null || patch.contactIds != null || patch.clientTagIds != null || patch.contactTagIds != null) {
     await replaceArticleAudience(
@@ -675,11 +696,60 @@ export async function moveKnowledgeArticles(ids, folderId) {
     }
   }
   if (!unique.length) return { moved: 0 };
-  const { rowCount } = await pool.query(
-    `UPDATE v_b_knowledge_articles SET folder_id = $2, updated_at = NOW() WHERE id = ANY($1::uuid[])`,
-    [unique, folder]
+  const { rows: sortRows } = await pool.query(
+    `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next
+       FROM v_b_knowledge_articles
+      WHERE folder_id IS NOT DISTINCT FROM $1`,
+    [folder]
   );
-  return { moved: rowCount || 0 };
+  let next = Number(sortRows[0]?.next) || 0;
+  let moved = 0;
+  for (const id of unique) {
+    const { rowCount } = await pool.query(
+      `UPDATE v_b_knowledge_articles
+          SET folder_id = $2, sort_order = $3, updated_at = NOW()
+        WHERE id = $1`,
+      [id, folder, next]
+    );
+    if (rowCount) {
+      moved += 1;
+      next += 1;
+    }
+  }
+  return { moved };
+}
+
+export async function reorderKnowledgeArticles(folderId, orderedIds) {
+  await ensureKnowledgeArticlesSchema();
+  const folder = folderId && isUuid(folderId) ? folderId : null;
+  if (folder) {
+    const { rows } = await pool.query(`SELECT 1 FROM v_b_knowledge_folders WHERE id = $1`, [folder]);
+    if (!rows.length) {
+      const err = new Error("Folder not found.");
+      err.status = 404;
+      throw err;
+    }
+  }
+  const ids = uniqueIds(orderedIds, false).filter(isUuid);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (let i = 0; i < ids.length; i += 1) {
+      await client.query(
+        `UPDATE v_b_knowledge_articles
+            SET folder_id = $2, sort_order = $3, updated_at = NOW()
+          WHERE id = $1`,
+        [ids[i], folder, i]
+      );
+    }
+    await client.query("COMMIT");
+    return { reordered: ids.length };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export function portalVisibilitySql(clientAlias = "a") {

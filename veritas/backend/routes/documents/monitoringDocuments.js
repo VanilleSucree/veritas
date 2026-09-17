@@ -78,10 +78,17 @@ router.post("/", verifyJWT, requirePermission("documents.create"), async (req, r
         await pool.query(`UPDATE v_b_d_monitoring
            SET client_name = $1, 
                report_period = $2, 
-               config = $3, 
-               data = $4,
+               config = $3::jsonb, 
+               data = $4::jsonb,
                updated_at = NOW()
-           WHERE id = $5 AND user_id = $6`, [client_name, report_period, config, data, documentId, userId]);
+           WHERE id = $5 AND user_id = $6`, [
+          client_name,
+          report_period,
+          typeof config === "string" ? config : JSON.stringify(config ?? {}),
+          typeof data === "string" ? data : JSON.stringify(data ?? {}),
+          documentId,
+          userId
+        ]);
         await dispatchNotificationEvent({
           source: "rapport",
           element: "updated",
@@ -109,7 +116,14 @@ router.post("/", verifyJWT, requirePermission("documents.create"), async (req, r
     } else {
       const result = await pool.query(`INSERT INTO v_b_d_monitoring (name, user_id, client_name, report_period, config, data, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, NOW(), NOW())
-         RETURNING id`, [name, userId, client_name, report_period, config, data]);
+         RETURNING id`, [
+        name,
+        userId,
+        client_name,
+        report_period,
+        typeof config === "string" ? config : JSON.stringify(config ?? {}),
+        typeof data === "string" ? data : JSON.stringify(data ?? {})
+      ]);
       documentId = result.rows[0].id;
       await dispatchNotificationEvent({
         source: "rapport",

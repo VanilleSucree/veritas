@@ -126,6 +126,16 @@ export async function ensureKnowledgeArticlesSchema() {
         `).catch(() => {});
       }
     }
+    if (await tableExists(client, "v_b_knowledge_articles")) {
+      await client.query(`
+        ALTER TABLE v_b_knowledge_articles
+          ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0
+      `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_v_b_knowledge_articles_folder_sort
+          ON v_b_knowledge_articles (folder_id, sort_order, title)
+      `);
+    }
     ensured = true;
   } catch (err) {
     console.error("[knowledge-articles] Automatic migration failed:", err.message);

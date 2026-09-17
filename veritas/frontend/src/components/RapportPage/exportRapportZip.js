@@ -2,6 +2,8 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { REPORT_META, buildExportHeaderHtml, buildReportDocumentHtml, buildReportPeriodLabel } from "./exportRapportHtmlTemplate";
 
+const MAX_COLLECTED_CSS_CHARS = 350_000;
+
 function collectDocumentCSS() {
   let css = "";
   try {
@@ -9,9 +11,14 @@ function collectDocumentCSS() {
       try {
         if (!sheet.cssRules) continue;
         for (const rule of sheet.cssRules) {
-          css += rule.cssText + "\n";
+          const text = rule.cssText || "";
+          if (!text || text.length > 8_000) continue;
+          css += `${text}\n`;
+          if (css.length >= MAX_COLLECTED_CSS_CHARS) return css;
         }
-      } catch {}
+      } catch {
+        /* Cross-origin stylesheets are not readable. */
+      }
     }
   } catch (e) {
     console.warn("Report export: CSS collection", e);
@@ -97,7 +104,14 @@ export async function buildReportZipBlob(ref, config) {
   const reports = parts.length
     ? parts.map(part => {
         const clone = stripExportHidden(part.cloneNode(true));
-        if (clone.style) clone.style.display = "block";
+        if (clone.style) {
+          clone.style.setProperty("display", "block", "important");
+          clone.style.removeProperty("visibility");
+        }
+        clone.removeAttribute?.("aria-hidden");
+        Array.from(clone.classList || []).forEach(cls => {
+          if (/hidden/i.test(cls)) clone.classList.remove(cls);
+        });
         return buildSingleReportHtml({
           clone,
           clientName,
@@ -117,7 +131,8 @@ export async function buildReportZipBlob(ref, config) {
       ];
 
   reports.forEach(report => {
-    zip.file(`${safeName} - ${report.fileLabel}.html`, report.html);
+    const safeLabel = String(report.fileLabel || "Rapport").replace(/[<>:"/\\|?*]+/g, " ").trim();
+    zip.file(`${safeName} - ${safeLabel}.html`, report.html);
   });
 
   const start = config.client.reportStartDate;
@@ -126,7 +141,12 @@ export async function buildReportZipBlob(ref, config) {
   if (start && end) {
     zipFileName = `Rapport supervision ${formatZipDate(start)} - ${formatZipDate(end)}`;
   }
-  const blob = await zip.generateAsync({ type: "blob" });
+  const blob = await zip.generateAsync({
+    type: "blob",
+    mimeType: "application/zip",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 }
+  });
   return {
     blob,
     fileName: `${zipFileName}.zip`

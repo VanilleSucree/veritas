@@ -5,6 +5,15 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.18",
+    date: "2026-09-17",
+    highlights: [
+      "Base de connaissances : modal dossier en panneau latéral avec sélecteur d’icône, drag & drop des collections et articles (réordonner / déplacer).",
+      "Base de connaissances : bouton emoji retiré à côté du « + » dans COLLECTIONS.",
+      "Rapports de supervision : archivage du ZIP dans le coffre client corrigé après génération."
+    ]
+  },
+  {
     version: "1.0.17",
     date: "2026-09-17",
     highlights: [

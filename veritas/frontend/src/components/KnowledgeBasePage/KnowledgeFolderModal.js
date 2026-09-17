@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { FaTimes } from "react-icons/fa";
 import { Icon } from "@iconify/react";
 import { fetchClientsList, fetchContactsList } from "../../api/clients";
 import { fetchKnowledgeEmojis, fetchKnowledgeFolder, fetchKnowledgeTagCatalog, resolveKnowledgeEmojiUrl } from "../../api/knowledgeBase";
 import { buildEmojiMap } from "./knowledgeEmojiHelpers";
+import KnowledgeEmojiModal from "./KnowledgeEmojiModal";
 import KnowledgeShareForm from "./KnowledgeShareForm";
+import { resolveKnowledgeIcon } from "./knowledgeStandardEmojis";
+import formStyles from "../EnterprisesPage/EnterpriseFormModal.module.css";
 import styles from "./knowledgeBase.module.css";
 
 export default function KnowledgeFolderModal({
@@ -21,6 +25,8 @@ export default function KnowledgeFolderModal({
   const [name, setName] = useState("");
   const [icon, setIcon] = useState(null);
   const [emojis, setEmojis] = useState([]);
+  const [activeSection, setActiveSection] = useState("general");
+  const [emojiPickOpen, setEmojiPickOpen] = useState(false);
   const [inheritSharing, setInheritSharing] = useState(true);
   const [visibleToAgents, setVisibleToAgents] = useState(true);
   const [visibleToAllClients, setVisibleToAllClients] = useState(false);
@@ -43,6 +49,8 @@ export default function KnowledgeFolderModal({
     setName(folder?.name || "");
     setIcon(folder?.icon || null);
     setInheritedSharing(null);
+    setEmojiPickOpen(false);
+    setActiveSection(mode === "share" ? "share" : "general");
     fetchKnowledgeEmojis().then(setEmojis).catch(() => setEmojis([]));
     if (mode !== "share" || !folder?.id) return undefined;
     let cancelled = false;
@@ -83,11 +91,43 @@ export default function KnowledgeFolderModal({
   }, [open, mode, folder]);
 
   const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
-  const selectedEmoji = icon ? emojiMap.get(String(icon).toLowerCase()) : null;
+  const resolvedIcon = resolveKnowledgeIcon(icon, emojiMap);
+
+  const navSections = useMemo(() => {
+    if (mode === "share") {
+      return [{ id: "share", icon: "mdi:share-variant-outline" }];
+    }
+    return [
+      { id: "general", icon: "mdi:folder-outline" },
+      { id: "icon", icon: "mdi:emoticon-outline" }
+    ];
+  }, [mode]);
 
   if (!open) return null;
 
   const title = mode === "share" ? copy.shareFolder : mode === "rename" ? copy.renameFolder : parentId ? copy.newSubfolder : copy.newFolder;
+  const subtitle = mode === "share"
+    ? (copy.folderShareHint || copy.folderNavShareHint)
+    : (copy.folderModalHint || copy.folderNavGeneralHint);
+
+  const sectionMeta = id => {
+    if (id === "general") {
+      return {
+        label: copy.folderNavGeneral || "Général",
+        description: copy.folderNavGeneralHint || copy.folderNamePlaceholder
+      };
+    }
+    if (id === "icon") {
+      return {
+        label: copy.folderNavIcon || copy.emojiFolderIcon,
+        description: copy.folderNavIconHint || copy.emojiPickHint
+      };
+    }
+    return {
+      label: copy.folderNavShare || copy.shareFolder,
+      description: copy.folderNavShareHint || copy.folderShareHint || ""
+    };
+  };
 
   const submit = async () => {
     if (mode === "create") {
@@ -110,86 +150,184 @@ export default function KnowledgeFolderModal({
     });
   };
 
+  const canSubmit = mode === "share"
+    ? !loadingShare
+    : Boolean(String(name || "").trim());
+
   return createPortal(
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={`${styles.modalShell} ${mode === "share" ? styles.modalShellWide : ""}`} onClick={event => event.stopPropagation()}>
-        <div className={styles.modalHead}>
-          <h2>{title}</h2>
-          <button type="button" className={styles.folderTool} onClick={onClose}><Icon icon="mdi:close" /></button>
-        </div>
-        <div className={`${styles.modalBody} ${mode === "share" ? styles.modalBodyShare : ""}`}>
-          {mode !== "share" ? (
-            <>
-              <input className={styles.search} value={name} onChange={event => setName(event.target.value)} placeholder={copy.folderNamePlaceholder} autoFocus />
-              <div className={styles.folderIconPicker}>
-                <span className={styles.sideLabel}>{copy.emojiFolderIcon}</span>
-                <div className={styles.folderIconRow}>
-                  <button
-                    type="button"
-                    className={`${styles.folderIconChoice} ${!icon ? styles.folderIconChoiceActive : ""}`}
-                    onClick={() => setIcon(null)}
-                    title={copy.emojiClearIcon}
-                  >
-                    <Icon icon="mdi:cube-outline" />
-                  </button>
-                  {emojis.map(emoji => (
-                    <button
-                      key={emoji.id}
-                      type="button"
-                      className={`${styles.folderIconChoice} ${icon === emoji.name ? styles.folderIconChoiceActive : ""}`}
-                      onClick={() => setIcon(emoji.name)}
-                      title={`:${emoji.name}:`}
-                    >
-                      <img src={resolveKnowledgeEmojiUrl(emoji)} alt={`:${emoji.name}:`} />
-                    </button>
-                  ))}
-                </div>
-                {selectedEmoji ? <p className={styles.hint}>:{selectedEmoji.name}:</p> : null}
+    <>
+      <div className={formStyles.overlay} onClick={onClose} role="presentation">
+        <div
+          className={`${formStyles.shell} ${styles.folderModalShell}`}
+          onClick={event => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kb-folder-modal-title"
+        >
+          <div className={formStyles.accentBar} aria-hidden />
+          <header className={formStyles.header}>
+            <div className={formStyles.headerMain}>
+              <div className={formStyles.headerIconWrap} aria-hidden>
+                <Icon icon={mode === "share" ? "mdi:share-variant-outline" : "mdi:folder-plus-outline"} />
               </div>
-            </>
-          ) : loadingShare ? (
-            <p className={styles.hint}>{copy.loading}</p>
-          ) : (
-            <KnowledgeShareForm
-              copy={copy}
-              intro={copy.folderShareHint}
-              inheritedFromText={inheritSharing && inheritedSharing?.folders?.length > 1
-                ? `${copy.inheritedFrom}: ${inheritedSharing.folders.map(item => item.name).join(" → ")}`
-                : null}
-              showInherit={Boolean(folder?.parentId)}
-              inheritSharing={inheritSharing}
-              onInheritSharingChange={setInheritSharing}
-              visibleToAgents={visibleToAgents}
-              onVisibleToAgentsChange={setVisibleToAgents}
-              visibleToAllClients={visibleToAllClients}
-              onVisibleToAllClientsChange={setVisibleToAllClients}
-              visibleToAllContacts={visibleToAllContacts}
-              onVisibleToAllContactsChange={setVisibleToAllContacts}
-              clients={clients}
-              contacts={contacts}
-              clientIds={clientIds}
-              contactIds={contactIds}
-              onClientIdsChange={setClientIds}
-              onContactIdsChange={setContactIds}
-              clientTagIds={clientTagIds}
-              contactTagIds={contactTagIds}
-              onClientTagIdsChange={setClientTagIds}
-              onContactTagIdsChange={setContactTagIds}
-              clientTags={clientTags}
-              contactTags={contactTags}
-              tagCatalog={tagCatalog}
-              tagCatalogLoading={tagCatalogLoading}
-            />
-          )}
-        </div>
-        <div className={styles.modalFooter}>
-          <button type="button" className={styles.secondaryBtn} onClick={onClose}>{copy.modalCancel}</button>
-          <button type="button" className={styles.secondaryBtn} onClick={submit} disabled={saving || loadingShare || (mode !== "share" && !name.trim())}>
-            {saving ? copy.saving : copy.save}
-          </button>
+              <div className={formStyles.headerText}>
+                <p className={formStyles.eyebrow}>{copy.eyebrow}</p>
+                <h2 className={formStyles.title} id="kb-folder-modal-title">{title}</h2>
+                <p className={formStyles.subtitle}>{subtitle}</p>
+              </div>
+            </div>
+            <button type="button" className={formStyles.closeBtn} onClick={onClose} aria-label={copy.modalCancel}>
+              <FaTimes />
+            </button>
+          </header>
+
+          <div className={formStyles.body}>
+            <nav className={formStyles.nav} aria-label={title}>
+              {navSections.map(section => {
+                const meta = sectionMeta(section.id);
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    className={`${formStyles.navItem} ${activeSection === section.id ? formStyles.navItemActive : ""}`}
+                    onClick={() => setActiveSection(section.id)}
+                    aria-current={activeSection === section.id ? "step" : undefined}
+                  >
+                    <Icon icon={section.icon} className={formStyles.navItemIcon} aria-hidden />
+                    <span className={formStyles.navItemText}>
+                      <span className={formStyles.navItemLabel}>{meta.label}</span>
+                      <span className={formStyles.navItemHint}>{meta.description}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className={`${formStyles.content} ${styles.folderModalContent}`}>
+              {activeSection === "general" ? (
+                <div className={styles.folderModalFields}>
+                  <label className={styles.folderModalLabel} htmlFor="kb-folder-name">
+                    {copy.folderNameLabel || copy.folderNamePlaceholder}
+                  </label>
+                  <input
+                    id="kb-folder-name"
+                    className={styles.search}
+                    value={name}
+                    onChange={event => setName(event.target.value)}
+                    placeholder={copy.folderNamePlaceholder}
+                    autoFocus
+                  />
+                </div>
+              ) : null}
+
+              {activeSection === "icon" ? (
+                <div className={styles.folderModalFields}>
+                  <span className={styles.folderModalLabel}>{copy.emojiFolderIcon}</span>
+                  <p className={styles.hint}>{copy.emojiPickHint}</p>
+                  <div className={styles.folderIconPreviewRow}>
+                    <button
+                      type="button"
+                      className={`${styles.folderIconChoice} ${styles.folderIconChoiceActive} ${styles.folderIconPreviewBtn}`}
+                      onClick={() => setEmojiPickOpen(true)}
+                      title={copy.folderIconPick || copy.emojiChangeIcon}
+                      aria-label={copy.folderIconPick || copy.emojiChangeIcon}
+                    >
+                      {resolvedIcon.type === "custom" ? (
+                        <img src={resolveKnowledgeEmojiUrl(resolvedIcon.emoji)} alt="" />
+                      ) : resolvedIcon.type === "unicode" ? (
+                        <span className={styles.navUnicodeIcon} aria-hidden>{resolvedIcon.char}</span>
+                      ) : (
+                        <Icon icon="mdi:cube-outline" />
+                      )}
+                    </button>
+                    <div className={styles.folderIconPreviewActions}>
+                      <button type="button" className={styles.secondaryBtn} onClick={() => setEmojiPickOpen(true)}>
+                        <Icon icon="mdi:emoticon-outline" />
+                        {copy.folderIconPick || copy.emojiChangeIcon}
+                      </button>
+                      {icon ? (
+                        <button type="button" className={formStyles.ghostBtn} onClick={() => setIcon(null)}>
+                          {copy.emojiClearIcon}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {activeSection === "share" ? (
+                loadingShare ? (
+                  <p className={styles.hint}>{copy.loading}</p>
+                ) : (
+                  <KnowledgeShareForm
+                    copy={copy}
+                    intro={copy.folderShareHint}
+                    inheritedFromText={inheritSharing && inheritedSharing?.folders?.length > 1
+                      ? `${copy.inheritedFrom}: ${inheritedSharing.folders.map(item => item.name).join(" → ")}`
+                      : null}
+                    showInherit={Boolean(folder?.parentId)}
+                    inheritSharing={inheritSharing}
+                    onInheritSharingChange={setInheritSharing}
+                    visibleToAgents={visibleToAgents}
+                    onVisibleToAgentsChange={setVisibleToAgents}
+                    visibleToAllClients={visibleToAllClients}
+                    onVisibleToAllClientsChange={setVisibleToAllClients}
+                    visibleToAllContacts={visibleToAllContacts}
+                    onVisibleToAllContactsChange={setVisibleToAllContacts}
+                    clients={clients}
+                    contacts={contacts}
+                    clientIds={clientIds}
+                    contactIds={contactIds}
+                    onClientIdsChange={setClientIds}
+                    onContactIdsChange={setContactIds}
+                    clientTagIds={clientTagIds}
+                    contactTagIds={contactTagIds}
+                    onClientTagIdsChange={setClientTagIds}
+                    onContactTagIdsChange={setContactTagIds}
+                    clientTags={clientTags}
+                    contactTags={contactTags}
+                    tagCatalog={tagCatalog}
+                    tagCatalogLoading={tagCatalogLoading}
+                  />
+                )
+              ) : null}
+            </div>
+          </div>
+
+          <footer className={formStyles.footer}>
+            <span className={formStyles.footerHint} />
+            <div className={formStyles.footerActions}>
+              <button type="button" className={formStyles.ghostBtn} onClick={onClose} disabled={saving}>
+                {copy.modalCancel}
+              </button>
+              <button
+                type="button"
+                className={formStyles.primaryBtn}
+                onClick={submit}
+                disabled={saving || !canSubmit}
+              >
+                {saving ? copy.saving : copy.save}
+              </button>
+            </div>
+          </footer>
         </div>
       </div>
-    </div>,
+
+      <KnowledgeEmojiModal
+        open={emojiPickOpen}
+        copy={copy}
+        canManage
+        pickMode
+        onClose={() => setEmojiPickOpen(false)}
+        onChanged={() => {
+          fetchKnowledgeEmojis().then(setEmojis).catch(() => {});
+        }}
+        onPick={value => {
+          setIcon(value || null);
+          setEmojiPickOpen(false);
+        }}
+      />
+    </>,
     document.body
   );
 }

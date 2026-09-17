@@ -353,6 +353,12 @@ export async function updateKnowledgeFolder(folderId, patch = {}) {
   const icon = patch.icon !== undefined
     ? normalizeKnowledgeIcon(patch.icon)
     : existing.icon;
+  let sortOrder = existing.sortOrder;
+  if (patch.sortOrder != null && Number.isFinite(Number(patch.sortOrder))) {
+    sortOrder = Number(patch.sortOrder);
+  } else if (patch.parentId !== undefined && parentId !== existing.parentId) {
+    sortOrder = await nextSortOrder(parentId);
+  }
   const { rows } = await pool.query(
     `UPDATE v_b_knowledge_folders
         SET name = $2,
@@ -362,10 +368,11 @@ export async function updateKnowledgeFolder(folderId, patch = {}) {
             visible_to_all_clients = $6,
             visible_to_all_contacts = $7,
             icon = $8,
+            sort_order = $9,
             updated_at = NOW()
       WHERE id = $1
       RETURNING *`,
-    [folderId, name, parentId, inheritSharing, visibleToAgents, visibleToAllClients, visibleToAllContacts, icon]
+    [folderId, name, parentId, inheritSharing, visibleToAgents, visibleToAllClients, visibleToAllContacts, icon, sortOrder]
   );
   if (patch.clientIds != null || patch.contactIds != null || patch.clientTagIds != null || patch.contactTagIds != null) {
     await replaceFolderAudience(
@@ -402,6 +409,43 @@ export async function deleteKnowledgeFolder(folderId) {
     await client.query(`DELETE FROM v_b_knowledge_folders WHERE id = $1`, [folderId]);
     await client.query("COMMIT");
     return true;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function reorderKnowledgeFolders(parentId, orderedIds) {
+  await ensureKnowledgeArticlesSchema();
+  const parent = parentId && isUuid(parentId) ? parentId : null;
+  if (parent && !(await folderExists(parent))) {
+    const err = new Error("Parent folder not found.");
+    err.status = 404;
+    throw err;
+  }
+  const ids = uniqueIds(orderedIds, false).filter(isUuid);
+  for (const id of ids) {
+    if (await wouldCreateCycle(id, parent)) {
+      const err = new Error("A folder cannot be moved into itself or one of its subfolders.");
+      err.status = 400;
+      throw err;
+    }
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (let i = 0; i < ids.length; i += 1) {
+      await client.query(
+        `UPDATE v_b_knowledge_folders
+            SET parent_id = $2, sort_order = $3, updated_at = NOW()
+          WHERE id = $1`,
+        [ids[i], parent, i]
+      );
+    }
+    await client.query("COMMIT");
+    return { reordered: ids.length };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

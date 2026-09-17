@@ -8,6 +8,7 @@ import {
   getInheritedFolderAudience,
   getKnowledgeFolder,
   listKnowledgeFolders,
+  reorderKnowledgeFolders,
   updateKnowledgeFolder
 } from "../../services/knowledgeFoldersService.js";
 
@@ -30,6 +31,26 @@ router.get("/", requirePermission("knowledge_base.view"), async (_req, res) => {
     res.status(500).json({ error: "Error loading folders." });
   }
 });
+
+router.post(
+  "/reorder",
+  requireAnyPermission("knowledge_base.edit", "knowledge_base.create"),
+  [
+    body("orderedIds").isArray({ min: 1, max: 500 }),
+    body("orderedIds.*").isUUID(),
+    body("parentId").optional({ nullable: true }).isUUID()
+  ],
+  async (req, res) => {
+    if (validationErrorOrNull(req, res)) return;
+    try {
+      const result = await reorderKnowledgeFolders(req.body?.parentId || null, req.body.orderedIds);
+      res.json(result);
+    } catch (err) {
+      console.error("[POST /knowledge-folders/reorder]", err);
+      res.status(err.status || 500).json({ error: err.message || "Error reordering folders." });
+    }
+  }
+);
 
 router.post(
   "/",
@@ -75,6 +96,7 @@ router.patch(
         name: req.body?.name,
         parentId: req.body?.parentId,
         icon: req.body?.icon,
+        sortOrder: req.body?.sortOrder,
         inheritSharing: req.body?.inheritSharing,
         visibleToAgents: req.body?.visibleToAgents,
         visibleToAllClients: req.body?.visibleToAllClients,

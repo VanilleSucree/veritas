@@ -154,6 +154,16 @@ export async function moveKnowledgeArticles(ids, folderId) {
   return handleJsonResponse(response, "Error moving articles.");
 }
 
+export async function reorderKnowledgeArticles(folderId, orderedIds) {
+  const response = await fetch(`${BASE}/reorder`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folderId: folderId || null, orderedIds })
+  });
+  return handleJsonResponse(response, "Error reordering articles.");
+}
+
 const FOLDERS_BASE = `${API_BASE_URL}/knowledge-folders`;
 
 export async function fetchKnowledgeFolders() {
@@ -191,6 +201,16 @@ export async function updateKnowledgeFolder(id, payload) {
   });
   const data = await handleJsonResponse(response, "Error saving folder.");
   return data;
+}
+
+export async function reorderKnowledgeFolders(parentId, orderedIds) {
+  const response = await fetch(`${FOLDERS_BASE}/reorder`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parentId: parentId || null, orderedIds })
+  });
+  return handleJsonResponse(response, "Error reordering folders.");
 }
 
 export async function deleteKnowledgeFolder(id) {
