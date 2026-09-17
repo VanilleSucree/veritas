@@ -17,6 +17,9 @@ export const INTEGRATIONS_CATALOG_I18N = {
       "checkmk": {
         "description": "Supervision des hôtes, services et rapports de monitoring."
       },
+      "unifi": {
+        "description": "Import Ubiquiti UniFi — switches, gateways et bornes Wi‑Fi depuis Site Manager."
+      },
       "prtg": {
         "description": "Remontée des sondes et alertes PRTG Network Monitor."
       },
@@ -198,6 +201,9 @@ export const INTEGRATIONS_CATALOG_I18N = {
       },
       "checkmk": {
         "description": "Host, service and monitoring report supervision."
+      },
+      "unifi": {
+        "description": "Ubiquiti UniFi Site Manager — import switches, gateways and Wi‑Fi APs."
       },
       "prtg": {
         "description": "PRTG Network Monitor sensor and alert reporting."
@@ -381,6 +387,9 @@ export const INTEGRATIONS_CATALOG_I18N = {
       "checkmk": {
         "description": "Supervision des hôtes, services et rapports de monitoring."
       },
+      "unifi": {
+        "description": "Ubiquiti UniFi Site Manager — Import von Switches, Gateways und WLAN-APs."
+      },
       "prtg": {
         "description": "Remontée des sondes et alertes PRTG Network Monitor."
       },
@@ -563,6 +572,9 @@ export const INTEGRATIONS_CATALOG_I18N = {
       "checkmk": {
         "description": "Supervision des hôtes, services et rapports de monitoring."
       },
+      "unifi": {
+        "description": "Ubiquiti UniFi Site Manager — import di switch, gateway e AP Wi‑Fi."
+      },
       "prtg": {
         "description": "Remontée des sondes et alertes PRTG Network Monitor."
       },
@@ -744,6 +756,9 @@ export const INTEGRATIONS_CATALOG_I18N = {
       },
       "checkmk": {
         "description": "Supervision des hôtes, services et rapports de monitoring."
+      },
+      "unifi": {
+        "description": "Ubiquiti UniFi Site Manager — importación de switches, gateways y APs Wi‑Fi."
       },
       "prtg": {
         "description": "Remontée des sondes et alertes PRTG Network Monitor."

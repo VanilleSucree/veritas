@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { Icon } from "@iconify/react";
@@ -81,7 +81,10 @@ function SectionPanel({
   className,
   headerExtra
 }) {
-  return <section className={`${account.sectionPanel} ${className || ""}`.trim()}>
+  const allowOverflow = Boolean(className && String(className).includes("panelAllowOverflow"));
+  return <section className={`${account.sectionPanel} ${allowOverflow ? account.sectionPanelOverflow : ""} ${className || ""}`.trim()} style={allowOverflow ? {
+    overflow: "visible"
+  } : undefined}>
       {(title || description || headerExtra) && <header className={`${account.sectionHeader} ${headerExtra ? s.sectionHeaderInline : ""}`.trim()}>
           <div className={s.sectionHeaderMain}>
             {title ? <h2 className={account.sectionTitle}>{title}</h2> : null}
@@ -89,8 +92,41 @@ function SectionPanel({
           </div>
           {headerExtra}
         </header>}
-      <div className={account.sectionBody}>{children}</div>
+      <div className={`${account.sectionBody} ${allowOverflow ? s.panelBodyAllowOverflow : ""}`.trim()}>{children}</div>
     </section>;
+}
+function useFixedAnchorRect(open, anchorRef) {
+  const [coords, setCoords] = useState(null);
+  const update = useCallback(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const openUp = spaceBelow < 140 && spaceAbove > spaceBelow;
+    const maxHeight = Math.min(260, Math.max(120, openUp ? spaceAbove : spaceBelow));
+    setCoords({
+      left: rect.left,
+      width: rect.width,
+      maxHeight,
+      top: openUp ? undefined : rect.bottom - 1,
+      bottom: openUp ? window.innerHeight - rect.top + 1 : undefined
+    });
+  }, []);
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return undefined;
+    }
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open, update]);
+  return coords;
 }
 function RecapRow({
   label,
@@ -171,7 +207,9 @@ export default function ClientTicketCreatePage() {
   } = useOutletContext() || {};
   const attachmentInputRef = useRef(null);
   const linkedTicketDropdownRef = useRef(null);
+  const linkedTicketListRef = useRef(null);
   const equipmentDropdownRef = useRef(null);
+  const equipmentListRef = useRef(null);
   const [portalDashboard, setPortalDashboard] = useState(outletDashboard || null);
   const [portalTickets, setPortalTickets] = useState([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
@@ -206,6 +244,8 @@ export default function ClientTicketCreatePage() {
   const [errorPulseTick, setErrorPulseTick] = useState(0);
   const [attachmentFiles, setAttachmentFiles] = useState([]);
   const [isAttachmentDragOver, setIsAttachmentDragOver] = useState(false);
+  const equipmentDropdownCoords = useFixedAnchorRect(showEquipmentDropdown, equipmentDropdownRef);
+  const linkedTicketDropdownCoords = useFixedAnchorRect(showLinkedTicketDropdown, linkedTicketDropdownRef);
   const clientId = portalDashboard?.client?.id || null;
   const clientLabel = portalDashboard?.client?.name || "";
   const requesterLabel = user?.username?.trim() || user?.email || "";
@@ -223,12 +263,12 @@ export default function ClientTicketCreatePage() {
   }, []);
   useEffect(() => {
     const handleClickOutside = event => {
-      if (linkedTicketDropdownRef.current && !linkedTicketDropdownRef.current.contains(event.target)) {
-        setShowLinkedTicketDropdown(false);
-      }
-      if (equipmentDropdownRef.current && !equipmentDropdownRef.current.contains(event.target)) {
-        setShowEquipmentDropdown(false);
-      }
+      const linkedAnchor = linkedTicketDropdownRef.current?.contains(event.target);
+      const linkedList = linkedTicketListRef.current?.contains(event.target);
+      if (!linkedAnchor && !linkedList) setShowLinkedTicketDropdown(false);
+      const equipmentAnchor = equipmentDropdownRef.current?.contains(event.target);
+      const equipmentList = equipmentListRef.current?.contains(event.target);
+      if (!equipmentAnchor && !equipmentList) setShowEquipmentDropdown(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -743,7 +783,7 @@ export default function ClientTicketCreatePage() {
                                 {tc.equipmentLabel}<span className={s.requiredMark}>*</span>
                               </label>
                               <div className={s.linkTicketPicker} ref={equipmentDropdownRef}>
-                                <div data-pulse={fieldErrors.equipmentId ? errorPulseTick : undefined} className={`${s.contactInputWrap} ${fieldErrors.equipmentId ? s.contactInputWrapError : ""} ${fieldErrors.equipmentId ? s.fieldErrorPulse : ""}`.trim()}>
+                                <div data-pulse={fieldErrors.equipmentId ? errorPulseTick : undefined} className={`${s.contactInputWrap} ${showEquipmentDropdown ? s.contactInputWrapOpen : ""} ${fieldErrors.equipmentId ? s.contactInputWrapError : ""} ${fieldErrors.equipmentId ? s.fieldErrorPulse : ""}`.trim()}>
                                   <Icon icon="mdi:magnify" className={s.contactInputIcon} aria-hidden />
                                   <input id="portal-equipment-search" className={s.contactInput} type="text" value={equipmentSearch} onChange={e => {
                             setEquipmentSearch(e.target.value);
@@ -756,7 +796,13 @@ export default function ClientTicketCreatePage() {
                             }));
                           }} onFocus={() => setShowEquipmentDropdown(true)} placeholder={tc.equipmentSearchPlaceholder} aria-expanded={showEquipmentDropdown} aria-haspopup="listbox" />
                                 </div>
-                                {showEquipmentDropdown ? <div className={s.contactDropdown} role="listbox">
+                                {showEquipmentDropdown && equipmentDropdownCoords && typeof document !== "undefined" ? createPortal(<div ref={equipmentListRef} className={s.contactDropdownPortal} role="listbox" aria-label={tc.equipmentLabel} style={{
+                              top: equipmentDropdownCoords.top,
+                              bottom: equipmentDropdownCoords.bottom,
+                              left: equipmentDropdownCoords.left,
+                              width: equipmentDropdownCoords.width,
+                              maxHeight: equipmentDropdownCoords.maxHeight
+                            }}>
                                     {filteredEquipments.length === 0 ? <div className={s.contactEmpty}>{tc.noEquipmentFound}</div> : filteredEquipments.map((eq, idx) => <button key={eq.id} type="button" role="option" aria-selected={idx === equipmentHighlight} className={`${s.contactOption} ${idx === equipmentHighlight ? s.contactOptionActive : ""}`.trim()} onMouseEnter={() => setEquipmentHighlight(idx)} onClick={() => selectEquipment(eq)}>
                                           <span className={s.contactOptionName}>{getEquipmentLinkLabel(eq, copy)}</span>
                                           {eq.serial ? <span className={s.contactOptionMeta}>
@@ -765,7 +811,7 @@ export default function ClientTicketCreatePage() {
                                               {getEquipmentTypeLabel(eq.type, copy)}
                                             </span>}
                                         </button>)}
-                                  </div> : null}
+                                  </div>, document.body) : null}
                               </div>
                             </div>
 
@@ -845,7 +891,7 @@ export default function ClientTicketCreatePage() {
                               {tc.ticketToLink}<span className={s.requiredMark}>*</span>
                             </label>
                             <div className={s.linkTicketPicker} ref={linkedTicketDropdownRef}>
-                              <div data-pulse={fieldErrors.linkedTicketId ? errorPulseTick : undefined} className={`${s.contactInputWrap} ${fieldErrors.linkedTicketId ? s.contactInputWrapError : ""} ${fieldErrors.linkedTicketId ? s.fieldErrorPulse : ""}`.trim()}>
+                              <div data-pulse={fieldErrors.linkedTicketId ? errorPulseTick : undefined} className={`${s.contactInputWrap} ${showLinkedTicketDropdown ? s.contactInputWrapOpen : ""} ${fieldErrors.linkedTicketId ? s.contactInputWrapError : ""} ${fieldErrors.linkedTicketId ? s.fieldErrorPulse : ""}`.trim()}>
                                 <Icon icon="mdi:magnify" className={s.contactInputIcon} aria-hidden />
                                 <input id="portal-linked-ticket" className={s.contactInput} type="text" value={linkedTicketSearch} onChange={e => {
                             setLinkedTicketSearch(e.target.value);
@@ -858,7 +904,13 @@ export default function ClientTicketCreatePage() {
                             }));
                           }} onFocus={() => setShowLinkedTicketDropdown(true)} placeholder={tc.ticketSearchPlaceholder} aria-expanded={showLinkedTicketDropdown} aria-haspopup="listbox" />
                               </div>
-                              {showLinkedTicketDropdown ? <div className={s.contactDropdown} role="listbox">
+                              {showLinkedTicketDropdown && linkedTicketDropdownCoords && typeof document !== "undefined" ? createPortal(<div ref={linkedTicketListRef} className={s.contactDropdownPortal} role="listbox" style={{
+                            top: linkedTicketDropdownCoords.top,
+                            bottom: linkedTicketDropdownCoords.bottom,
+                            left: linkedTicketDropdownCoords.left,
+                            width: linkedTicketDropdownCoords.width,
+                            maxHeight: linkedTicketDropdownCoords.maxHeight
+                          }}>
                                   {filteredLinkableTickets.length === 0 ? <div className={s.contactEmpty}>{tc.noTicketFound}</div> : filteredLinkableTickets.map((ticket, idx) => <button key={ticket.id} type="button" role="option" aria-selected={idx === linkedTicketHighlight} className={`${s.contactOption} ${idx === linkedTicketHighlight ? s.contactOptionActive : ""}`.trim()} onMouseEnter={() => setLinkedTicketHighlight(idx)} onClick={() => selectLinkedTicket(ticket)}>
                                         <span className={s.contactOptionName}>{getTicketLinkLabel(ticket)}</span>
                                         <span className={s.contactOptionMeta}>
@@ -866,7 +918,7 @@ export default function ClientTicketCreatePage() {
                                           {ticket.type ? ` · ${copy.getTicketTypeLabel(ticket.type)}` : ""}
                                         </span>
                                       </button>)}
-                                </div> : null}
+                                </div>, document.body) : null}
                             </div>
                           </div>
 

@@ -177,6 +177,7 @@ const COPY = {
       documentsDeleteError: "Impossible de supprimer le document",
       documentsFileTooLarge: "Fichier trop volumineux (max 15 Mo)",
       creditsDebited: "Crédits décomptés",
+      creditsDebitedCount: "{count} crédit(s) décomptés",
       creditsNotDebited: "Crédits non décomptés",
       relativeJustNow: "à l'instant",
       relativeMinutes: "il y a {count} min",
@@ -197,7 +198,7 @@ const COPY = {
         equipmentTitle: "Périphérique",
         equipmentDesc: "Matériel concerné par cette tâche (propagé à l’événement planning).",
         creditsTitle: "Crédits",
-        creditsDesc: "Décomptez des crédits entreprise liés à cette tâche.",
+        creditsDesc: "Ajoutez ou remboursez des crédits entreprise liés à cette tâche.",
         documentsTitle: "Documents",
         documentsDesc: "Pièces jointes liées à cette tâche.",
         sections: {
@@ -206,7 +207,7 @@ const COPY = {
           assignee: { label: "Assignés", description: "Responsables" },
           equipment: { label: "Périphérique", description: "Matériel" },
           documents: { label: "Documents", description: "Fichiers" },
-          credits: { label: "Crédits", description: "Décompte" }
+          credits: { label: "Crédits", description: "Ajout / remboursement" }
         }
       }
     },
@@ -297,11 +298,18 @@ const COPY = {
         availablePlural: "{count} crédits disponibles",
         noneAvailable: "Aucun crédit disponible pour cette entreprise.",
         enable: "Décompter des crédits",
+        enableAdd: "Ajouter des crédits",
+        enableRefund: "Rembourser des crédits",
+        refundHint: "Les crédits retournent au solde de l'entreprise.",
+        currentTask: "{count} crédit(s) déjà liés à cette tâche",
+        currentPack: "{count} décompté(s)",
+        noneOnTask: "Aucun crédit décompté pour cette tâche.",
         perPackLabel: "Quantité par carnet",
         perPackHint: "Appliquée à tous les carnets actifs",
         packRemaining: "{count} restant(s)",
         legacyLabel: "Solde global",
         totalDebit: "Total à décompter : {count}",
+        totalRefund: "Total à rembourser : {count}",
         confirm: "Décompter",
         confirmWithout: "Continuer sans décompter",
         skip: "Ne pas décompter",
@@ -311,9 +319,11 @@ const COPY = {
       },
       toast: {
         success: "{count} crédit(s) décompté(s)",
+        refundSuccess: "{count} crédit(s) remboursé(s)",
         skipped: "Aucun crédit décompté",
         already: "Des crédits ont déjà été décomptés pour cette source",
         error: "Impossible de décompter les crédits",
+        refundError: "Impossible de rembourser les crédits",
         insufficient: "Solde de crédits insuffisant"
       }
     }
@@ -484,6 +494,7 @@ const COPY = {
       documentsDeleteError: "Unable to delete the document",
       documentsFileTooLarge: "File too large (max 15 MB)",
       creditsDebited: "Credits deducted",
+      creditsDebitedCount: "{count} credit(s) deducted",
       creditsNotDebited: "Credits not deducted",
       relativeJustNow: "just now",
       relativeMinutes: "{count} min ago",
@@ -504,7 +515,7 @@ const COPY = {
         equipmentTitle: "Device",
         equipmentDesc: "Hardware related to this task (propagated to the planning event).",
         creditsTitle: "Credits",
-        creditsDesc: "Deduct company credits linked to this task.",
+        creditsDesc: "Add or refund company credits linked to this task.",
         documentsTitle: "Documents",
         documentsDesc: "Attachments linked to this task.",
         sections: {
@@ -513,7 +524,7 @@ const COPY = {
           assignee: { label: "Assignees", description: "Owners" },
           equipment: { label: "Device", description: "Hardware" },
           documents: { label: "Documents", description: "Files" },
-          credits: { label: "Credits", description: "Deduction" }
+          credits: { label: "Credits", description: "Add / refund" }
         }
       }
     },
@@ -604,11 +615,18 @@ const COPY = {
         availablePlural: "{count} credits available",
         noneAvailable: "No credits available for this company.",
         enable: "Deduct credits",
+        enableAdd: "Add credits",
+        enableRefund: "Refund credits",
+        refundHint: "Credits return to the company balance.",
+        currentTask: "{count} credit(s) already linked to this task",
+        currentPack: "{count} deducted",
+        noneOnTask: "No credits deducted for this task.",
         perPackLabel: "Amount per pack",
         perPackHint: "Applied to all active packs",
         packRemaining: "{count} remaining",
         legacyLabel: "Overall balance",
         totalDebit: "Total to deduct: {count}",
+        totalRefund: "Total to refund: {count}",
         confirm: "Deduct",
         confirmWithout: "Continue without deducting",
         skip: "Do not deduct",
@@ -618,9 +636,11 @@ const COPY = {
       },
       toast: {
         success: "{count} credit(s) deducted",
+        refundSuccess: "{count} credit(s) refunded",
         skipped: "No credits deducted",
         already: "Credits were already deducted for this source",
         error: "Unable to deduct credits",
+        refundError: "Unable to refund credits",
         insufficient: "Insufficient credit balance"
       }
     }
@@ -784,6 +804,7 @@ const COPY = {
       documentsDeleteError: "Dokument konnte nicht gelöscht werden",
       documentsFileTooLarge: "Datei zu groß (max. 15 MB)",
       creditsDebited: "Credits abgezogen",
+      creditsDebitedCount: "{count} Kredit(e) abgezogen",
       creditsNotDebited: "Keine Credits abgezogen",
       relativeJustNow: "gerade eben",
       relativeMinutes: "vor {count} Min.",
@@ -806,7 +827,7 @@ const COPY = {
         equipmentTitle: "Gerät",
         equipmentDesc: "Hardware für diese Aufgabe (wird an das Planungsereignis übernommen).",
         creditsTitle: "Kredite",
-        creditsDesc: "Unternehmenskredite für diese Aufgabe abziehen.",
+        creditsDesc: "Unternehmenskredite für diese Aufgabe hinzufügen oder erstatten.",
         documentsTitle: "Dokumente",
         documentsDesc: "Anhänge dieser Aufgabe.",
         sections: {
@@ -815,7 +836,7 @@ const COPY = {
           assignee: { label: "Bearbeiter", description: "Verantwortlich" },
           equipment: { label: "Gerät", description: "Hardware" },
           documents: { label: "Dokumente", description: "Dateien" },
-          credits: { label: "Kredite", description: "Abzug" }
+          credits: { label: "Kredite", description: "Hinzufügen / Erstatten" }
         }
       }
     },
@@ -906,11 +927,18 @@ const COPY = {
         availablePlural: "{count} Kredite verfügbar",
         noneAvailable: "Keine Kredite für dieses Unternehmen verfügbar.",
         enable: "Kredite abziehen",
+        enableAdd: "Kredite hinzufügen",
+        enableRefund: "Kredite erstatten",
+        refundHint: "Die Kredite kehren auf den Unternehmenssaldo zurück.",
+        currentTask: "{count} Kredit(e) bereits mit dieser Aufgabe verknüpft",
+        currentPack: "{count} abgezogen",
+        noneOnTask: "Keine Kredite für diese Aufgabe abgezogen.",
         perPackLabel: "Menge pro Paket",
         perPackHint: "Für alle aktiven Pakete",
         packRemaining: "{count} übrig",
         legacyLabel: "Gesamtsaldo",
         totalDebit: "Abzuziehen: {count}",
+        totalRefund: "Zu erstatten: {count}",
         confirm: "Abziehen",
         confirmWithout: "Ohne Abzug fortfahren",
         skip: "Nicht abziehen",
@@ -920,9 +948,11 @@ const COPY = {
       },
       toast: {
         success: "{count} Kredit(e) abgezogen",
+        refundSuccess: "{count} Kredit(e) erstattet",
         skipped: "Keine Kredite abgezogen",
         already: "Kredite für diese Quelle bereits abgezogen",
         error: "Kredite konnten nicht abgezogen werden",
+        refundError: "Kredite konnten nicht erstattet werden",
         insufficient: "Unzureichender Kreditsaldo"
       }
     }
@@ -1086,6 +1116,7 @@ const COPY = {
       documentsDeleteError: "Impossibile eliminare il documento",
       documentsFileTooLarge: "File troppo grande (max 15 MB)",
       creditsDebited: "Crediti scalati",
+      creditsDebitedCount: "{count} credito/i scalati",
       creditsNotDebited: "Crediti non scalati",
       relativeJustNow: "proprio ora",
       relativeMinutes: "{count} min fa",
@@ -1108,7 +1139,7 @@ const COPY = {
         equipmentTitle: "Dispositivo",
         equipmentDesc: "Hardware interessato da questa attività (propagato all'evento planning).",
         creditsTitle: "Crediti",
-        creditsDesc: "Scala i crediti aziendali collegati a questa attività.",
+        creditsDesc: "Aggiungi o rimborsa i crediti aziendali collegati a questa attività.",
         documentsTitle: "Documenti",
         documentsDesc: "Allegati di questa attività.",
         sections: {
@@ -1117,7 +1148,7 @@ const COPY = {
           assignee: { label: "Assegnatario", description: "Responsabile" },
           equipment: { label: "Dispositivo", description: "Hardware" },
           documents: { label: "Documenti", description: "File" },
-          credits: { label: "Crediti", description: "Addebito" }
+          credits: { label: "Crediti", description: "Aggiunta / rimborso" }
         }
       }
     },
@@ -1208,11 +1239,18 @@ const COPY = {
         availablePlural: "{count} crediti disponibili",
         noneAvailable: "Nessun credito disponibile per questa azienda.",
         enable: "Scalare crediti",
+        enableAdd: "Aggiungere crediti",
+        enableRefund: "Rimborsare crediti",
+        refundHint: "I crediti tornano al saldo aziendale.",
+        currentTask: "{count} credito/i già collegati a questa attività",
+        currentPack: "{count} scalati",
+        noneOnTask: "Nessun credito scalato per questa attività.",
         perPackLabel: "Quantità per pacchetto",
         perPackHint: "Applicata a tutti i pacchetti attivi",
         packRemaining: "{count} rimanenti",
         legacyLabel: "Saldo globale",
         totalDebit: "Totale da scalare: {count}",
+        totalRefund: "Totale da rimborsare: {count}",
         confirm: "Scalare",
         confirmWithout: "Continua senza scalare",
         skip: "Non scalare",
@@ -1222,9 +1260,11 @@ const COPY = {
       },
       toast: {
         success: "{count} credito/i scalati",
+        refundSuccess: "{count} credito/i rimborsati",
         skipped: "Nessun credito scalato",
         already: "Crediti già scalati per questa fonte",
         error: "Impossibile scalare i crediti",
+        refundError: "Impossibile rimborsare i crediti",
         insufficient: "Saldo crediti insufficiente"
       }
     }
@@ -1388,6 +1428,7 @@ const COPY = {
       documentsDeleteError: "No se pudo eliminar el documento",
       documentsFileTooLarge: "Archivo demasiado grande (máx. 15 MB)",
       creditsDebited: "Créditos descontados",
+      creditsDebitedCount: "{count} crédito(s) descontados",
       creditsNotDebited: "Créditos no descontados",
       relativeJustNow: "ahora mismo",
       relativeMinutes: "hace {count} min",
@@ -1410,7 +1451,7 @@ const COPY = {
         equipmentTitle: "Dispositivo",
         equipmentDesc: "Hardware relacionado con esta tarea (propagado al evento de planning).",
         creditsTitle: "Créditos",
-        creditsDesc: "Descuente créditos de empresa vinculados a esta tarea.",
+        creditsDesc: "Añada o reembolse créditos de empresa vinculados a esta tarea.",
         documentsTitle: "Documentos",
         documentsDesc: "Adjuntos de esta tarea.",
         sections: {
@@ -1419,7 +1460,7 @@ const COPY = {
           assignee: { label: "Asignado", description: "Responsable" },
           equipment: { label: "Dispositivo", description: "Hardware" },
           documents: { label: "Documentos", description: "Archivos" },
-          credits: { label: "Créditos", description: "Descuento" }
+          credits: { label: "Créditos", description: "Añadir / reembolsar" }
         }
       }
     },
@@ -1510,11 +1551,18 @@ const COPY = {
         availablePlural: "{count} créditos disponibles",
         noneAvailable: "No hay créditos disponibles para esta empresa.",
         enable: "Descontar créditos",
+        enableAdd: "Añadir créditos",
+        enableRefund: "Reembolsar créditos",
+        refundHint: "Los créditos vuelven al saldo de la empresa.",
+        currentTask: "{count} crédito(s) ya vinculados a esta tarea",
+        currentPack: "{count} descontado(s)",
+        noneOnTask: "Ningún crédito descontado para esta tarea.",
         perPackLabel: "Cantidad por carnet",
         perPackHint: "Aplicada a todos los carnets activos",
         packRemaining: "{count} restante(s)",
         legacyLabel: "Saldo global",
         totalDebit: "Total a descontar: {count}",
+        totalRefund: "Total a reembolsar: {count}",
         confirm: "Descontar",
         confirmWithout: "Continuar sin descontar",
         skip: "No descontar",
@@ -1524,9 +1572,11 @@ const COPY = {
       },
       toast: {
         success: "{count} crédito(s) descontado(s)",
+        refundSuccess: "{count} crédito(s) reembolsado(s)",
         skipped: "Ningún crédito descontado",
         already: "Ya se descontaron créditos para esta fuente",
         error: "No se pudieron descontar los créditos",
+        refundError: "No se pudieron reembolsar los créditos",
         insufficient: "Saldo de créditos insuficiente"
       }
     }

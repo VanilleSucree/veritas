@@ -14,7 +14,7 @@ import { interpolate } from "../../i18n/translate";
 import { getAuthCopy } from "./authI18n";
 import API_BASE_URL from "../../config";
 import { fetchLoginBranding } from "../../api/loginBranding";
-import { buildLoginBrandingStyleVars, mergeBrandingWithAuthCopy } from "../../utils/loginBrandingUtils";
+import { buildLoginBrandingStyleVars, buildLoginRightPanelStyle, mergeBrandingWithAuthCopy } from "../../utils/loginBrandingUtils";
 import AppVersion from "../Misc/AppVersion";
 import EditionBadge from "../Misc/EditionBadge";
 import { getSafeReturnPath } from "../../navigation/agentRoutes";
@@ -73,6 +73,7 @@ export default function AuthPage() {
       {activeBranding.headlineLine2}
     </>;
   const brandingStyleVars = useMemo(() => activeBranding.custom && !isForgotView ? buildLoginBrandingStyleVars(activeBranding, accountType) : null, [activeBranding, accountType, isForgotView]);
+  const rightPanelStyle = useMemo(() => activeBranding.custom && !isForgotView ? buildLoginRightPanelStyle(activeBranding, accountType) : undefined, [activeBranding, accountType, isForgotView]);
   const runSystemChecks = useCallback(async ({
     showRetrying = false
   } = {}) => {
@@ -319,9 +320,7 @@ export default function AuthPage() {
       </aside>
 
       {}
-      <main className={styles.right} style={activeBranding.custom ? {
-      background: activeBranding.colors.rightBgColor
-    } : undefined}>
+      <main className={`${styles.right}${activeBranding.custom && !isForgotView ? ` ${styles.rightBranded}` : ""}${activeBranding.custom && !isForgotView && activeBranding.rightBgImageUrl ? ` ${styles.rightBrandedImage}` : ""}`} style={rightPanelStyle}>
         <div className={styles.card}>
           {busy && <div className={styles.loadingOverlay} aria-hidden="true">
               <span className={styles.spinner} />

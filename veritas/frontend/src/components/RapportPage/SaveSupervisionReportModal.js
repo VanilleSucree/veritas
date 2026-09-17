@@ -13,8 +13,6 @@ export default function SaveSupervisionReportModal({
   onSaveNameChange,
   visibleToClient,
   onVisibleToClientChange,
-  recentDocs = [],
-  onPickRecentDoc,
   onClose,
   onSubmit,
   clientName = ""
@@ -23,9 +21,8 @@ export default function SaveSupervisionReportModal({
 
   const navSections = useMemo(() => ([
     { id: "general", icon: "mdi:file-document-edit-outline", label: "Général", hint: "Nom du dossier rapport" },
-    { id: "visibility", icon: "mdi:account-eye-outline", label: "Visibilité", hint: "Portail client" },
-    { id: "recent", icon: "mdi:history", label: "Récents", hint: `${recentDocs.length} document(s)` }
-  ]), [recentDocs.length]);
+    { id: "visibility", icon: "mdi:account-eye-outline", label: "Visibilité", hint: "Portail client" }
+  ]), []);
 
   if (!open) return null;
 
@@ -111,32 +108,6 @@ export default function SaveSupervisionReportModal({
                 <p className={styles.hint}>
                   Visible : le client voit le dossier HTML sur son portail. Masqué : réservé aux agents.
                 </p>
-              </div>
-            ) : null}
-
-            {activeSection === "recent" ? (
-              <div className={styles.sectionStack}>
-                {recentDocs.length === 0 ? (
-                  <p className={styles.hint}>Aucun rapport enregistré récemment.</p>
-                ) : (
-                  <div className={styles.recentList}>
-                    {recentDocs.slice(0, 12).map(doc => (
-                      <button
-                        key={doc.id}
-                        type="button"
-                        className={styles.recentItem}
-                        onClick={() => onPickRecentDoc?.(doc)}
-                        title="Réutiliser ce nom"
-                        disabled={saving}
-                      >
-                        <span className={styles.recentName}>{doc.name}</span>
-                        <span className={styles.recentMeta}>
-                          {[doc.client_name, doc.report_period].filter(Boolean).join(" · ") || "—"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             ) : null}
           </div>

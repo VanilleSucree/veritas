@@ -1,6 +1,6 @@
 export const LOGIN_BRANDING_SECTION = "login";
 export const LOGIN_SIDES = ["agent", "client"];
-const SIDE_FIELDS = ["enabled", "headline_line1", "headline_line2", "sub", "features", "brand_name", "logo_path", "logo_transparent", "logo_bg_color", "bg_image_path", "bg_color_start", "bg_color_end", "accent_color", "right_bg_color", "footer_text"];
+const SIDE_FIELDS = ["enabled", "headline_line1", "headline_line2", "sub", "features", "brand_name", "logo_path", "logo_transparent", "logo_bg_color", "bg_image_path", "bg_color_start", "bg_color_end", "accent_color", "right_bg_color", "right_bg_image_path", "footer_text"];
 const BOOL_FIELDS = new Set(["enabled", "logo_transparent"]);
 export const LOGIN_BRANDING_LABELS = {};
 for (const side of LOGIN_SIDES) {
@@ -69,6 +69,7 @@ function normalizeSideSettings(input = {}, side) {
     bgColorEnd: normalizeHexColor(input[`${prefix}bg_color_end`]),
     accentColor: normalizeHexColor(input[`${prefix}accent_color`]),
     rightBgColor: normalizeHexColor(input[`${prefix}right_bg_color`]),
+    rightBgImagePath: normalizeAssetPath(input[`${prefix}right_bg_image_path`]),
     footerText: normalizeText(input[`${prefix}footer_text`], 200)
   };
 }
@@ -93,6 +94,7 @@ export function normalizeLoginBrandingFlat(input = {}) {
     out[`${prefix}bg_color_end`] = normalized.bgColorEnd;
     out[`${prefix}accent_color`] = normalized.accentColor;
     out[`${prefix}right_bg_color`] = normalized.rightBgColor;
+    out[`${prefix}right_bg_image_path`] = normalized.rightBgImagePath;
     out[`${prefix}footer_text`] = normalized.footerText;
   }
   return out;

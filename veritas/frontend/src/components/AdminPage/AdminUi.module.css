@@ -37,6 +37,10 @@
   max-width: 100%;
   flex-shrink: 0;
   box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  box-shadow: 0 10px 18px -14px rgba(15, 28, 46, 0.35);
 }
 
 .subTabsFull {

@@ -5,6 +5,16 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.20",
+    date: "2026-09-17",
+    highlights: [
+      "Intégration UniFi (Site Manager, Network, Carrier Fabric) : tenant global en Admin, lien host/site par entreprise, import switches / gateways / bornes Wi‑Fi.",
+      "Rapports : assistant de création simplifié (listes client/type) ; section « Derniers rapports » retirée des pages.",
+      "Supervision CheckMK : remontée correcte des hôtes critical/warning (unwrap d’état + host_details) et réouverture d’alertes résolues.",
+      "Admin & auth : onglets sticky, branding login (fond panneau droit), fiches profil/permissions allégées, crédits tickets prestation."
+    ]
+  },
+  {
     version: "1.0.19",
     date: "2026-09-17",
     highlights: [

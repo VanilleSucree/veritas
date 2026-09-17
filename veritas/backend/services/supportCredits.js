@@ -403,6 +403,69 @@ export async function isTicketCreditRefunded(ticketId) {
      LIMIT 1`, [ticketId]);
   return result.rows.length > 0;
 }
+function parseLedgerSourceKey(note) {
+  const match = String(note || "").match(/\[source:([^\]]+)\]/);
+  return match?.[1] || null;
+}
+export function groupLedgerSourceKey(sourceKey) {
+  const key = String(sourceKey || "").trim();
+  if (!key) return null;
+  const taskMatch = key.match(/^task:([^:]+)/);
+  if (taskMatch) return `task:${taskMatch[1]}`;
+  if (key.startsWith("ticket")) return "ticket";
+  return key;
+}
+async function listTicketCreditMovements(ticketId, dbClient = pool) {
+  const result = await dbClient.query(`SELECT l.*, p.label AS pack_label, t.ticket_number
+     FROM v_b_client_support_credit_ledger l
+     LEFT JOIN v_b_client_support_credit_packs p ON p.id = l.pack_id
+     LEFT JOIN v_b_tickets t ON t.id = l.ticket_id
+     WHERE l.ticket_id = $1 AND l.kind IN ('debit', 'refund')
+     ORDER BY l.created_at ASC`, [ticketId]);
+  return result.rows || [];
+}
+function buildSourceBalances(entries = []) {
+  const map = new Map();
+  for (const row of entries) {
+    const grouped = groupLedgerSourceKey(parseLedgerSourceKey(row.note));
+    if (!grouped) continue;
+    const amount = Math.abs(Number(row.delta) || 0);
+    if (amount <= 0) continue;
+    const sign = row.kind === "refund" ? -1 : 1;
+    const packId = row.pack_id || null;
+    const rec = map.get(grouped) || {
+      sourceKey: grouped,
+      total: 0,
+      packs: new Map()
+    };
+    rec.total += sign * amount;
+    const packKey = packId || "__legacy";
+    const packRec = rec.packs.get(packKey) || {
+      packId,
+      label: row.pack_label || null,
+      amount: 0
+    };
+    packRec.amount += sign * amount;
+    rec.packs.set(packKey, packRec);
+    map.set(grouped, rec);
+  }
+  const result = {};
+  for (const [key, rec] of map.entries()) {
+    const packs = [...rec.packs.values()].filter(pack => pack.amount > 0).map(pack => ({
+      packId: pack.packId,
+      label: pack.label,
+      amount: pack.amount
+    }));
+    const total = packs.reduce((sum, pack) => sum + pack.amount, 0);
+    if (total <= 0) continue;
+    result[key] = {
+      sourceKey: key,
+      total,
+      packs
+    };
+  }
+  return result;
+}
 export async function getTicketCreditStatus(ticket) {
   if (!ticket?.id) return null;
   const clientId = ticket.client_id ? Number(ticket.client_id) : null;
@@ -422,12 +485,22 @@ export async function getTicketCreditStatus(ticket) {
       balance: 0,
       packs: [],
       debitEntries: [],
-      totalDebited: 0
+      totalDebited: 0,
+      sourceBalances: {},
+      debitedSources: []
     };
   }
-  const [balance, packs, consumed, refunded, debitEntries] = await Promise.all([getSupportCreditBalance(clientId), listCreditPacks(clientId), isTicketCreditDebited(ticket.id), isTicketCreditRefunded(ticket.id), listTicketDebitEntries(ticket.id)]);
-  const totalDebited = debitEntries.reduce((sum, row) => sum + Math.abs(Number(row?.delta) || 0), 0);
-  const hasActiveDebit = consumed && !refunded;
+  const [balance, packs, movements] = await Promise.all([getSupportCreditBalance(clientId), listCreditPacks(clientId), listTicketCreditMovements(ticket.id)]);
+  const debitEntries = movements.filter(row => row.kind === "debit");
+  const refunded = movements.some(row => row.kind === "refund");
+  const consumed = debitEntries.length > 0;
+  const netDebited = movements.reduce((sum, row) => {
+    const amount = Math.abs(Number(row?.delta) || 0);
+    return row.kind === "refund" ? sum - amount : sum + amount;
+  }, 0);
+  const totalDebited = Math.max(0, netDebited);
+  const sourceBalances = buildSourceBalances(movements);
+  const hasActiveDebit = consumed && totalDebited > 0;
   return {
     eligible: true,
     salesTicket,
@@ -440,12 +513,8 @@ export async function getTicketCreditStatus(ticket) {
     debitEntries,
     debitEntry: debitEntries[debitEntries.length - 1] || null,
     totalDebited,
-    debitedSources: debitEntries
-      .map(row => {
-        const match = String(row?.note || "").match(/\[source:([^\]]+)\]/);
-        return match?.[1] || null;
-      })
-      .filter(Boolean)
+    sourceBalances,
+    debitedSources: Object.keys(sourceBalances)
   };
 }
 async function hasDebitForSource(ticketId, sourceKey, dbClient = pool) {
@@ -597,6 +666,113 @@ export async function consumeCreditsOnTicket(ticketId, userId, {
       entries: applied.map(row => row.entry).filter(Boolean),
       debits: applied,
       sourceKey: normalizedSource
+    };
+  } catch (err) {
+    await dbClient.query("ROLLBACK");
+    throw err;
+  } finally {
+    dbClient.release();
+  }
+}
+export async function refundCreditsOnTicket(ticketId, userId, {
+  refunds = [],
+  note = null,
+  sourceKey = null,
+  refundAll = false
+} = {}) {
+  const groupedSource = groupLedgerSourceKey(sourceKey);
+  if (!groupedSource) {
+    const err = new Error("sourceKey is required");
+    err.status = 400;
+    throw err;
+  }
+  const ticketResult = await pool.query("SELECT id, client_id, type, category, ticket_number FROM v_b_tickets WHERE id = $1", [ticketId]);
+  const ticket = ticketResult.rows[0];
+  if (!ticket) {
+    const err = new Error("Ticket not found");
+    err.status = 404;
+    throw err;
+  }
+  const clientId = ticket.client_id ? Number(ticket.client_id) : null;
+  if (!clientId) {
+    return {
+      skipped: true,
+      reason: "not_eligible"
+    };
+  }
+  const movements = await listTicketCreditMovements(ticketId);
+  const current = buildSourceBalances(movements)[groupedSource];
+  if (!current || current.total <= 0) {
+    return {
+      skipped: true,
+      reason: "no_debit",
+      sourceKey: groupedSource
+    };
+  }
+  const requested = refundAll ? current.packs.map(pack => ({
+    packId: pack.packId,
+    amount: pack.amount
+  })) : normalizeSupportCreditDebits(refunds);
+  const remainingByPack = new Map(current.packs.map(pack => [pack.packId || "__legacy", pack]));
+  const toApply = [];
+  for (const row of requested) {
+    const packKey = row.packId || "__legacy";
+    const pack = remainingByPack.get(packKey);
+    if (!pack) continue;
+    const amount = Math.min(Number(row.amount) || 0, pack.amount);
+    if (amount <= 0) continue;
+    toApply.push({
+      packId: pack.packId,
+      amount,
+      label: pack.label
+    });
+    remainingByPack.set(packKey, {
+      ...pack,
+      amount: pack.amount - amount
+    });
+  }
+  if (toApply.length === 0) {
+    return {
+      skipped: true,
+      reason: "no_refunds",
+      sourceKey: groupedSource
+    };
+  }
+  const sourceMarker = `[source:${groupedSource}] `;
+  const defaultNote = ticket.ticket_number ? `Refund for ticket #${ticket.ticket_number}` : "Ticket credit refund";
+  const noteBase = `${sourceMarker}${String(note || "").trim() || defaultNote}`.trim();
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query("BEGIN");
+    const applied = [];
+    for (const row of toApply) {
+      if (row.packId) {
+        await dbClient.query(`UPDATE v_b_client_support_credit_packs
+           SET remaining_amount = LEAST(initial_amount, remaining_amount + $2)
+           WHERE id = $1`, [row.packId, row.amount]);
+      }
+      const result = await applyCreditDelta(dbClient, clientId, row.amount, {
+        ticketId,
+        note: row.label ? `${noteBase} · ${row.label}` : noteBase,
+        userId,
+        kind: "refund",
+        packId: row.packId
+      });
+      applied.push({
+        packId: row.packId,
+        amount: row.amount,
+        balance: result.balance,
+        entry: result.entry
+      });
+    }
+    await dbClient.query("COMMIT");
+    const last = applied[applied.length - 1];
+    return {
+      skipped: false,
+      balance: last?.balance ?? (await getSupportCreditBalance(clientId)),
+      entries: applied.map(row => row.entry).filter(Boolean),
+      refunds: applied,
+      sourceKey: groupedSource
     };
   } catch (err) {
     await dbClient.query("ROLLBACK");

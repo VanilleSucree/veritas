@@ -103,6 +103,27 @@ export async function consumeTicketSupportCredits(ticketId, {
   });
   return handleJsonResponse(response, "Error consuming support credits");
 }
+export async function refundTicketSupportCredits(ticketId, {
+  refunds = [],
+  refundAll = false,
+  note = null,
+  sourceKey = null
+} = {}) {
+  const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/support-credits/refund`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      refunds,
+      refundAll,
+      note,
+      sourceKey
+    })
+  });
+  return handleJsonResponse(response, "Error refunding support credits");
+}
 export async function updateTicketStatus(ticketId, status, note = "", options = {}) {
   const {
     consumeSupportCredit,

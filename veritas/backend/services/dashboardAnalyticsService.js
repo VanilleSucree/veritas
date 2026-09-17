@@ -2039,7 +2039,7 @@ async function fetchDevicesCockpitStats({
     routerRows
   ] = await Promise.all([
     queryRowsOrEmpty(
-      `SELECT client_id, equipment_family, equipment_id, monitoring_data, last_synced_at
+      `SELECT client_id, equipment_family, equipment_id, monitoring_data, host_details, last_synced_at
        FROM v_b_equipment_checkmk_monitoring
        WHERE 1=1${clientWhere}`,
       clientParams
@@ -2101,7 +2101,7 @@ async function fetchDevicesCockpitStats({
   };
 
   checkmkRows.forEach((row) => {
-    const summary = computeMonitoringSummary(row.monitoring_data, row.last_synced_at);
+    const summary = computeMonitoringSummary(row.monitoring_data, row.last_synced_at, row.host_details || null);
     const status = String(summary.status || "no_data").toLowerCase();
     const state = status === "critical"
       ? "critical"

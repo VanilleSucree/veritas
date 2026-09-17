@@ -124,11 +124,11 @@ export default function ContactPortalSection({
       setBusy(false);
     }
   };
-  const handleCreateInvite = async () => {
+  const handleCreateAccess = async () => {
     setBusy(true);
     try {
       await createContactPortal(contact.id, createPortalRole);
-      toast.success(toastCopy.inviteSent || toastCopy.created);
+      toast.success(toastCopy.created);
       refresh();
     } catch (e) {
       toast.error(e.message);
@@ -307,9 +307,9 @@ export default function ContactPortalSection({
           <PortalRolePicker value={contact.portal_role} onChange={handleRoleChange} disabled={busy || !canManage} copy={portalCopy} compact />
 
           {(canManage || (contact.portal_active && !contactInactive)) ? <div className={s.actions}>
-            {canManage && (status === "pending" || contact.portal_pending) ? <button type="button" className={`${s.actionBtn} ${s.actionBtnInvite || ""}`.trim()} onClick={handleSendInvite} disabled={busy}>
+            {canManage && (status === "pending" || contact.portal_pending) ? <button type="button" className={`${s.actionBtn} ${s.actionBtnInvite || ""}`.trim()} onClick={handleSendInvite} disabled={busy} title={portalCopy.resendInvite || portalCopy.sendInvite}>
                 <Icon icon="mdi:email-fast-outline" aria-hidden />
-                {portalCopy.sendInvite || "Envoyer une invitation"}
+                {portalCopy.sendInvite}
               </button> : null}
             {canManage ? <button type="button" className={s.actionBtn} onClick={() => setPasswordModal("reset")} disabled={busy}>
               <Icon icon="mdi:key-outline" aria-hidden />
@@ -326,7 +326,7 @@ export default function ContactPortalSection({
           </div> : null}
         </> : canManage && canCreate && <div className={s.inviteBlock}>
             <p className={s.inviteDesc}>
-              {interpolate(portalCopy.emptyDescInvite || portalCopy.emptyDesc, {
+              {interpolate(portalCopy.emptyDesc, {
           email: loginEmail
         })}
             </p>
@@ -336,12 +336,12 @@ export default function ContactPortalSection({
           warnPortalLimit();
           return;
         }
-        handleCreateInvite();
+        handleCreateAccess();
       }} disabled={busy || contactInactive || portalAtLimit} title={portalAtLimit ? interpolate(portalCopy.limitTooltip, {
         max: String(maxPortalUsers)
       }) : undefined}>
-              <Icon icon="mdi:email-fast-outline" aria-hidden />
-              {portalCopy.sendInvite || portalCopy.createAccess}
+              <Icon icon="mdi:account-check-outline" aria-hidden />
+              {portalCopy.createAccess}
             </button>
           </div>}
 

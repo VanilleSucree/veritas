@@ -249,8 +249,8 @@ router.post('/db-maintenance', async (req, res) => {
 });
 router.get('/unifi-status', async (req, res) => {
   try {
-    const settingsMap = await getSettingsMap(['UNIFI_API_KEY']);
-    const apiKey = settingsMap.UNIFI_API_KEY || process.env.UNIFI_API_KEY;
+    const settingsMap = await getSettingsMap(['UNIFI_SITE_MANAGER_API_KEY', 'UNIFI_API_KEY']);
+    const apiKey = settingsMap.UNIFI_SITE_MANAGER_API_KEY || settingsMap.UNIFI_API_KEY || process.env.UNIFI_SITE_MANAGER_API_KEY || process.env.UNIFI_API_KEY;
     if (!apiKey) {
       return res.status(500).json({
         status: "error",
@@ -283,9 +283,7 @@ router.get('/unifi-status', async (req, res) => {
 });
 router.post('/unifi-test', async (req, res) => {
   try {
-    const {
-      UNIFI_API_KEY
-    } = req.body;
+    const UNIFI_API_KEY = req.body?.UNIFI_SITE_MANAGER_API_KEY || req.body?.UNIFI_API_KEY;
     if (!UNIFI_API_KEY) {
       return res.status(400).json({
         success: false,

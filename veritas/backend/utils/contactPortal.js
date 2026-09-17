@@ -78,13 +78,15 @@ export async function createPortalUserForContact(contact, password, {
   } : row;
 }
 export async function createPortalUserInviteForContact(contact, {
-  portalRole = "user"
+  portalRole = "user",
+  sendEmail = false
 } = {}) {
   const pendingPassword = `${randomUUID()}${randomUUID()}`;
   const portal = await createPortalUserForContact(contact, pendingPassword, {
     passwordPending: true,
     portalRole
   });
+  if (!sendEmail) return portal;
   const {
     rows
   } = await pool.query("SELECT password_hash FROM v_b_users WHERE id = $1", [portal.id]);

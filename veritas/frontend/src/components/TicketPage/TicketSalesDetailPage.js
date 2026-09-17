@@ -16,6 +16,7 @@ import {
   removeTicketWatcher,
   updateTicket,
   consumeTicketSupportCredits,
+  refundTicketSupportCredits,
   uploadTicketTaskAttachments,
   deleteTicketAttachment
 } from "../../api/tickets";
@@ -37,6 +38,7 @@ import TicketChatPanel from "./TicketChatPanel";
 import SalesTasksPanel from "./SalesTasksPanel";
 import TicketTagSuggestField from "./TicketTagSuggestField";
 import SalesCreditDebitModal from "./SalesCreditDebitModal";
+import { getTaskCreditBalance, getTaskCreditSourceKey } from "./SalesCreditDebitFields";
 import TicketConfirmModal from "./TicketConfirmModal";
 import SalesFormFieldValue from "./SalesFormFieldValue";
 import SalesFormFieldsRenderer, { buildDynamicFieldLines, filterVisibleFields, validateDynamicFields } from "./SalesFormFieldsRenderer";
@@ -1395,13 +1397,15 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
     if (!task) return;
     const markingDone = !task.done;
     if (markingDone && canDebitCredits && creditBalance > 0) {
-      const sourceKey = `task:${taskId}`;
-      if (!creditDebitedSources.has(sourceKey)) {
+      const alreadyCredited = Boolean(
+        getTaskCreditBalance(supportCredit?.sourceBalances, taskId) || creditDebitedSources.has(`task:${taskId}`)
+      );
+      if (!alreadyCredited) {
         setCreditModal({
           mode: "task",
           taskId: String(taskId),
           contextLabel: task.label || "",
-          sourceKey,
+          sourceKey: `task:${taskId}:${Date.now()}`,
           allowSkip: true
         });
         return;
@@ -1467,11 +1471,8 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
     const list = Array.isArray(debits) ? debits : [];
     const total = list.reduce((sum, row) => sum + (Number(row?.amount) || 0), 0);
     if (total <= 0) return true;
-    const sourceKey = `task:${taskId}`;
-    if (creditDebitedSources.has(sourceKey)) {
-      toast.info(copy.credits.toast.already);
-      return true;
-    }
+    const groupKey = getTaskCreditSourceKey(taskId);
+    const sourceKey = `${groupKey}:${Date.now()}`;
     setSavingCredits(true);
     try {
       const result = await consumeTicketSupportCredits(ticketId, {
@@ -1497,6 +1498,39 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
     } catch (error) {
       const insufficient = /insufficient|insuffisant|402/i.test(String(error?.message || ""));
       toast.error(insufficient ? copy.credits.toast.insufficient : error.message || copy.credits.toast.error);
+      return false;
+    } finally {
+      setSavingCredits(false);
+    }
+  };
+
+  const handleRefundTaskCreditsFromForm = async ({ taskId, taskLabel, refunds } = {}) => {
+    if (!ticketId || !taskId) return false;
+    const list = Array.isArray(refunds) ? refunds : [];
+    const total = list.reduce((sum, row) => sum + (Number(row?.amount) || 0), 0);
+    if (total <= 0) return true;
+    setSavingCredits(true);
+    try {
+      const result = await refundTicketSupportCredits(ticketId, {
+        refunds: list,
+        note: `Tâche · ${taskLabel || taskId}`,
+        sourceKey: getTaskCreditSourceKey(taskId)
+      });
+      if (result?.skipped) {
+        toast.info(copy.credits.toast.skipped);
+      } else {
+        toast.success(interpolate(copy.credits.toast.refundSuccess || copy.credits.toast.success, { count: String(total) }));
+      }
+      if (result?.ticket) {
+        setTicket(result.ticket);
+      } else if (result?.supportCredit) {
+        setTicket(prev => (prev ? { ...prev, supportCredit: result.supportCredit } : prev));
+      } else {
+        await loadTicket();
+      }
+      return true;
+    } catch (error) {
+      toast.error(error.message || copy.credits.toast.refundError || copy.credits.toast.error);
       return false;
     } finally {
       setSavingCredits(false);
@@ -2557,6 +2591,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
                         onToggleTask={handleToggleTask}
                         onRemoveTask={handleRemoveTask}
                         onConsumeTaskCredits={handleConsumeTaskCreditsFromForm}
+                        onRefundTaskCredits={handleRefundTaskCreditsFromForm}
                         onUploadDocuments={handleUploadTaskDocuments}
                         onDeleteDocument={handleDeleteTaskDocument}
                       />

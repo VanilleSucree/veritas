@@ -383,18 +383,9 @@ export default function AdminPanel({
     return <AdminAccessDenied />;
   }
   const ActiveComponent = TAB_COMPONENTS[activeTab];
-  const meta = visibleItems.find(item => item.key === activeTab);
   return <div className={layout.layout}>
       <aside className={layout.sidebar} aria-label="Navigation administration">
         <div className={layout.sidebarTop}>
-          <div className={layout.sidebarBrand}>
-            <div className={layout.brandMark}>V</div>
-            <div className={layout.brandText}>
-              <span className={layout.brandTitle}>Veritas</span>
-              <span className={layout.brandSub}>{panelCopy.adminSubtitle}</span>
-            </div>
-          </div>
-
           <label className={layout.sidebarSearch}>
             <Icon icon="mdi:magnify" className={layout.sidebarSearchIcon} aria-hidden />
             <input type="search" className={layout.sidebarSearchInput} value={navSearch} onChange={event => setNavSearch(event.target.value)} placeholder={panelCopy.searchPlaceholder} aria-label={panelCopy.searchPlaceholder} />
@@ -464,11 +455,6 @@ export default function AdminPanel({
       </aside>
 
       <div className={layout.main}>
-        <header className={layout.topBar}>
-          <h1 className={layout.pageTitle}>{meta?.label ?? panelCopy.adminSubtitle}</h1>
-          {meta?.description && <p className={layout.pageDesc}>{meta.description}</p>}
-        </header>
-
         <div className={layout.content}>
           {ActiveComponent ? <ActiveComponent isCommunity={isCommunity} {...activeTab === "injection" ? {
           onRunningChange: handleInjectionRunningChange

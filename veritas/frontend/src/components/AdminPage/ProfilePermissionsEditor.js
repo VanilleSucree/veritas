@@ -105,7 +105,7 @@ export default function ProfilePermissionsEditor({
     for (const group of catalog) {
       for (const action of group.actions || []) {
         const groupLabel = copy.groups?.[group.group] || group.label || group.group;
-        const featureLabel = copy.actionOverrides?.[action.key] || action.label || action.action;
+        const featureLabel = copy.actionOverrides?.[action.key] || copy.actionLabels?.[action.action] || action.label || action.action;
         const hay = `${groupLabel} ${featureLabel} ${action.key}`.toLowerCase();
         if (q && !hay.includes(q)) continue;
         rows.push({

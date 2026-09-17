@@ -212,7 +212,7 @@ export default function AdminTeams() {
   };
   return <Page>
       <div className={s.teamsLayout}>
-        <Card title={copy.title} description={copy.description} fill action={<Btn icon="mdi:plus" onClick={openCreateTeam}>
+        <Card title={copy.title} description={copy.description} fill fillNoScroll action={<Btn icon="mdi:plus" onClick={openCreateTeam}>
               {copy.newTeam}
             </Btn>}>
           <div className={ui.toolRow}>

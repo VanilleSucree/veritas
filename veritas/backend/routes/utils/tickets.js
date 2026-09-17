@@ -15,7 +15,7 @@ import { ensureTicketStatusMatchesValidation, getTicketResolutionValidation, mar
 import { createTicketValidationRequest, listTicketValidationRequests, respondTicketValidationRequest, updateTicketValidationRequest } from "../../services/ticketValidationRequestService.js";
 import { listSolutionCatalog, createSolutionCatalogEntry, updateSolutionCatalogEntry, deleteSolutionCatalogEntry } from "../../services/ticketSolutionCatalogService.js";
 import { loadExclusionRulesRaw, loadMailCollectorsRaw, loadNotificationSettingsRaw, loadTicketAutomationRawConfig, saveMailCollectorsRaw, saveNotificationLogsRaw, saveTicketAutomationRawConfig } from "../../services/ticketAutomationConfigStore.js";
-import { resolveClientIdForTicket, getTicketCreditStatus, handleTicketStatusCreditChange, resolveSalesTicketType, consumeCreditsOnTicket } from "../../services/supportCredits.js";
+import { resolveClientIdForTicket, getTicketCreditStatus, handleTicketStatusCreditChange, resolveSalesTicketType, consumeCreditsOnTicket, refundCreditsOnTicket } from "../../services/supportCredits.js";
 import ticketViewsRoutes from "./ticketViewsRoutes.js";
 import { upsertUserSetting } from "../../utils/userSettingsStore.js";
 import {
@@ -3535,6 +3535,68 @@ router.post("/:id/support-credits/consume", verifyJWT, [param("id").isUUID(), bo
     console.error("POST /tickets/:id/support-credits/consume:", err);
     res.status(err.status || 500).json({
       error: err.message || "Unable to consume support credits"
+    });
+  }
+});
+router.post("/:id/support-credits/refund", verifyJWT, [param("id").isUUID(), body("sourceKey").isString().isLength({
+  min: 1,
+  max: 120
+}), body("refunds").optional({
+  nullable: true
+}).isArray(), body("refunds.*.packId").optional({
+  nullable: true
+}).isUUID(), body("refunds.*.amount").optional().isInt({
+  min: 1
+}), body("refundAll").optional({
+  nullable: true
+}).isBoolean(), body("note").optional({
+  nullable: true
+}).isString().isLength({
+  max: 500
+})], async (req, res, next) => {
+  try {
+    const ticketResult = await pool.query("SELECT id, type, category FROM v_b_tickets WHERE id = $1", [req.params.id]);
+    if (!ticketResult.rows[0]) {
+      return res.status(404).json({
+        error: "Ticket not found"
+      });
+    }
+    const isSales = isSalesTicketRow(ticketResult.rows[0]);
+    return requireAnyPermission(isSales ? "sales.edit" : "tickets.edit", isSales ? "sales_detail.tasks" : "tickets_detail.resolve")(req, res, next);
+  } catch (err) {
+    console.error("[permissions] Ticket credit refund check failed:", err.message);
+    return res.status(500).json({
+      error: "Permission check failed."
+    });
+  }
+}, async (req, res) => {
+  const validationResponse = validationErrorOrNull(req, res);
+  if (validationResponse) return;
+  try {
+    const ticketId = req.params.id;
+    const refundAll = Boolean(req.body?.refundAll);
+    const refunds = Array.isArray(req.body?.refunds) ? req.body.refunds : [];
+    if (!refundAll && refunds.length === 0) {
+      return res.status(400).json({
+        error: "refunds or refundAll is required"
+      });
+    }
+    const result = await refundCreditsOnTicket(ticketId, req.user?.id || null, {
+      refunds,
+      refundAll,
+      note: req.body?.note || null,
+      sourceKey: req.body?.sourceKey || null
+    });
+    const ticket = await getTicketById(ticketId);
+    res.json({
+      ...result,
+      supportCredit: ticket?.supportCredit || null,
+      ticket
+    });
+  } catch (err) {
+    console.error("POST /tickets/:id/support-credits/refund:", err);
+    res.status(err.status || 500).json({
+      error: err.message || "Unable to refund support credits"
     });
   }
 });

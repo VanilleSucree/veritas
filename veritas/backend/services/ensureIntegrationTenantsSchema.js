@@ -14,6 +14,10 @@ const MIGRATIONS = [{
   table: "v_b_clients_mailinblack",
   file: "schema/patches/20260625_clients_mailinblack.sql",
   label: "mailinblack"
+}, {
+  table: "v_b_clients_unifi",
+  file: "schema/patches/20260918_clients_unifi.sql",
+  label: "unifi"
 }];
 const MAILINBLACK_AUTH_CLIENT_COLUMN = {
   table: "v_b_clients_mailinblack",

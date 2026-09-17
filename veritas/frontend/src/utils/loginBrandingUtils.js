@@ -69,6 +69,7 @@ export function flatToSideForm(settings = {}, side) {
     bgColorEnd: settings[`${prefix}bg_color_end`] || "",
     accentColor: settings[`${prefix}accent_color`] || "",
     rightBgColor: settings[`${prefix}right_bg_color`] || "",
+    rightBgImagePath: settings[`${prefix}right_bg_image_path`] || "",
     footerText: settings[`${prefix}footer_text`] ?? ""
   };
 }
@@ -90,6 +91,7 @@ export function sideFormToFlat(side, form = {}) {
     [`${prefix}bg_color_end`]: String(form.bgColorEnd || "").trim(),
     [`${prefix}accent_color`]: String(form.accentColor || "").trim(),
     [`${prefix}right_bg_color`]: String(form.rightBgColor || "").trim(),
+    [`${prefix}right_bg_image_path`]: String(form.rightBgImagePath || "").trim(),
     [`${prefix}footer_text`]: serializeTextField(form.footerText)
   };
 }
@@ -105,6 +107,7 @@ export function mergeBrandingWithAuthCopy(brandingSide, authPanel, side) {
       logoTransparent: false,
       logoBgColor: null,
       bgImageUrl: null,
+      rightBgImageUrl: null,
       footerText: null,
       colors: DEFAULT_SIDE_COLORS[side],
       custom: false
@@ -121,6 +124,7 @@ export function mergeBrandingWithAuthCopy(brandingSide, authPanel, side) {
     logoTransparent: Boolean(brandingSide.logoTransparent),
     logoBgColor: brandingSide.logoBgColor || defaults.logoBgColor,
     bgImageUrl: resolveLoginAssetUrl(brandingSide.bgImagePath),
+    rightBgImageUrl: resolveLoginAssetUrl(brandingSide.rightBgImagePath),
     footerText: resolveOptionalBrandingText(brandingSide.footerText),
     colors: {
       bgColorStart: brandingSide.bgColorStart || defaults.bgColorStart,
@@ -146,6 +150,20 @@ export function buildLoginBrandingStyleVars(panel, accountType) {
     style.backgroundPosition = "center";
   } else {
     style.background = gradient;
+  }
+  return style;
+}
+export function buildLoginRightPanelStyle(panel, accountType) {
+  if (!panel?.custom) return undefined;
+  const colors = panel.colors || DEFAULT_SIDE_COLORS[accountType];
+  const style = {
+    backgroundColor: colors.rightBgColor
+  };
+  if (panel.rightBgImageUrl) {
+    style.backgroundImage = `url("${panel.rightBgImageUrl}")`;
+    style.backgroundSize = "cover";
+    style.backgroundPosition = "center";
+    style.backgroundRepeat = "no-repeat";
   }
   return style;
 }

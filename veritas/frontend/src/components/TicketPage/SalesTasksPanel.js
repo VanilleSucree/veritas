@@ -10,7 +10,9 @@ import styles from "./TicketSalesDetailPage.module.css";
 import {
   SalesCreditDebitFields,
   buildSalesCreditDefaultAmounts,
-  getSalesCreditDebitsFromState
+  getSalesCreditDebitsFromState,
+  getSalesCreditRefundsFromState,
+  getTaskCreditBalance
 } from "./SalesCreditDebitFields";
 import { useAppLocale } from "../../hooks/useAppGeneralSettings";
 import { usePlanningEventTypes } from "../PlanningPage/usePlanningEventTypes";
@@ -112,6 +114,7 @@ export default function SalesTasksPanel({
   onToggleTask,
   onRemoveTask,
   onConsumeTaskCredits,
+  onRefundTaskCredits,
   onUploadDocuments,
   onDeleteDocument
 }) {
@@ -149,6 +152,8 @@ export default function SalesTasksPanel({
   const [assigneeHighlight, setAssigneeHighlight] = useState(0);
   const [creditEnabled, setCreditEnabled] = useState(false);
   const [creditAmounts, setCreditAmounts] = useState({});
+  const [refundEnabled, setRefundEnabled] = useState(false);
+  const [refundAmounts, setRefundAmounts] = useState({});
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [docsToRemove, setDocsToRemove] = useState([]);
@@ -158,6 +163,7 @@ export default function SalesTasksPanel({
 
   const canManageCredits = Boolean(supportCredit?.eligible && creditCopy);
   const fieldsCopy = creditCopy || {};
+  const sourceBalances = supportCredit?.sourceBalances || {};
 
   const userOptions = useMemo(
     () =>
@@ -190,6 +196,8 @@ export default function SalesTasksPanel({
     setCreditAmounts(
       alreadyDebited ? {} : buildSalesCreditDefaultAmounts(supportCredit?.packs || [], supportCredit?.balance ?? 0)
     );
+    setRefundEnabled(false);
+    setRefundAmounts({});
   };
 
   const resetForm = () => {
@@ -253,7 +261,9 @@ export default function SalesTasksPanel({
     setExistingDocuments(Array.isArray(task.documents) ? task.documents : []);
     setPendingFiles([]);
     setDocsToRemove([]);
-    const alreadyDebited = Boolean(creditDebitedSources?.has?.(`task:${task.id}`));
+    const alreadyDebited = Boolean(
+      getTaskCreditBalance(sourceBalances, task.id) || creditDebitedSources?.has?.(`task:${task.id}`)
+    );
     resetCreditForm(alreadyDebited);
     setOpen(true);
   };
@@ -297,29 +307,37 @@ export default function SalesTasksPanel({
   }, [canManageCredits]);
 
   const sectionMeta = useMemo(
-    () => ({
-      general: Boolean(label.trim() && eventType),
-      schedule: true,
-      assignee: true,
-      equipment: true,
-      documents: true,
-      credits: canManageCredits
-        ? Boolean(
-            creditDebitedSources?.has?.(`task:${editingTask?.id}`) ||
-              !creditEnabled ||
-              getSalesCreditDebitsFromState(creditEnabled, creditAmounts, supportCredit?.packs).length > 0 ||
-              Number(supportCredit?.balance || 0) <= 0
-          )
-        : true
-    }),
+    () => {
+      const addOk =
+        !creditEnabled ||
+        getSalesCreditDebitsFromState(true, creditAmounts, supportCredit?.packs).length > 0 ||
+        Number(supportCredit?.balance || 0) <= 0;
+      const refundOk =
+        !refundEnabled ||
+        getSalesCreditRefundsFromState(
+          true,
+          refundAmounts,
+          getTaskCreditBalance(sourceBalances, editingTask?.id)?.packs
+        ).length > 0;
+      return {
+        general: Boolean(label.trim() && eventType),
+        schedule: true,
+        assignee: true,
+        equipment: true,
+        documents: true,
+        credits: !canManageCredits || (addOk && refundOk)
+      };
+    },
     [
       label,
       eventType,
       canManageCredits,
-      creditDebitedSources,
       editingTask?.id,
       creditEnabled,
       creditAmounts,
+      refundEnabled,
+      refundAmounts,
+      sourceBalances,
       supportCredit?.packs,
       supportCredit?.balance
     ]
@@ -354,9 +372,7 @@ export default function SalesTasksPanel({
     return availableAssigneeOptions.filter(user => user.label.toLowerCase().includes(q)).slice(0, 12);
   }, [availableAssigneeOptions, assigneeSearch]);
 
-  const editingCreditsAlreadyDebited = Boolean(
-    isEditing && editingTask?.id && creditDebitedSources?.has?.(`task:${editingTask.id}`)
-  );
+  const editingTaskCredits = getTaskCreditBalance(sourceBalances, editingTask?.id);
 
   const footerSummary = useMemo(() => {
     const titlePart = label.trim() || modalCopy.footerUntitled || "—";
@@ -498,14 +514,28 @@ export default function SalesTasksPanel({
     const docsOk = await syncTaskDocuments(taskId);
     if (!docsOk) return;
 
-    if (canManageCredits && creditEnabled && !editingCreditsAlreadyDebited) {
+    if (canManageCredits) {
+      const refunds = getSalesCreditRefundsFromState(
+        refundEnabled,
+        refundAmounts,
+        getTaskCreditBalance(sourceBalances, taskId)?.packs || editingTaskCredits?.packs
+      );
+      if (refunds.length > 0) {
+        const refundOk = await onRefundTaskCredits?.({
+          taskId,
+          taskLabel: trimmed,
+          refunds
+        });
+        if (refundOk === false) return;
+      }
       const debits = getSalesCreditDebitsFromState(creditEnabled, creditAmounts, supportCredit?.packs);
       if (debits.length > 0) {
-        await onConsumeTaskCredits?.({
+        const consumeOk = await onConsumeTaskCredits?.({
           taskId,
           taskLabel: trimmed,
           debits
         });
+        if (consumeOk === false) return;
       }
     }
 
@@ -871,8 +901,13 @@ export default function SalesTasksPanel({
               onEnabledChange={setCreditEnabled}
               amounts={creditAmounts}
               onAmountsChange={setCreditAmounts}
-              disabled={saving || docsBusy || editingCreditsAlreadyDebited}
-              alreadyDebited={editingCreditsAlreadyDebited}
+              disabled={saving || docsBusy}
+              alreadyDebited={false}
+              currentSource={isEditing ? editingTaskCredits || { total: 0, packs: [] } : null}
+              refundEnabled={refundEnabled}
+              onRefundEnabledChange={setRefundEnabled}
+              refundAmounts={refundAmounts}
+              onRefundAmountsChange={setRefundAmounts}
               compact
             />
           </>
@@ -994,7 +1029,9 @@ export default function SalesTasksPanel({
         {tasks.map(task => {
           const schedule = formatTaskSchedule(task, formatDateTime, copy.rangeJoiner);
           const typeLabel = typeLabels[task.eventType] || typeLabels[task.type] || null;
-          const creditDebited = creditDebitedSources?.has?.(`task:${task.id}`);
+          const creditBalance = getTaskCreditBalance(sourceBalances, task.id);
+          const creditDebited = Boolean(creditBalance) || creditDebitedSources?.has?.(`task:${task.id}`);
+          const creditedCount = Number(creditBalance?.total) || (creditDebited ? 1 : 0);
           const assigneeList =
             Array.isArray(task.assignees) && task.assignees.length > 0
               ? task.assignees
@@ -1107,11 +1144,19 @@ export default function SalesTasksPanel({
                   {canManageCredits ? (
                     <span
                       className={`${styles.taskGlpiTag} ${creditDebited ? styles.taskGlpiTagCredit : styles.taskGlpiTagMuted}`.trim()}
-                      title={creditDebited ? creditAlreadyLabel || copy.creditsDebited : copy.creditsNotDebited}
+                      title={
+                        creditDebited
+                          ? interpolate(copy.creditsDebitedCount || creditAlreadyLabel || copy.creditsDebited || "{count}", {
+                              count: String(creditedCount)
+                            })
+                          : copy.creditsNotDebited
+                      }
                     >
                       <Icon icon="mdi:ticket-percent-outline" aria-hidden />
                       {creditDebited
-                        ? creditAlreadyLabel || copy.creditsDebited
+                        ? interpolate(copy.creditsDebitedCount || creditAlreadyLabel || copy.creditsDebited || "{count}", {
+                            count: String(creditedCount)
+                          })
                         : copy.creditsNotDebited}
                     </span>
                   ) : null}

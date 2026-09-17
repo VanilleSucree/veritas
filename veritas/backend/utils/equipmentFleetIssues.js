@@ -218,7 +218,7 @@ export async function fetchEquipmentFleetIssues() {
     const isMkMapped = true;
     const mkRow = lookupCheckmkRow(checkmkMap, equipment.clientId, equipment.dbId, family);
     const checkmkSummary = mkRow
-      ? computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at)
+      ? computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at, mkRow.host_details || null)
       : null;
 
     const data = buildEvaluationData(equipment);

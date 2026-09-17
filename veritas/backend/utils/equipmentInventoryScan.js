@@ -52,7 +52,7 @@ async function columnExists(tableName, columnName) {
   return result.rows.length > 0;
 }
 export async function loadCheckmkMonitoringMap() {
-  const result = await pool.query(`SELECT equipment_id::text, client_id, equipment_family, monitoring_data, last_synced_at
+  const result = await pool.query(`SELECT equipment_id::text, client_id, equipment_family, monitoring_data, host_details, last_synced_at
      FROM v_b_equipment_checkmk_monitoring`);
   const map = new Map();
   for (const row of result.rows) {
@@ -106,7 +106,7 @@ export async function loadSupervisionEquipmentInventory({
         if (mkRow) break;
       }
       if (!mkRow) mkRow = checkmkMap.get(`${clientKey}:${equipmentId}`) || null;
-      const checkmkSummary = mkRow ? computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at) : null;
+      const checkmkSummary = mkRow ? computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at, mkRow.host_details || null) : null;
       const isMkMapped = Boolean(mkRow || data.checkmk_host_name || data.checkmkHostName);
       const agentId = row.agent_id ? String(row.agent_id) : null;
       const lastSeenAt = agentId ? agentMap.get(agentId) || null : null;

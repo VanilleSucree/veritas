@@ -82,6 +82,28 @@ export const INTEGRATIONS_CATALOG = [{
     type: "text"
   }]
 }, {
+  id: "unifi",
+  name: "UniFi",
+  category: "monitoring",
+  status: AVAILABLE,
+  icon: "simple-icons:ubiquiti",
+  iconColor: "#0559C9",
+  description: "Ubiquiti UniFi Site Manager — import switches, gateways and Wi‑Fi APs.",
+  enabledKey: "INTEGRATION_UNIFI_ENABLED",
+  fields: [{
+    key: "UNIFI_SITE_MANAGER_API_KEY",
+    label: "Site Manager API key",
+    type: "password"
+  }, {
+    key: "UNIFI_NETWORK_API_KEY",
+    label: "Network API key",
+    type: "password"
+  }, {
+    key: "UNIFI_CARRIER_FABRIC_API_KEY",
+    label: "Carrier Fabric API key",
+    type: "password"
+  }]
+}, {
   id: "prtg",
   name: "PRTG",
   category: "monitoring",

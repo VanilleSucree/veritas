@@ -36,13 +36,31 @@ function isAllowedImage(file) {
   }
   return false;
 }
+const ASSET_KINDS = {
+  logo: {
+    filePrefix: "logo",
+    keySuffix: "logo_path"
+  },
+  background: {
+    filePrefix: "bg",
+    keySuffix: "bg_image_path"
+  },
+  "right-background": {
+    filePrefix: "right-bg",
+    keySuffix: "right_bg_image_path"
+  }
+};
+function resolveAssetKind(kind) {
+  return ASSET_KINDS[String(kind || "")] || null;
+}
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, LOGIN_BRANDING_UPLOAD_ROOT),
     filename: (req, file, cb) => {
       const side = LOGIN_SIDES.includes(req.params.side) ? req.params.side : "agent";
-      const kind = req.params.kind === "background" ? "bg" : "logo";
-      cb(null, `${side}-${kind}-${Date.now()}${resolveImageExt(file)}`);
+      const asset = resolveAssetKind(req.params.kind);
+      const prefix = asset?.filePrefix || "logo";
+      cb(null, `${side}-${prefix}-${Date.now()}${resolveImageExt(file)}`);
     }
   }),
   limits: {
@@ -160,14 +178,14 @@ router.post("/:side/:kind", verifyJWT, requirePermission("admin_panel.login_bran
       });
     }
     const side = String(req.params.side || "");
-    const kind = String(req.params.kind || "");
-    if (!LOGIN_SIDES.includes(side) || !["logo", "background"].includes(kind)) {
+    const asset = resolveAssetKind(req.params.kind);
+    if (!LOGIN_SIDES.includes(side) || !asset) {
       return res.status(400).json({
         error: "Invalid parameters."
       });
     }
     const relativePath = `/uploads/login-branding/${req.file.filename}`;
-    const key = kind === "background" ? `app_login_${side}_bg_image_path` : `app_login_${side}_logo_path`;
+    const key = `app_login_${side}_${asset.keySuffix}`;
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -191,13 +209,13 @@ router.post("/:side/:kind", verifyJWT, requirePermission("admin_panel.login_bran
 });
 router.delete("/:side/:kind", verifyJWT, requirePermission("admin_panel.login_branding"), requirePro, async (req, res) => {
   const side = String(req.params.side || "");
-  const kind = String(req.params.kind || "");
-  if (!LOGIN_SIDES.includes(side) || !["logo", "background"].includes(kind)) {
+  const asset = resolveAssetKind(req.params.kind);
+  if (!LOGIN_SIDES.includes(side) || !asset) {
     return res.status(400).json({
       error: "Invalid parameters."
     });
   }
-  const key = kind === "background" ? `app_login_${side}_bg_image_path` : `app_login_${side}_logo_path`;
+  const key = `app_login_${side}_${asset.keySuffix}`;
   const existing = await readLoginBrandingFromDb();
   const currentPath = existing[key];
   const client = await pool.connect();

@@ -277,15 +277,17 @@ router.post('/:id/portal', verifyJWT, requireAgent, requirePermission('contacts_
     if (!contact) return res.status(404).json({
       error: "Contact not found"
     });
+    const sendEmail = Boolean(req.body?.sendInvite);
     const portal = await createPortalUserInviteForContact(contact, {
-      portalRole: normalizePortalTicketRole(req.body?.portal_role)
+      portalRole: normalizePortalTicketRole(req.body?.portal_role),
+      sendEmail
     });
     invalidateContactsListCache(contact.client_id);
     invalidateContactsListCache(null);
     res.status(201).json({
       contact_id: contactId,
       portal,
-      inviteSent: true
+      inviteSent: sendEmail
     });
   } catch (err) {
     if (err?.code?.startsWith("COMMUNITY_")) {

@@ -61,13 +61,16 @@ export default function AdminGeneralSettingsDatabase() {
       const res = await fetch(`${API_BASE_URL}/db-stats`, {
         credentials: "include"
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setStats(data);
         setConnectionStatus(data.connected ? "ok" : "error");
       } else {
+        // Auth/permission errors must not flip a healthy /db-status to "Indisponible".
         setStats(null);
-        setConnectionStatus("error");
+        if (res.status !== 401 && res.status !== 403) {
+          setConnectionStatus("error");
+        }
       }
     } catch {
       setStats(null);

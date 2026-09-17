@@ -1764,6 +1764,244 @@ export function getAiIntegrationModalCopy(locale) {
 export function getCheckmkIntegrationModalCopy(locale) {
   return mergeModalCopy(locale, CHECKMK);
 }
+const UNIFI = {
+  fr: {
+    title: "UniFi",
+    subtitle: "Site Manager, Network et Carrier Fabric",
+    configNavAria: "Sections de configuration UniFi",
+    sections: {
+      connection: { description: "Clés API Ubiquiti" },
+      guide: { description: "Créer les API keys" },
+      info: { description: "Import matériel" }
+    },
+    apiCredentials: "Clés API UniFi",
+    connectionDesc: "Tenant global MSP : renseignez les clés générées sur unifi.ui.com (Site Manager, Network, Carrier Fabric). Le test utilise la clé sélectionnée, sans enregistrement préalable.",
+    siteManagerKey: "Clé Site Manager",
+    networkKey: "Clé Network",
+    carrierKey: "Clé Carrier Fabric",
+    keyPlaceholder: "X-API-KEY…",
+    testApiLabel: "API à tester",
+    apiLabels: {
+      "site-manager": "Site Manager",
+      network: "Network",
+      "carrier-fabric": "Carrier Fabric"
+    },
+    howToGetCredentials: "Comment obtenir les clés API ?",
+    fillCredentialsBeforeTest: "Renseignez la clé de l’API sélectionnée avant de tester.",
+    testUsesFormHint: "Le test utilise la clé saisie pour l’API choisie, sans sauvegarde.",
+    footerActive: "UniFi actif",
+    footerInactive: "UniFi inactif",
+    testSubtitleSuccess: "Connexion UniFi établie",
+    testSubtitleFail: "Échec de la connexion",
+    testApiSuccess: "L’API UniFi a répondu correctement.",
+    checkCredentials: "Vérifiez la clé API et ses scopes.",
+    hosts: "Consoles",
+    sites: "Sites",
+    subscribers: "Abonnés",
+    guideTitle: "Obtenir vos clés API",
+    guideDesc: "Créez des API Keys dans UniFi Site Manager (unifi.ui.com) avec les scopes adaptés.",
+    guideSteps: [
+      { title: "Ouvrez unifi.ui.com", desc: "Connectez-vous avec le compte MSP qui voit les sites clients." },
+      { title: "Settings → API Keys", desc: "Créez une clé Site Manager (inventaire), une clé Network (détails via Connector) et une clé Carrier Fabric si besoin ISP." },
+      { title: "Renseignez et testez", desc: "Collez les clés ici, testez chaque API, puis enregistrez. Liez ensuite un site UniFi sur chaque fiche entreprise." }
+    ],
+    infoTitle: "À propos de cette intégration",
+    infoDesc: "UniFi alimente l’import de switches, gateways et bornes Wi‑Fi depuis le site lié à chaque entreprise Veritas.",
+    infoApis: [
+      "Site Manager : hosts, sites, devices",
+      "Network (Connector) : détails devices enrichis",
+      "Carrier Fabric : abonnés ISP (lien optionnel)"
+    ],
+    infoFooter: "Après configuration, ouvrez une fiche entreprise pour lier un site UniFi, puis utilisez « Importer depuis UniFi » sur le matériel."
+  },
+  en: {
+    title: "UniFi",
+    subtitle: "Site Manager, Network and Carrier Fabric",
+    configNavAria: "UniFi configuration sections",
+    sections: {
+      connection: { description: "Ubiquiti API keys" },
+      guide: { description: "Create API keys" },
+      info: { description: "Hardware import" }
+    },
+    apiCredentials: "UniFi API keys",
+    connectionDesc: "Global MSP tenant: enter keys from unifi.ui.com (Site Manager, Network, Carrier Fabric). The test uses the selected key without saving first.",
+    siteManagerKey: "Site Manager key",
+    networkKey: "Network key",
+    carrierKey: "Carrier Fabric key",
+    keyPlaceholder: "X-API-KEY…",
+    testApiLabel: "API to test",
+    apiLabels: {
+      "site-manager": "Site Manager",
+      network: "Network",
+      "carrier-fabric": "Carrier Fabric"
+    },
+    howToGetCredentials: "How do I get API keys?",
+    fillCredentialsBeforeTest: "Enter the key for the selected API before testing.",
+    testUsesFormHint: "The test uses the key entered for the chosen API, without saving.",
+    footerActive: "UniFi active",
+    footerInactive: "UniFi inactive",
+    testSubtitleSuccess: "UniFi connection established",
+    testSubtitleFail: "Connection failed",
+    testApiSuccess: "The UniFi API responded correctly.",
+    checkCredentials: "Check the API key and its scopes.",
+    hosts: "Consoles",
+    sites: "Sites",
+    subscribers: "Subscribers",
+    guideTitle: "Get your API keys",
+    guideDesc: "Create API Keys in UniFi Site Manager (unifi.ui.com) with the right scopes.",
+    guideSteps: [
+      { title: "Open unifi.ui.com", desc: "Sign in with the MSP account that can see client sites." },
+      { title: "Settings → API Keys", desc: "Create a Site Manager key (inventory), a Network key (Connector details) and a Carrier Fabric key if you need ISP." },
+      { title: "Enter and test", desc: "Paste the keys here, test each API, then save. Link a UniFi site on each company record." }
+    ],
+    infoTitle: "About this integration",
+    infoDesc: "UniFi powers importing switches, gateways and Wi‑Fi APs from the site linked to each Veritas company.",
+    infoApis: [
+      "Site Manager: hosts, sites, devices",
+      "Network (Connector): enriched device details",
+      "Carrier Fabric: ISP subscribers (optional link)"
+    ],
+    infoFooter: "After setup, open a company record to link a UniFi site, then use “Import from UniFi” on hardware."
+  },
+  de: {
+    title: "UniFi",
+    subtitle: "Site Manager, Network und Carrier Fabric",
+    configNavAria: "UniFi-Konfigurationsabschnitte",
+    sections: {
+      connection: { description: "Ubiquiti-API-Schlüssel" },
+      guide: { description: "API-Keys erstellen" },
+      info: { description: "Hardware-Import" }
+    },
+    apiCredentials: "UniFi-API-Schlüssel",
+    connectionDesc: "Globaler MSP-Tenant: Schlüssel von unifi.ui.com eintragen. Der Test nutzt den gewählten Schlüssel ohne vorheriges Speichern.",
+    siteManagerKey: "Site-Manager-Schlüssel",
+    networkKey: "Network-Schlüssel",
+    carrierKey: "Carrier-Fabric-Schlüssel",
+    keyPlaceholder: "X-API-KEY…",
+    testApiLabel: "Zu testende API",
+    apiLabels: {
+      "site-manager": "Site Manager",
+      network: "Network",
+      "carrier-fabric": "Carrier Fabric"
+    },
+    howToGetCredentials: "Wie erhalte ich API-Schlüssel?",
+    fillCredentialsBeforeTest: "Geben Sie den Schlüssel der gewählten API vor dem Test ein.",
+    testUsesFormHint: "Der Test nutzt den eingegebenen Schlüssel der gewählten API, ohne Speichern.",
+    footerActive: "UniFi aktiv",
+    footerInactive: "UniFi inaktiv",
+    testSubtitleSuccess: "UniFi-Verbindung hergestellt",
+    testSubtitleFail: "Verbindung fehlgeschlagen",
+    testApiSuccess: "Die UniFi-API hat korrekt geantwortet.",
+    checkCredentials: "Prüfen Sie den API-Schlüssel und die Scopes.",
+    hosts: "Konsolen",
+    sites: "Sites",
+    subscribers: "Abonnenten",
+    guideTitle: "API-Schlüssel holen",
+    guideDesc: "Erstellen Sie API Keys in UniFi Site Manager (unifi.ui.com).",
+    guideSteps: [
+      { title: "unifi.ui.com öffnen", desc: "Mit dem MSP-Konto anmelden, das Kundensites sieht." },
+      { title: "Settings → API Keys", desc: "Site-Manager-, Network- und ggf. Carrier-Fabric-Schlüssel erstellen." },
+      { title: "Eintragen und testen", desc: "Schlüssel hier einfügen, testen und speichern. Anschließend Site pro Unternehmen verknüpfen." }
+    ],
+    infoTitle: "Über diese Integration",
+    infoDesc: "UniFi importiert Switches, Gateways und WLAN-APs vom verknüpften Site.",
+    infoApis: ["Site Manager: Hosts, Sites, Devices", "Network (Connector): Gerätedetails", "Carrier Fabric: ISP-Abonnenten"],
+    infoFooter: "Nach der Einrichtung Site auf der Unternehmensakte verknüpfen und Hardware importieren."
+  },
+  it: {
+    title: "UniFi",
+    subtitle: "Site Manager, Network e Carrier Fabric",
+    configNavAria: "Sezioni di configurazione UniFi",
+    sections: {
+      connection: { description: "Chiavi API Ubiquiti" },
+      guide: { description: "Creare le API key" },
+      info: { description: "Import hardware" }
+    },
+    apiCredentials: "Chiavi API UniFi",
+    connectionDesc: "Tenant MSP globale: inserite le chiavi da unifi.ui.com. Il test usa la chiave selezionata senza salvare.",
+    siteManagerKey: "Chiave Site Manager",
+    networkKey: "Chiave Network",
+    carrierKey: "Chiave Carrier Fabric",
+    keyPlaceholder: "X-API-KEY…",
+    testApiLabel: "API da testare",
+    apiLabels: {
+      "site-manager": "Site Manager",
+      network: "Network",
+      "carrier-fabric": "Carrier Fabric"
+    },
+    howToGetCredentials: "Come ottenere le chiavi API?",
+    fillCredentialsBeforeTest: "Inserite la chiave dell’API selezionata prima del test.",
+    testUsesFormHint: "Il test usa la chiave inserita per l’API scelta, senza salvare.",
+    footerActive: "UniFi attivo",
+    footerInactive: "UniFi inattivo",
+    testSubtitleSuccess: "Connessione UniFi stabilita",
+    testSubtitleFail: "Connessione non riuscita",
+    testApiSuccess: "L’API UniFi ha risposto correttamente.",
+    checkCredentials: "Verificate la chiave API e gli scope.",
+    hosts: "Console",
+    sites: "Siti",
+    subscribers: "Abbonati",
+    guideTitle: "Ottenere le chiavi API",
+    guideDesc: "Create API Keys in UniFi Site Manager (unifi.ui.com).",
+    guideSteps: [
+      { title: "Aprite unifi.ui.com", desc: "Accedete con l’account MSP che vede i siti clienti." },
+      { title: "Settings → API Keys", desc: "Create chiavi Site Manager, Network e Carrier Fabric se serve." },
+      { title: "Inserite e testate", desc: "Incollate le chiavi, testate e salvate. Poi collegate un sito su ogni azienda." }
+    ],
+    infoTitle: "Informazioni sull’integrazione",
+    infoDesc: "UniFi importa switch, gateway e AP Wi‑Fi dal sito collegato all’azienda.",
+    infoApis: ["Site Manager: host, siti, device", "Network (Connector): dettagli device", "Carrier Fabric: abbonati ISP"],
+    infoFooter: "Dopo la configurazione, collegate un sito UniFi sulla scheda azienda e importate l’hardware."
+  },
+  es: {
+    title: "UniFi",
+    subtitle: "Site Manager, Network y Carrier Fabric",
+    configNavAria: "Secciones de configuración UniFi",
+    sections: {
+      connection: { description: "Claves API Ubiquiti" },
+      guide: { description: "Crear API keys" },
+      info: { description: "Importación de hardware" }
+    },
+    apiCredentials: "Claves API UniFi",
+    connectionDesc: "Tenant MSP global: introduzca las claves de unifi.ui.com. La prueba usa la clave seleccionada sin guardar.",
+    siteManagerKey: "Clave Site Manager",
+    networkKey: "Clave Network",
+    carrierKey: "Clave Carrier Fabric",
+    keyPlaceholder: "X-API-KEY…",
+    testApiLabel: "API a probar",
+    apiLabels: {
+      "site-manager": "Site Manager",
+      network: "Network",
+      "carrier-fabric": "Carrier Fabric"
+    },
+    howToGetCredentials: "¿Cómo obtener las claves API?",
+    fillCredentialsBeforeTest: "Introduzca la clave de la API seleccionada antes de probar.",
+    testUsesFormHint: "La prueba usa la clave introducida para la API elegida, sin guardar.",
+    footerActive: "UniFi activo",
+    footerInactive: "UniFi inactivo",
+    testSubtitleSuccess: "Conexión UniFi establecida",
+    testSubtitleFail: "Conexión fallida",
+    testApiSuccess: "La API UniFi respondió correctamente.",
+    checkCredentials: "Compruebe la clave API y sus scopes.",
+    hosts: "Consolas",
+    sites: "Sitios",
+    subscribers: "Suscriptores",
+    guideTitle: "Obtener claves API",
+    guideDesc: "Cree API Keys en UniFi Site Manager (unifi.ui.com).",
+    guideSteps: [
+      { title: "Abra unifi.ui.com", desc: "Inicie sesión con la cuenta MSP que ve los sitios de clientes." },
+      { title: "Settings → API Keys", desc: "Cree claves Site Manager, Network y Carrier Fabric si aplica." },
+      { title: "Introduzca y pruebe", desc: "Pegue las claves, pruebe y guarde. Luego vincule un sitio en cada empresa." }
+    ],
+    infoTitle: "Acerca de esta integración",
+    infoDesc: "UniFi importa switches, gateways y APs Wi‑Fi desde el sitio vinculado a cada empresa.",
+    infoApis: ["Site Manager: hosts, sitios, devices", "Network (Connector): detalle de devices", "Carrier Fabric: suscriptores ISP"],
+    infoFooter: "Tras la configuración, vincule un sitio UniFi en la ficha empresa e importe el hardware."
+  }
+};
+export function getUnifiIntegrationModalCopy(locale) {
+  return mergeModalCopy(locale, UNIFI);
+}
 const HYCU = {
   fr: {
     title: "HYCU Backup",

@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { fetchClientsList, fetchClientModules, fetchClientGeneral } from "../../api/clients";
 import { getCheckMKReportPeriodData } from "../../api/checkmkReportPeriod";
-import { fetchMonitoringDocuments, saveMonitoringDocument } from "../../api/monitoringDocuments";
+import { saveMonitoringDocument } from "../../api/monitoringDocuments";
 import styles from "./RapportPage.module.css";
 import cyberStyles from "../CybersecuritePage/CybersecuritePage.module.css";
 import ReportCreateWizard from "./RapportCreateWizard";
@@ -146,7 +146,6 @@ export default function ReportPage({
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [pendingSave, setPendingSave] = useState(null);
   const [saveVisibleToClient, setSaveVisibleToClient] = useState(false);
-  const [recentDocs, setRecentDocs] = useState([]);
   const [stepStorageState, setStepStorageState] = useState(null);
   const [startingSupervisionBuilder, setStartingSupervisionBuilder] = useState(false);
   const [equipmentAlertCounts, setEquipmentAlertCounts] = useState({});
@@ -888,20 +887,6 @@ export default function ReportPage({
     });
     setPendingEquipmentComment("");
   };
-  useEffect(() => {
-    if (showSaveModal) {
-      fetchMonitoringDocuments().then(docs => {
-        const activeDocs = (docs || []).filter(d => !d.is_trashed && !d.isTrashed && !d.trashed && !d.deleted);
-        setRecentDocs(activeDocs);
-      }).catch(() => setRecentDocs([]));
-    }
-  }, [showSaveModal]);
-  const refreshRecentDocs = () => {
-    fetchMonitoringDocuments().then(docs => {
-      const activeDocs = (docs || []).filter(d => !d.is_trashed && !d.isTrashed && !d.trashed && !d.deleted);
-      setRecentDocs(activeDocs);
-    }).catch(() => setRecentDocs([]));
-  };
   const ensureSummaryContentReady = async () => {
     if (summaryContentRef?.current) return true;
     if (!builderClient) return false;
@@ -1011,7 +996,6 @@ export default function ReportPage({
         setSaveSuccessVisible(true);
         setSaveName("");
         setShowSaveModal(false);
-        refreshRecentDocs();
         setTimeout(() => setSaveSuccessVisible(false), 3000);
         if (vaultResult.success) {
           toast.success(saveVisibleToClient
@@ -1051,10 +1035,6 @@ export default function ReportPage({
     } finally {
       setSaving(false);
     }
-  };
-  const handleLoadSavedDocument = doc => {
-    if (!doc || !doc.name) return;
-    setSaveName(doc.name);
   };
   const handleDownloadZip = async () => {
     if (!builderClient) {
@@ -1104,7 +1084,6 @@ export default function ReportPage({
         setPendingSave(null);
         setShowOverwriteConfirm(false);
         setShowSaveModal(false);
-        refreshRecentDocs();
         setTimeout(() => setSaveSuccessVisible(false), 3000);
         if (vaultResult.success) {
           toast.success(pendingSave.visibleToClient ?? saveVisibleToClient ? "Rapport enregistré et partagé avec l’entreprise." : "Rapport enregistré (interne agents).");
@@ -1309,8 +1288,6 @@ export default function ReportPage({
                   onSaveNameChange={setSaveName}
                   visibleToClient={saveVisibleToClient}
                   onVisibleToClientChange={setSaveVisibleToClient}
-                  recentDocs={recentDocs}
-                  onPickRecentDoc={handleLoadSavedDocument}
                   onClose={() => { if (!saving) setShowSaveModal(false); }}
                   onSubmit={() => handleSaveReport()}
                   clientName={builderClient?.name || builderClient?.nom || ""}

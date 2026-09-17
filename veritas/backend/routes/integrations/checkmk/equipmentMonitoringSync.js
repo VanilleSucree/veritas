@@ -14,10 +14,23 @@ function getEventTimeMs(event) {
   const d = new Date(String(raw).trim().replace(' ', 'T'));
   return Number.isNaN(d.getTime()) ? null : d.getTime();
 }
+/** Unwrap CheckMK REST `{ type, value }` wrappers (and nested value objects). */
+function unwrapCheckmkValue(raw) {
+  let current = raw;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (current == null) return current;
+    if (typeof current !== "object" || Array.isArray(current)) return current;
+    if (!Object.prototype.hasOwnProperty.call(current, "value")) return current;
+    current = current.value;
+  }
+  return current;
+}
+
 function parseEventStateRaw(rawState) {
-  if (typeof rawState === 'number') return rawState;
-  if (typeof rawState === 'string') {
-    const match = rawState.match(/\((OK|WARNING|CRITICAL|UNKNOWN)\)/i) || rawState.match(/\b(OK|WARNING|CRITICAL|UNKNOWN)\b/i);
+  const unwrapped = unwrapCheckmkValue(rawState);
+  if (typeof unwrapped === 'number') return unwrapped;
+  if (typeof unwrapped === 'string') {
+    const match = unwrapped.match(/\((OK|WARNING|CRITICAL|UNKNOWN)\)/i) || unwrapped.match(/\b(OK|WARNING|CRITICAL|UNKNOWN)\b/i);
     if (match) {
       const s = match[1].toUpperCase();
       if (s === 'OK') return 0;
@@ -25,7 +38,7 @@ function parseEventStateRaw(rawState) {
       if (s === 'CRITICAL') return 2;
       return 3;
     }
-    const n = parseInt(rawState, 10);
+    const n = parseInt(unwrapped, 10);
     if (!Number.isNaN(n)) return n;
   }
   return 0;
@@ -72,12 +85,13 @@ function uniqueNonEmpty(values, limit = 3) {
 
 /** Normalize CheckMK service/host state to 0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN. */
 function normalizeServiceStateNum(rawState) {
-  if (rawState == null || rawState === "") return null;
-  if (typeof rawState === "number" && Number.isFinite(rawState)) {
-    if (rawState >= 0 && rawState <= 3) return rawState;
+  const unwrapped = unwrapCheckmkValue(rawState);
+  if (unwrapped == null || unwrapped === "") return null;
+  if (typeof unwrapped === "number" && Number.isFinite(unwrapped)) {
+    if (unwrapped >= 0 && unwrapped <= 3) return unwrapped;
     return null;
   }
-  const asString = String(rawState).trim();
+  const asString = String(unwrapped).trim();
   if (!asString) return null;
   const asInt = Number(asString);
   if (Number.isFinite(asInt) && asInt >= 0 && asInt <= 3 && String(Math.trunc(asInt)) === asString) {
@@ -95,7 +109,7 @@ function normalizeServiceStateNum(rawState) {
     }
     return 3;
   }
-  return parseEventStateRaw(rawState);
+  return parseEventStateRaw(unwrapped);
 }
 
 function getServiceStateNum(service) {
@@ -115,7 +129,21 @@ function getServiceStateNum(service) {
   return 3;
 }
 
-export function computeMonitoringSummary(monitoringData, lastSyncedAt) {
+function toFiniteCount(raw) {
+  const unwrapped = unwrapCheckmkValue(raw);
+  const n = Number(unwrapped);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function resolveHostDetails(monitoringData, hostDetails = null) {
+  return hostDetails
+    || monitoringData?.hostDetails
+    || monitoringData?.host_details
+    || monitoringData?.host
+    || null;
+}
+
+export function computeMonitoringSummary(monitoringData, lastSyncedAt, hostDetails = null) {
   if (!monitoringData || typeof monitoringData !== 'object') {
     return {
       status: 'no_data',
@@ -135,8 +163,8 @@ export function computeMonitoringSummary(monitoringData, lastSyncedAt) {
   const events = Array.isArray(eventsRaw) ? eventsRaw : [];
   const critServiceRows = services.filter(s => getServiceStateNum(s) === 2);
   const warnServiceRows = services.filter(s => getServiceStateNum(s) === 1);
-  const critServices = critServiceRows.length;
-  const warnServices = warnServiceRows.length;
+  let critServices = critServiceRows.length;
+  let warnServices = warnServiceRows.length;
   const cutoff = Date.now() - RECENT_ALERT_DAYS * 24 * 60 * 60 * 1000;
   const recentAlertEvents = events.filter(e => {
     if (!isAlertEvent(e)) return false;
@@ -145,11 +173,18 @@ export function computeMonitoringSummary(monitoringData, lastSyncedAt) {
   });
   const recentCritAlerts = recentAlertEvents.filter(e => getEventStateNum(e) === 2).length;
   const recentWarnAlerts = recentAlertEvents.filter(e => getEventStateNum(e) === 1).length;
+  const host = resolveHostDetails(monitoringData, hostDetails);
+  const serviceStats = host?.serviceStats || host?.service_stats || null;
+  const hostCritCount = toFiniteCount(serviceStats?.crit ?? serviceStats?.num_services_crit);
+  const hostWarnCount = toFiniteCount(serviceStats?.warn ?? serviceStats?.num_services_warn);
+  if (critServices === 0 && hostCritCount > 0) critServices = hostCritCount;
+  if (warnServices === 0 && hostWarnCount > 0) warnServices = hostWarnCount;
   const hostWorstRaw =
-    monitoringData?.hostDetails?.worst_service_state ??
-    monitoringData?.hostDetails?.worstServiceState ??
-    monitoringData?.host_details?.worst_service_state ??
-    monitoringData?.host?.worst_service_state ??
+    serviceStats?.worstState ??
+    serviceStats?.worst_service_state ??
+    host?.worst_service_state ??
+    host?.worstServiceState ??
+    host?.worst_state ??
     null;
   const hostWorst = normalizeServiceStateNum(hostWorstRaw);
   let status = 'ok';
@@ -572,7 +607,7 @@ export async function runEquipmentMonitoringSync(req, {
        VALUES ($1::uuid, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::timestamptz)`, [equipmentId, clientId, family, hostName, site || null, JSON.stringify(monitoringData), hostDetails ? JSON.stringify(hostDetails) : null, nowIso]);
   }
   const updated = await getStoredMonitoring(equipmentId);
-  const summary = computeMonitoringSummary(monitoringData, nowIso);
+  const summary = computeMonitoringSummary(monitoringData, nowIso, hostDetails || updated?.host_details || null);
   evaluateMonitoringAlert({
     clientId,
     equipmentId,
@@ -598,10 +633,10 @@ router.post('/equipment-monitoring/summaries', verifyJWT, async (req, res) => {
     } = req.body || {};
     let rows = [];
     if (clientId != null) {
-      const r = await pool.query(`SELECT equipment_id, monitoring_data, last_synced_at FROM ${TABLE} WHERE client_id = $1`, [clientId]);
+      const r = await pool.query(`SELECT equipment_id, monitoring_data, host_details, last_synced_at FROM ${TABLE} WHERE client_id = $1`, [clientId]);
       rows = r.rows;
     } else if (Array.isArray(equipmentIds) && equipmentIds.length > 0) {
-      const r = await pool.query(`SELECT equipment_id, monitoring_data, last_synced_at FROM ${TABLE} WHERE equipment_id = ANY($1::uuid[])`, [equipmentIds]);
+      const r = await pool.query(`SELECT equipment_id, monitoring_data, host_details, last_synced_at FROM ${TABLE} WHERE equipment_id = ANY($1::uuid[])`, [equipmentIds]);
       rows = r.rows;
     } else {
       return res.json({
@@ -610,7 +645,7 @@ router.post('/equipment-monitoring/summaries', verifyJWT, async (req, res) => {
     }
     const summaries = {};
     for (const row of rows) {
-      summaries[row.equipment_id] = computeMonitoringSummary(row.monitoring_data, row.last_synced_at);
+      summaries[row.equipment_id] = computeMonitoringSummary(row.monitoring_data, row.last_synced_at, row.host_details || null);
     }
     res.json({
       summaries

@@ -22,6 +22,7 @@ const EMPTY_SIDE = {
   bgColorEnd: "",
   accentColor: "",
   rightBgColor: "",
+  rightBgImagePath: "",
   footerText: ""
 };
 function ColorField({
@@ -89,10 +90,19 @@ function LoginPreview({
   const accent = form.accentColor || defaults.accentColor;
   const logoUrl = resolveLoginAssetUrl(form.logoPath);
   const bgImageUrl = resolveLoginAssetUrl(form.bgImagePath);
+  const rightBgImageUrl = resolveLoginAssetUrl(form.rightBgImagePath);
   const logoBg = form.logoBgColor || defaults.logoBgColor;
   const features = String(form.features || "").split("\n").map(line => line.trim()).filter(Boolean).slice(0, 3);
   const panelStyle = {
     background: bgImageUrl ? `linear-gradient(160deg, ${bgStart}dd 0%, ${bgEnd}dd 100%), url("${bgImageUrl}") center/cover` : `linear-gradient(160deg, ${bgStart} 0%, ${bgEnd} 100%)`
+  };
+  const rightPanelStyle = rightBgImageUrl ? {
+    backgroundColor: form.rightBgColor || defaults.rightBgColor,
+    backgroundImage: `url("${rightBgImageUrl}")`,
+    backgroundSize: "cover",
+    backgroundPosition: "center"
+  } : {
+    background: form.rightBgColor || defaults.rightBgColor
   };
   const headline1 = resolveBrandingText(form.headlineLine1, copy.previewHeadline1);
   const headline2 = resolveBrandingText(form.headlineLine2, copy.previewHeadline2);
@@ -127,9 +137,7 @@ function LoginPreview({
               </li>)}
           </ul>
         </aside>
-        <div className={s.previewRight} style={{
-        background: form.rightBgColor || defaults.rightBgColor
-      }}>
+        <div className={s.previewRight} style={rightPanelStyle}>
           <div className={s.previewCard}>
             <div className={s.previewToggle} />
             <div className={s.previewField} />
@@ -237,7 +245,7 @@ export default function AdminLoginBranding({
         path,
         key
       } = await uploadLoginBrandingAsset(activeSide, kind, file);
-      const field = key.includes("bg_image") ? "bgImagePath" : "logoPath";
+      const field = key.includes("right_bg_image") ? "rightBgImagePath" : key.includes("bg_image") ? "bgImagePath" : "logoPath";
       setField(field, path);
       toast.success(copy.uploadSuccess);
     } catch (err) {
@@ -250,7 +258,8 @@ export default function AdminLoginBranding({
     setUploading(kind);
     try {
       await deleteLoginBrandingAsset(activeSide, kind);
-      setField(kind === "background" ? "bgImagePath" : "logoPath", "");
+      const field = kind === "right-background" ? "rightBgImagePath" : kind === "background" ? "bgImagePath" : "logoPath";
+      setField(field, "");
       toast.success(copy.deleteSuccess);
     } catch (err) {
       toast.error(err.message || copy.deleteError);
@@ -310,6 +319,7 @@ export default function AdminLoginBranding({
             <ColorField label={copy.rightBgLabel} value={form.rightBgColor} fallback={defaults.rightBgColor} onChange={value => setField("rightBgColor", value)} />
             <AssetUploadField label={copy.logoLabel} hint={copy.logoHint} path={form.logoPath} uploading={uploading === "logo"} chooseLabel={copy.chooseFile} removeLabel={copy.removeFile} previewBackground={form.logoPath && form.logoTransparent ? form.logoBgColor || defaults.logoBgColor : undefined} onUpload={file => handleUpload("logo", file)} onDelete={() => handleDeleteAsset("logo")} />
             <AssetUploadField label={copy.bgImageLabel} hint={copy.bgImageHint} path={form.bgImagePath} uploading={uploading === "background"} chooseLabel={copy.chooseFile} removeLabel={copy.removeFile} onUpload={file => handleUpload("background", file)} onDelete={() => handleDeleteAsset("background")} />
+            <AssetUploadField label={copy.rightBgImageLabel} hint={copy.rightBgImageHint} path={form.rightBgImagePath} uploading={uploading === "right-background"} chooseLabel={copy.chooseFile} removeLabel={copy.removeFile} onUpload={file => handleUpload("right-background", file)} onDelete={() => handleDeleteAsset("right-background")} />
             {form.logoPath ? <>
                 <Field label={copy.logoTransparentLabel} spanFull hint={copy.logoTransparentHint}>
                   <Switch checked={form.logoTransparent} onChange={checked => setField("logoTransparent", checked)} label={copy.logoTransparentSwitch} />

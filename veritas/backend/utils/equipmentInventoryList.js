@@ -463,7 +463,7 @@ async function loadCheckmkMonitoringByIds(ids) {
   const uuids = [...new Set((Array.isArray(ids) ? ids : []).filter(isUuid))];
   if (!uuids.length) return new Map();
   const result = await queryOrEmpty(
-    `SELECT equipment_id::text AS equipment_id, checkmk_host_name, monitoring_data, last_synced_at
+    `SELECT equipment_id::text AS equipment_id, checkmk_host_name, monitoring_data, host_details, last_synced_at
      FROM v_b_equipment_checkmk_monitoring
      WHERE equipment_id = ANY($1::uuid[])`,
     [uuids]
@@ -568,7 +568,7 @@ async function loadCheckmkMappingsByIds(ids) {
 function resolveSupervisionStatus(mkRow, isMapped) {
   if (!isMapped) return "inactive";
   if (!mkRow) return "ok";
-  const summary = computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at);
+  const summary = computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at, mkRow.host_details || null);
   const status = String(summary?.status || "").toLowerCase();
   if (status === "critical") return "critical";
   if (status === "warning") return "warning";

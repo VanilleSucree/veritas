@@ -52,7 +52,7 @@ export default function VaultDocumentPreviewModal({
   const isDarkTheme = theme === "dark";
   const badgeClass = [styles.categoryBadge, categoryBadgeClassName].filter(Boolean).join(" ");
   const previewBodyClass = [styles.previewBody, hasMediaPreview ? styles.previewBodyMedia : "", isDarkTheme ? styles.previewBodyDark : styles.previewBodyLight].filter(Boolean).join(" ");
-  return createPortal(<div className={formStyles.overlay} onClick={onClose} role="presentation">
+  return createPortal(<div className={`${formStyles.overlay} ${styles.overlay}`} onClick={onClose} role="presentation">
       <div className={styles.shell} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="vault-preview-title">
         <div className={formStyles.accentBar} aria-hidden />
         <header className={styles.header}>

@@ -29,6 +29,9 @@ import PlanningEventModalBridge from "../PlanningPage/PlanningEventModalBridge";
 import SitesModal from "./SitesModal";
 import DomainsModal from "./DomainsModal";
 import DomainsConfigModal from "./DomainsConfigModal";
+import UnifiSiteLinkModal from "./UnifiSiteLinkModal";
+import UnifiImportModal from "./UnifiImportModal";
+import { getClientUnifiLink } from "../../api/unifi";
 import DomainSolutionPickerModal from "./DomainSolutionPickerModal";
 import DomainOverviewModal from "./DomainOverviewModal";
 import SslCertificatesModal from "./SslCertificatesModal";
@@ -460,6 +463,9 @@ export default function ClientDetailPage({
   const [activeSiteFilter, setActiveSiteFilter] = useState(() => initialPeripheralsUi?.siteFilter || null);
   const [domainsModalOpen, setDomainsModalOpen] = useState(false);
   const [domainsConfigModalOpen, setDomainsConfigModalOpen] = useState(false);
+  const [unifiLinkModalOpen, setUnifiLinkModalOpen] = useState(false);
+  const [unifiImportModalOpen, setUnifiImportModalOpen] = useState(false);
+  const [unifiLink, setUnifiLink] = useState(null);
   const [domainsConfigInitialSection, setDomainsConfigInitialSection] = useState("overview");
   const [domainsConfigInitialProviderId, setDomainsConfigInitialProviderId] = useState(null);
   const [domainPickerOpen, setDomainPickerOpen] = useState(false);
@@ -617,6 +623,15 @@ export default function ClientDetailPage({
       return;
     }
     getGlobalOvhStatus().then(status => setGlobalOvhConfigured(Boolean(status?.configured))).catch(() => setGlobalOvhConfigured(false));
+  }, [client?.id]);
+  useEffect(() => {
+    if (!client?.id) {
+      setUnifiLink(null);
+      return;
+    }
+    getClientUnifiLink(client.id)
+      .then(res => setUnifiLink(res?.link || null))
+      .catch(() => setUnifiLink(null));
   }, [client?.id]);
   const getContractModules = useCallback((source = {}) => {
     let modulesSource = source.options || source.modules || {};
@@ -3407,11 +3422,35 @@ export default function ClientDetailPage({
                         </button>
                       </div>}
                   </div>
-                  {canManageDevices ? <SmartTooltip as="span" content={copy.addEquipment}>
+                  {canManageDevices ? <>
+                    <SmartTooltip as="span" content={copy.unifiLinkSite || "Lien UniFi"}>
+                      <button
+                        type="button"
+                        className={styles.addEquipmentButton}
+                        onClick={() => setUnifiLinkModalOpen(true)}
+                        aria-label={copy.unifiLinkSite || "Lien UniFi"}
+                      >
+                        <Icon icon="simple-icons:ubiquiti" aria-hidden />
+                      </button>
+                    </SmartTooltip>
+                    {unifiLink?.linked ? (
+                      <SmartTooltip as="span" content={copy.unifiImport || "Importer depuis UniFi"}>
+                        <button
+                          type="button"
+                          className={styles.addEquipmentButton}
+                          onClick={() => setUnifiImportModalOpen(true)}
+                          aria-label={copy.unifiImport || "Importer depuis UniFi"}
+                        >
+                          <Icon icon="mdi:cloud-download-outline" aria-hidden />
+                        </button>
+                      </SmartTooltip>
+                    ) : null}
+                    <SmartTooltip as="span" content={copy.addEquipment}>
                     <button type="button" className={styles.addEquipmentButton} onClick={() => equipmentPageRef.current?.openAddEquipmentModal()}>
                       <FaPlus />
                     </button>
-                  </SmartTooltip> : null}
+                  </SmartTooltip>
+                  </> : null}
                 </div>
               </div>
               <div className={styles.panelBody}>
@@ -4232,6 +4271,25 @@ export default function ClientDetailPage({
       setDomainsConfigModalOpen(false);
       setDomainsConfigInitialProviderId(null);
     }} onSaved={refreshDomainsState} />}
+      {unifiLinkModalOpen && client?.id ? (
+        <UnifiSiteLinkModal
+          open={unifiLinkModalOpen}
+          clientId={client.id}
+          onClose={() => setUnifiLinkModalOpen(false)}
+          onSaved={link => setUnifiLink(link)}
+        />
+      ) : null}
+      {unifiImportModalOpen && client?.id ? (
+        <UnifiImportModal
+          open={unifiImportModalOpen}
+          clientId={client.id}
+          existingEquipment={mapClientHardwareEquipment(client || {})}
+          onClose={() => setUnifiImportModalOpen(false)}
+          onImported={async () => {
+            await refreshClientEquipment();
+          }}
+        />
+      ) : null}
 
       {domainPickerOpen && client?.id && <DomainSolutionPickerModal open={domainPickerOpen} client={client} domains={domainPickerDomains} onClose={() => {
       setDomainPickerOpen(false);

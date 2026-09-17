@@ -57,14 +57,20 @@ export async function testHycuConnection({
   return handleTestResponse(res);
 }
 
-export async function testWhatsappConnection() {
-  const res = await fetch(`${API_BASE_URL}/whatsapp/test`, {
+export async function testUnifiConnection({
+  api = "site-manager",
+  apiKey
+} = {}) {
+  const res = await fetch(`${API_BASE_URL}/unifi/test`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({})
+    body: JSON.stringify({
+      api,
+      apiKey
+    })
   });
   return handleTestResponse(res);
 }

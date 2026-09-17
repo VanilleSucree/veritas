@@ -13,7 +13,7 @@ import ProFeatureBadge from "../Misc/ProFeature/ProFeatureBadge";
 import CommunityFeatureBadge from "../Misc/ProFeature/CommunityFeatureBadge";
 import ProFeaturePromoModal from "../Misc/ProFeature/ProFeaturePromoModal";
 import API_BASE_URL from "../../config";
-import { Modal, ConfirmModal, ModalFooterBar, ModalEntityHeader, ModalDangerZone, ModalDivider, ModalForm, ModalFormSection, IconField, Input, Badge, Btn, Card, Page, SubTabs, EntityStatus } from "./AdminUi";
+import { Modal, ConfirmModal, ModalFooterBar, Field, Input, Badge, Btn, Card, Page, SubTabs, EntityStatus } from "./AdminUi";
 import AgentFormModal from "./AgentFormModal";
 import ProfileFormModal from "./ProfileFormModal";
 import { buildDefaultAgentDraft, buildDefaultProfileDraft, buildAgentDraftFromUser } from "./adminOrgFormConstants";
@@ -24,7 +24,7 @@ import { fetchTeams } from "../../api/teams";
 import ui from "./AdminUi.module.css";
 import s from "./AdminUsers.module.css";
 const COMMUNITY_ACCESS_MODULE_KEYS = new Set(["entreprise", "contact", "tickets"]);
-const MODAL_WIDTH = "480px";
+const PROFILE_MODAL_WIDTH = "760px";
 const SYSTEM_PROFILE_NAMES = new Set([
   "super admin",
   "superadmin",
@@ -886,69 +886,86 @@ export default function AdminUsers({
       setShowProfileModal(false);
       setProfileModalTarget(null);
       setConfirmDeleteProfile(false);
-    }} eyebrow={copy.profiles.modalEyebrow} title={editingProfileIsProtected ? copy.profiles.modalSystemTitle : copy.profiles.modalEditTitle} subtitle={copy.profiles.modalSubtitle} icon="mdi:account-cog-outline" width={MODAL_WIDTH} footerBar footer={<ModalFooterBar onCancel={() => {
+    }} title={getProfileLabel(profileNameInput)} icon="mdi:account-cog-outline" width={PROFILE_MODAL_WIDTH} footerBar footer={<ModalFooterBar onCancel={() => {
       setShowProfileModal(false);
       setProfileModalTarget(null);
       setConfirmDeleteProfile(false);
-    }} onConfirm={handleUpdateProfile} confirmLabel={commonCopy.save} confirmDisabled={editingProfileIsProtected || profilesLoading || !profileLabelInput.trim()} />}>
-        {profileModalMode === "edit" && <>
-            <ModalEntityHeader icon="mdi:account-cog-outline" title={getProfileLabel(profileNameInput)} subtitle={editingProfileIsProtected ? copy.profiles.systemSubtitle : copy.profiles.customSubtitle} badge={editingProfileIsProtected ? <Badge variant="warn">{copy.profiles.systemTag}</Badge> : <Badge variant="success">{copy.profiles.customBadge}</Badge>} />
-            <ModalForm>
-              <ModalFormSection title={copy.profiles.detailsSection} icon="mdi:tune-variant">
-                <IconField icon="mdi:identifier" label={copy.profiles.identifierLabel} hint={copy.profiles.identifierHint}>
-                  <Input value={profileNameInput} disabled />
-                </IconField>
-                <IconField icon="mdi:text-short" label={copy.profiles.descriptionLabel}>
-                  <Input placeholder={copy.profiles.descriptionPlaceholder} value={profileLabelInput} onChange={e => setProfileLabelInput(e.target.value)} disabled={editingProfileIsProtected} />
-                </IconField>
-                {profiles.find(p => p.name === profileModalTarget)?.parent_profile && <IconField icon="mdi:source-branch" label={copy.profiles.parentLabel}>
-                    <Input value={profiles.find(p => p.name === profileModalTarget)?.parent_profile || ""} disabled />
-                  </IconField>}
-              </ModalFormSection>
-            </ModalForm>
-            {profileModalTarget && <>
-                <ModalDivider />
-                <ModalFormSection title={copy.profiles.assignedAgents} icon="mdi:account-group-outline">
-                  {getUsersForProfile(profileModalTarget).length === 0 ? <p className={s.profileAgentsEmpty}>{copy.profiles.noAgents}</p> : <div className={s.profileAgentsTableWrap}>
-                      <table className={s.profileAgentsTable}>
-                        <thead>
-                          <tr>
-                            <th>{copy.profiles.assignedColumns.agent}</th>
-                            <th>{copy.profiles.assignedColumns.status}</th>
-                            <th>{copy.profiles.assignedColumns.mfa}</th>
-                            <th style={{
-                      width: 48
-                    }} />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {getUsersForProfile(profileModalTarget).map(agent => <tr key={agent.id}>
-                              <td>
-                                <div className={s.profileAgentEmail}>{agent.email}</div>
-                                {agent.username && <div className={s.profileAgentName}>{agent.username}</div>}
-                              </td>
-                              <td>
-                                <EntityStatus active={Boolean(agent.is_active)} />
-                              </td>
-                              <td>
-                                <MfaStatusBadge user={agent} locale={locale} />
-                              </td>
-                              <td>
-                                {canReleaseMfa(agent) && <button type="button" className={s.actionBtn} title={copy.confirm.resetMfaTitle} onClick={() => openMfaReleaseConfirm(agent)}>
-                                    <Icon icon="mdi:shield-off-outline" />
-                                  </button>}
-                              </td>
-                            </tr>)}
-                        </tbody>
-                      </table>
-                    </div>}
-                </ModalFormSection>
-              </>}
-            {!editingProfileIsProtected && <>
-                <ModalDivider />
-                <ModalDangerZone title={copy.profiles.deleteTitle} description={copy.profiles.deleteDesc} actionLabel={adminCopy.delete} onAction={() => setConfirmDeleteProfile(true)} />
-              </>}
-          </>}
+    }} onConfirm={handleUpdateProfile} confirmLabel={commonCopy.save} confirmDisabled={editingProfileIsProtected || profilesLoading || !profileLabelInput.trim()} dangerAction={!editingProfileIsProtected ? <Btn variant="danger" size="sm" icon="mdi:trash-can-outline" onClick={() => setConfirmDeleteProfile(true)}>
+              {adminCopy.delete}
+            </Btn> : null} />}>
+        {profileModalMode === "edit" && (() => {
+        const parentProfileName = profiles.find(p => p.name === profileModalTarget)?.parent_profile;
+        const assignedAgents = profileModalTarget ? getUsersForProfile(profileModalTarget) : [];
+        return <>
+              <div className={s.profileViewMeta}>
+                <div className={s.profileViewBadges}>
+                  {editingProfileIsProtected ? <Badge variant="warn">{copy.profiles.systemTag}</Badge> : <Badge variant="success">{copy.profiles.customBadge}</Badge>}
+                  {parentProfileName ? <span className={s.profileParentBadge}>
+                      {interpolate(copy.profiles.inherits, {
+                  parent: getProfileLabel(parentProfileName)
+                })}
+                    </span> : null}
+                </div>
+                <div className={s.profileViewFields}>
+                  <Field label={copy.profiles.identifierLabel}>
+                    <Input value={profileNameInput} disabled />
+                  </Field>
+                  <Field label={copy.profiles.descriptionLabel}>
+                    <Input placeholder={copy.profiles.descriptionPlaceholder} value={profileLabelInput} onChange={e => setProfileLabelInput(e.target.value)} disabled={editingProfileIsProtected} />
+                  </Field>
+                </div>
+              </div>
+
+              <div className={s.profileAgentsBlock}>
+                <div className={s.profileAgentsHeading}>
+                  <h4 className={s.profileAgentsTitle}>
+                    <Icon icon="mdi:account-group-outline" aria-hidden />
+                    {copy.profiles.assignedAgents}
+                  </h4>
+                  <span className={s.profileAgentsCount}>
+                    {assignedAgents.length === 1 ? interpolate(copy.profiles.assignedCount, {
+                count: assignedAgents.length
+              }) : interpolate(copy.profiles.assignedCountPlural, {
+                count: assignedAgents.length
+              })}
+                  </span>
+                </div>
+                {assignedAgents.length === 0 ? <p className={s.profileAgentsEmpty}>{copy.profiles.noAgents}</p> : <div className={s.profileAgentsTableWrap}>
+                    <table className={s.profileAgentsTable}>
+                      <thead>
+                        <tr>
+                          <th>{copy.profiles.assignedColumns.agent}</th>
+                          <th>{copy.profiles.assignedColumns.status}</th>
+                          <th>{copy.profiles.assignedColumns.mfa}</th>
+                          <th style={{
+                    width: 48
+                  }} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assignedAgents.map(agent => <tr key={agent.id}>
+                            <td>
+                              <div className={s.profileAgentEmail}>{agent.email}</div>
+                              {agent.username && <div className={s.profileAgentName}>{agent.username}</div>}
+                            </td>
+                            <td>
+                              <EntityStatus active={Boolean(agent.is_active)} />
+                            </td>
+                            <td>
+                              <MfaStatusBadge user={agent} locale={locale} />
+                            </td>
+                            <td>
+                              {canReleaseMfa(agent) && <button type="button" className={s.actionBtn} title={copy.confirm.resetMfaTitle} onClick={() => openMfaReleaseConfirm(agent)}>
+                                  <Icon icon="mdi:shield-off-outline" />
+                                </button>}
+                            </td>
+                          </tr>)}
+                      </tbody>
+                    </table>
+                  </div>}
+              </div>
+            </>;
+      })()}
       </Modal>
 
       <ConfirmModal open={confirmReleaseMfa} onClose={() => {

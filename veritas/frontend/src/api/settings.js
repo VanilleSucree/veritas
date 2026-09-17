@@ -62,7 +62,23 @@ const settingsMapping = {
   },
   'UNIFI_API_KEY': {
     section: 'unifi',
-    label: 'API Key UniFi Site Manager'
+    label: 'API Key UniFi Site Manager (legacy)'
+  },
+  'INTEGRATION_UNIFI_ENABLED': {
+    section: 'unifi',
+    label: 'UniFi integration enabled'
+  },
+  'UNIFI_SITE_MANAGER_API_KEY': {
+    section: 'unifi',
+    label: 'UniFi Site Manager API key'
+  },
+  'UNIFI_NETWORK_API_KEY': {
+    section: 'unifi',
+    label: 'UniFi Network API key'
+  },
+  'UNIFI_CARRIER_FABRIC_API_KEY': {
+    section: 'unifi',
+    label: 'UniFi Carrier Fabric API key'
   },
   'CHECKMK_API_URL': {
     section: 'checkmk',

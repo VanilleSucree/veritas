@@ -73,42 +73,6 @@
   line-height: 1.45;
 }
 
-.recentList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.recentItem {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--msp-border-light, #e8eef5);
-  background: var(--msp-surface, #fff);
-  border-radius: 10px;
-  padding: 0.65rem 0.8rem;
-  cursor: pointer;
-}
-
-.recentItem:hover:not(:disabled) {
-  border-color: var(--msp-accent, #2b5fab);
-  background: rgba(43, 95, 171, 0.04);
-}
-
-.recentName {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--msp-text, #1a2b3c);
-}
-
-.recentMeta {
-  font-size: 0.78rem;
-  color: var(--msp-muted, #5b6b80);
-}
-
 .spinning {
   animation: saveSpin 0.9s linear infinite;
 }

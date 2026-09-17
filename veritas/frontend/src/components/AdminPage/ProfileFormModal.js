@@ -5,6 +5,7 @@ import { FaTimes } from "react-icons/fa";
 import { useCommonCopy } from "../../hooks/useCommonCopy";
 import { useAdminCommonCopy, useAdminModalCopy } from "../../hooks/useAdminCopy";
 import { useAppLocale } from "../../hooks/useAppGeneralSettings";
+import { getAdminPermissionsCopy, getLocalizedProfileName } from "./adminPermissionsI18n";
 import { getProfileFormSections } from "./adminFormModalsI18n";
 import layout from "../EnterprisesPage/EnterpriseFormModal.module.css";
 import formStyles from "./IngestionRuleFormModal.module.css";
@@ -21,6 +22,7 @@ export default function ProfileFormModal({
   const commonCopy = useCommonCopy();
   const adminCopy = useAdminCommonCopy();
   const modalCopy = useAdminModalCopy("profileForm");
+  const permissionsCopy = useMemo(() => getAdminPermissionsCopy(locale), [locale]);
   const formSections = useMemo(() => getProfileFormSections(locale), [locale]);
   const [activeSection, setActiveSection] = useState("general");
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function ProfileFormModal({
     ...prev,
     ...patch
   }));
+  const parentDisplayName = draft.parentProfile ? getLocalizedProfileName(draft.parentProfile, permissionsCopy) || draft.parentProfile : adminCopy.standalone;
   const renderSectionContent = () => {
     switch (activeSection) {
       case "general":
@@ -79,7 +82,7 @@ export default function ProfileFormModal({
               })}>
                   <option value="">{modalCopy.noParent}</option>
                   {profiles.map(p => <option key={p.name} value={p.name}>
-                      {p.label || p.name}
+                      {getLocalizedProfileName(p.name, permissionsCopy) || p.name}
                     </option>)}
                 </select>
               </div>
@@ -141,7 +144,7 @@ export default function ProfileFormModal({
 
         <footer className={layout.footer}>
           <span className={layout.footerHint}>
-            {draft.name?.trim() || adminCopy.noIdentifier} · {draft.parentProfile || adminCopy.standalone}
+            {draft.name?.trim() || adminCopy.noIdentifier} · {parentDisplayName}
           </span>
           <div className={layout.footerActions}>
             <button type="button" className={layout.ghostBtn} onClick={onClose} disabled={saving}>

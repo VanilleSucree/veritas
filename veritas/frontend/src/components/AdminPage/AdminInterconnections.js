@@ -18,6 +18,7 @@ import MailinblackIntegrationModal from "./MailinblackIntegrationModal";
 import OvhIntegrationModal from "./OvhIntegrationModal";
 import AiIntegrationModal from "./AiIntegrationModal";
 import CheckmkIntegrationModal from "./CheckmkIntegrationModal";
+import UnifiIntegrationModal from "./UnifiIntegrationModal";
 import HycuIntegrationModal from "./HycuIntegrationModal";
 import WhatsappIntegrationModal from "./WhatsappIntegrationModal";
 import ui from "./AdminUi.module.css";
@@ -364,6 +365,21 @@ export default function AdminInterconnections({
       <AiIntegrationModal open={selected?.id === "ai"} enabled={selectedEnabled} provider={settings.AI_PROVIDER || "openai"} apiKey={settings.AI_API_KEY || ""} model={settings.AI_MODEL || ""} onEnabledChange={on => handleFieldChange(selected?.enabledKey, on ? "true" : "false")} onProviderChange={value => handleFieldChange("AI_PROVIDER", value)} onApiKeyChange={value => handleFieldChange("AI_API_KEY", value)} onModelChange={value => handleFieldChange("AI_MODEL", value)} onClose={() => !saving && setSelected(null)} onSave={handleSave} saving={saving} />
 
       <CheckmkIntegrationModal open={selected?.id === "checkmk"} enabled={selectedEnabled} apiUrl={settings.CHECKMK_API_URL || ""} username={settings.CHECKMK_USERNAME || ""} password={settings.CHECKMK_PASSWORD || ""} site={settings.CHECKMK_SITE || ""} onEnabledChange={on => handleFieldChange(selected?.enabledKey, on ? "true" : "false")} onApiUrlChange={value => handleFieldChange("CHECKMK_API_URL", value)} onUsernameChange={value => handleFieldChange("CHECKMK_USERNAME", value)} onPasswordChange={value => handleFieldChange("CHECKMK_PASSWORD", value)} onSiteChange={value => handleFieldChange("CHECKMK_SITE", value)} onClose={() => !saving && setSelected(null)} onSave={handleSave} saving={saving} />
+
+      <UnifiIntegrationModal
+        open={selected?.id === "unifi"}
+        enabled={selectedEnabled}
+        siteManagerKey={settings.UNIFI_SITE_MANAGER_API_KEY || settings.UNIFI_API_KEY || ""}
+        networkKey={settings.UNIFI_NETWORK_API_KEY || ""}
+        carrierKey={settings.UNIFI_CARRIER_FABRIC_API_KEY || ""}
+        onEnabledChange={on => handleFieldChange(selected?.enabledKey, on ? "true" : "false")}
+        onSiteManagerKeyChange={value => handleFieldChange("UNIFI_SITE_MANAGER_API_KEY", value)}
+        onNetworkKeyChange={value => handleFieldChange("UNIFI_NETWORK_API_KEY", value)}
+        onCarrierKeyChange={value => handleFieldChange("UNIFI_CARRIER_FABRIC_API_KEY", value)}
+        onClose={() => !saving && setSelected(null)}
+        onSave={handleSave}
+        saving={saving}
+      />
 
       <HycuIntegrationModal open={selected?.id === "hycu"} enabled={selectedEnabled} apiUrl={settings.HYCU_API_URL || ""} apiKey={settings.HYCU_API_KEY || ""} username={settings.HYCU_USERNAME || ""} password={settings.HYCU_PASSWORD || ""} verifyTls={settings.HYCU_VERIFY_TLS || "false"} onEnabledChange={on => handleFieldChange(selected?.enabledKey, on ? "true" : "false")} onApiUrlChange={value => handleFieldChange("HYCU_API_URL", value)} onApiKeyChange={value => handleFieldChange("HYCU_API_KEY", value)} onUsernameChange={value => handleFieldChange("HYCU_USERNAME", value)} onPasswordChange={value => handleFieldChange("HYCU_PASSWORD", value)} onVerifyTlsChange={value => handleFieldChange("HYCU_VERIFY_TLS", value)} onClose={() => !saving && setSelected(null)} onSave={handleSave} saving={saving} />
 

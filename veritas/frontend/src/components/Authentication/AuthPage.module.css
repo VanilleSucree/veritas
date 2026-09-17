@@ -175,6 +175,15 @@
   pointer-events: none;
 }
 
+.rightBranded::before,
+.rightBranded::after {
+  display: none;
+}
+
+.rightBrandedImage {
+  background-color: var(--login-right-bg, #f4f6fa);
+}
+
 
 .leftClient {
   background: linear-gradient(160deg, #0f2014 0%, #163020 60%, #1a4030 100%);
@@ -922,7 +931,7 @@
   color: #10233c !important;
 }
 
-:global(html.dark) .wrapper .right {
+:global(html.dark) .wrapper .right:not(.rightBranded) {
   background: #f4f6fa !important;
 }
 

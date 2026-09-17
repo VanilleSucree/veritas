@@ -150,9 +150,14 @@ export async function ensureSupervisionAlertsSeen(items = []) {
 
   const ids = normalized.map(item => item.queueItemId);
   const existing = await listSupervisionAlertsByQueueItemIds(ids);
-  const existingIds = new Set(existing.map(alert => alert.queueItemId));
-  const missing = normalized.filter(item => !existingIds.has(item.queueItemId));
-  if (!missing.length) return existing;
+  const existingById = new Map(existing.map(alert => [alert.queueItemId, alert]));
+  const missing = normalized.filter(item => !existingById.has(item.queueItemId));
+  const reopenable = normalized.filter(item => {
+    const alert = existingById.get(item.queueItemId);
+    return alert?.status === "closed" && alert?.closedReason === "resolved";
+  });
+
+  if (!missing.length && !reopenable.length) return existing;
 
   const client = await pool.connect();
   try {
@@ -187,6 +192,37 @@ export async function ensureSupervisionAlertsSeen(items = []) {
         newStatus: "open",
         note: null,
         meta: { source: "seen" }
+      });
+    }
+    for (const item of reopenable) {
+      const current = existingById.get(item.queueItemId);
+      if (!current?.id) continue;
+      const updated = await client.query(
+        `UPDATE v_b_supervision_alerts
+         SET status = 'open',
+             severity = COALESCE($2, severity),
+             title = COALESCE($3, title),
+             subtitle = COALESCE($4, subtitle),
+             label = COALESCE($5, label),
+             closed_at = NULL,
+             closed_by = NULL,
+             closed_reason = NULL,
+             last_seen_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $1::uuid AND status = 'closed' AND closed_reason = 'resolved'
+         RETURNING *`,
+        [current.id, item.severity, item.title, item.subtitle, item.label]
+      );
+      const row = updated.rows[0];
+      if (!row) continue;
+      await insertEvent(client, {
+        alertId: row.id,
+        action: "reopened",
+        actorUserId: null,
+        oldStatus: "closed",
+        newStatus: "open",
+        note: null,
+        meta: { source: "seen", reason: "issue_recurring" }
       });
     }
     await client.query("COMMIT");

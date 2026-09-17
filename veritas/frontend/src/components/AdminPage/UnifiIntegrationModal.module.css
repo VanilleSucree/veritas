@@ -1,0 +1,9 @@
+.headerIconUnifi {
+  background: linear-gradient(135deg, #0559c9 0%, #033a85 100%);
+  box-shadow: 0 6px 16px rgba(5, 89, 201, 0.28);
+}
+
+.accentBarUnifi {
+  height: 4px;
+  background: linear-gradient(90deg, #033a85 0%, #0559c9 45%, #4da3ff 100%);
+}
