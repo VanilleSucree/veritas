@@ -74,3 +74,15 @@ export async function testUnifiConnection({
   });
   return handleTestResponse(res);
 }
+
+export async function testWhatsappConnection() {
+  const res = await fetch(`${API_BASE_URL}/whatsapp/test`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({})
+  });
+  return handleTestResponse(res);
+}
