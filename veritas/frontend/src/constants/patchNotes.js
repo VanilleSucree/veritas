@@ -5,6 +5,16 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.17",
+    date: "2026-09-17",
+    highlights: [
+      "Rapports de supervision : parcours latéral et typographie allégés, synthèses pleine largeur, natures d’alertes, cartes cyber/cloud, licences M365 nommées et libellé Mailinblack corrigé.",
+      "Tickets prestation : onglets Formulaire/Tâches/Discussion, panneau droit repliable, to-dos avec périphérique, documents et crédits.",
+      "Supervision : voyants inventaire alignés CheckMK et centre de supervision qui remonte bien les alertes mappées.",
+      "Base de connaissances : création de dossier depuis le « + », passage lecture → édition, modal emojis revue."
+    ]
+  },
+  {
     version: "1.0.16",
     date: "2026-09-16",
     highlights: [

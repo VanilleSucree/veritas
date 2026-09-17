@@ -35,7 +35,7 @@
 .solutionName {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 750;
+  font-weight: 600;
   color: var(--msp-text, #0f1c2e);
 }
 
@@ -53,7 +53,7 @@
   background: #ecfdf5;
   color: #047857;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .solutionBadgeWarn {
@@ -64,7 +64,7 @@
   background: #fffbeb;
   color: #b45309;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .solutionBadgeCritical {
@@ -75,12 +75,12 @@
   background: #fef2f2;
   color: #b91c1c;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .solutionGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem 1.25rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--msp-border, #e5e7eb);
@@ -95,7 +95,7 @@
 
 .solutionFieldValue {
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--msp-text, #0f1c2e);
   word-break: break-word;
 }
@@ -120,13 +120,13 @@
 
 .licenseServer {
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--msp-text, #0f1c2e);
 }
 
 .licenseDate {
   font-size: 1rem;
-  font-weight: 750;
+  font-weight: 600;
   color: var(--msp-text, #0f1c2e);
 }
 
@@ -158,6 +158,12 @@
   font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .solutionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 820px) {

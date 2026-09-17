@@ -883,6 +883,148 @@ button.heroActionBtn {
   margin-bottom: 0.65rem;
 }
 
+.emojiModalShell {
+  width: min(980px, 100%);
+  max-height: min(92vh, 860px);
+}
+
+.emojiModalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.emojiImportPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.emojiImportStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 28rem;
+}
+
+.emojiPickGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.45rem;
+}
+
+.emojiPickCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.55rem 0.4rem;
+  border: 1px solid var(--msp-border-light, #e2e8f0);
+  border-radius: 10px;
+  background: var(--msp-surface, #fff);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.emojiPickCell:hover {
+  border-color: var(--msp-accent, #2b5fab);
+  background: rgba(43, 95, 171, 0.06);
+}
+
+.emojiPickCell img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.emojiPickCell span {
+  font-size: 0.68rem;
+  color: var(--msp-muted, #5c6b82);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emojiUnicodeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.4rem, 1fr));
+  gap: 0.35rem;
+}
+
+.emojiUnicodeCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--msp-border-light, #e2e8f0);
+  border-radius: 8px;
+  background: var(--msp-surface, #fff);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.emojiUnicodeCell:hover:not(:disabled) {
+  border-color: var(--msp-accent, #2b5fab);
+  background: rgba(43, 95, 171, 0.08);
+  transform: scale(1.04);
+}
+
+.emojiUnicodeCell:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.emojiGroupTitle {
+  margin: 0.35rem 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--msp-muted, #5c6b82);
+}
+
+.emojiSearchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.navIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.navIconBtn:hover {
+  background: rgba(43, 95, 171, 0.12);
+}
+
+.navUnicodeIcon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.pageIconUnicode {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .emojiFileBtn {
   display: inline-flex;
   align-items: center;
@@ -2365,6 +2507,23 @@ button.heroActionBtn {
   font-weight: 600;
   text-align: left;
   padding: 0.28rem 0.3rem 0.28rem 0;
+}
+
+.navLabelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: left;
+  padding: 0;
 }
 
 .navNameTip {

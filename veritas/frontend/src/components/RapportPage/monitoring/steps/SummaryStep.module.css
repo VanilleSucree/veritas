@@ -59,8 +59,8 @@
   background: rgba(43, 95, 171, 0.1);
   color: var(--msp-accent, #2b5fab);
   font-size: 0.64rem;
-  font-weight: 750;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -69,14 +69,15 @@
 }
 
 .reportTabTitle {
-  font-size: 0.98rem;
-  font-weight: 750;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--msp-text, #0f1c2e);
 }
 
 .reportTabDesc {
   font-size: 0.76rem;
   line-height: 1.35;
+  font-weight: 400;
   color: var(--msp-muted, #5c6b82);
 }
 
@@ -115,15 +116,15 @@
   background: rgba(43, 95, 171, 0.1);
   color: var(--msp-accent, #2b5fab);
   font-size: 0.66rem;
-  font-weight: 750;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .reportDocTitle {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 750;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: var(--msp-text, #0f1c2e);
 }
 

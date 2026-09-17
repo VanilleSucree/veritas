@@ -297,7 +297,8 @@ const EQUIPMENT_FAMILY_TABLES = {
   wifi: 'v_b_clients_m_wifi',
   alimentation: 'v_b_clients_m_alimentation',
   routeur: 'v_b_clients_m_routeur',
-  toip: 'v_b_clients_m_toip'
+  toip: 'v_b_clients_m_toip',
+  internet: 'v_b_clients_m_internet'
 };
 async function internalCheckMKGet(req, path, query = {}) {
   const url = new URL(`${INTERNAL_BASE}/api/checkmk${path}`);
@@ -374,9 +375,35 @@ async function getStoredMonitoring(equipmentId) {
 async function verifyEquipmentMapping(equipmentId, clientId, family, hostName) {
   const table = EQUIPMENT_FAMILY_TABLES[family];
   if (!table) return false;
-  const r = await pool.query(`SELECT id, checkmk_host_name FROM ${table}
-     WHERE id = $1::uuid AND client_id = $2 AND checkmk_host_name = $3`, [equipmentId, clientId, hostName]);
-  return r.rows.length > 0;
+  try {
+    const r = await pool.query(
+      `SELECT id FROM ${table}
+        WHERE id = $1::uuid AND client_id = $2
+          AND NULLIF(TRIM(COALESCE(
+            checkmk_host_name,
+            data->>'checkmk_host_name',
+            data->'checkmkMapping'->>'checkmk_host_name',
+            ''
+          )), '') = $3
+        LIMIT 1`,
+      [equipmentId, clientId, hostName]
+    );
+    return r.rows.length > 0;
+  } catch (err) {
+    if (err?.code !== '42703') throw err;
+    const fallback = await pool.query(
+      `SELECT id FROM ${table}
+        WHERE id = $1::uuid AND client_id = $2
+          AND NULLIF(TRIM(COALESCE(
+            data->>'checkmk_host_name',
+            data->'checkmkMapping'->>'checkmk_host_name',
+            ''
+          )), '') = $3
+        LIMIT 1`,
+      [equipmentId, clientId, hostName]
+    );
+    return fallback.rows.length > 0;
+  }
 }
 async function fetchAndMergeCheckMKData(req, {
   hostName,

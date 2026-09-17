@@ -8,6 +8,7 @@ import { ensureKnowledgeCategory } from "./knowledgeCategoriesService.js";
 import { folderInheritanceSql, getFolderBreadcrumb, getInheritedFolderAudience, isUuid } from "./knowledgeFoldersService.js";
 import { getArticleFeedbackSummary } from "./knowledgeArticleFeedbackService.js";
 import { getHelpfulStats, incrementArticleViews, isFavorite, listArticleLinkIds, listRelatedPortalArticles, recordSearchMiss, replaceArticleLinks } from "./knowledgeArticleExtrasService.js";
+import { normalizeKnowledgeIcon } from "./knowledgeEmojisService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const KNOWLEDGE_ASSETS_DIR = path.join(__dirname, "..", "uploads", "knowledge-articles");
@@ -476,7 +477,7 @@ export async function updateKnowledgeArticle(articleId, patch = {}) {
     ? (isUuid(patch.folderId) ? patch.folderId : null)
     : existing.folderId;
   const icon = patch.icon !== undefined
-    ? (patch.icon ? String(patch.icon).replace(/^:|:$/g, "").trim().toLowerCase().slice(0, 32) || null : null)
+    ? normalizeKnowledgeIcon(patch.icon)
     : existing.icon;
   const editorUserId = patch.editorUserId || null;
   const beforeFinger = contentFingerprint(existing);

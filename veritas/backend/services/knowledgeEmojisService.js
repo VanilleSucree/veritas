@@ -28,6 +28,25 @@ export function isValidEmojiName(name) {
   return NAME_RE.test(String(name || ""));
 }
 
+/** Icone dossier/article : shortcode custom OU emoji Unicode. */
+export function normalizeKnowledgeIcon(raw) {
+  if (raw == null || raw === "") return null;
+  let value = String(raw).trim();
+  if (value.startsWith(":") && value.endsWith(":") && value.length > 2) {
+    value = value.slice(1, -1).trim();
+  }
+  if (!value) return null;
+  let isUnicode = false;
+  try {
+    isUnicode = /\p{Extended_Pictographic}/u.test(value);
+  } catch {
+    isUnicode = /[^\u0000-\u00ff]/.test(value);
+  }
+  if (isUnicode) return value.slice(0, 64);
+  const shortcode = normalizeEmojiName(value);
+  return shortcode && isValidEmojiName(shortcode) ? shortcode : null;
+}
+
 function mapEmojiRow(row) {
   if (!row) return null;
   return {

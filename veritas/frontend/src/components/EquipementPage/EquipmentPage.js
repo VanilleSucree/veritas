@@ -919,7 +919,8 @@ const EquipmentPage = forwardRef(function EquipmentPage({
   initialEmbeddedType = null,
   initialTablePageByType = null,
   initialTableSort = null,
-  initialEmbeddedPageSize = null
+  initialEmbeddedPageSize = null,
+  equipmentRevision = 0
 }, ref) {
   const {
     userRole
@@ -1103,7 +1104,7 @@ const EquipmentPage = forwardRef(function EquipmentPage({
       isMountedRef.current = false;
       controller.abort();
     };
-  }, [embedded, fixedClientId, embeddedClient?.id]);
+  }, [embedded, fixedClientId, embeddedClient?.id, equipmentRevision]);
   const refreshMonitoringSummaries = useCallback(async signal => {
     const clientId = embeddedClient?.id || fixedClientId || null;
     const mappedIds = allEquipment.filter(eq => eq.checkmkMapping?.checkmk_host_name && isCheckMKMappableType(eq.type)).map(eq => getEquipmentDbId(eq)).filter(id => id && UUID_RE.test(String(id)));

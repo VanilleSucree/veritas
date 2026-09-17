@@ -1,22 +1,49 @@
 import express from 'express';
 import { pool } from '../../../database/db.js';
 import verifyJWT from '../../../middleware/auth.js';
+import { runEquipmentMonitoringSync } from './equipmentMonitoringSync.js';
 const router = express.Router();
 
+/** Canonical sources (one row per DB table) — used when listing mappings. */
 const EQUIPMENT_MAPPING_SOURCES = [
-  { type: 'Serveurs', table: 'v_b_clients_m_servers' },
-  { type: 'Stockage', table: 'v_b_clients_m_stockage' },
-  { type: 'Firewalls', table: 'v_b_clients_m_firewall' },
-  { type: 'Switch', table: 'v_b_clients_m_switch' },
-  { type: 'BorneWifi', table: 'v_b_clients_m_wifi' },
-  { type: 'Alimentation', table: 'v_b_clients_m_alimentation' },
-  { type: 'Routeur', table: 'v_b_clients_m_routeur' },
-  { type: 'TOIP', table: 'v_b_clients_m_toip' },
-  { type: 'Sauvegarde', table: 'v_b_clients_m_save' },
-  { type: 'Internet', table: 'v_b_clients_m_internet' }
+  { type: 'Serveurs', table: 'v_b_clients_m_servers', family: 'servers' },
+  { type: 'Stockage', table: 'v_b_clients_m_stockage', family: 'stockage' },
+  { type: 'Firewalls', table: 'v_b_clients_m_firewall', family: 'firewall' },
+  { type: 'Switch', table: 'v_b_clients_m_switch', family: 'switch' },
+  { type: 'BorneWifi', table: 'v_b_clients_m_wifi', family: 'wifi' },
+  { type: 'Alimentation', table: 'v_b_clients_m_alimentation', family: 'alimentation' },
+  { type: 'Routeur', table: 'v_b_clients_m_routeur', family: 'routeur' },
+  { type: 'TOIP', table: 'v_b_clients_m_toip', family: 'toip' },
+  { type: 'Sauvegarde', table: 'v_b_clients_m_save', family: 'sauvegarde' },
+  { type: 'Internet', table: 'v_b_clients_m_internet', family: 'internet' }
 ];
 
+const TYPE_ALIASES = {
+  Servers: 'Serveurs',
+  Server: 'Serveurs',
+  NAS: 'Stockage',
+  Storage: 'Stockage',
+  Firewall: 'Firewalls'
+};
+
 const TYPE_TO_TABLE = Object.fromEntries(EQUIPMENT_MAPPING_SOURCES.map(src => [src.type, src.table]));
+const TYPE_TO_FAMILY = Object.fromEntries(EQUIPMENT_MAPPING_SOURCES.map(src => [src.type, src.family]));
+for (const [alias, canonical] of Object.entries(TYPE_ALIASES)) {
+  if (TYPE_TO_TABLE[canonical]) TYPE_TO_TABLE[alias] = TYPE_TO_TABLE[canonical];
+  if (TYPE_TO_FAMILY[canonical]) TYPE_TO_FAMILY[alias] = TYPE_TO_FAMILY[canonical];
+}
+
+/** Families that can sync live CheckMK monitoring into supervision. */
+const SYNCABLE_FAMILIES = new Set([
+  'servers',
+  'stockage',
+  'firewall',
+  'switch',
+  'wifi',
+  'alimentation',
+  'routeur',
+  'toip'
+]);
 
 function mappingFromEquipmentRow(row, equipmentType, clientId) {
   return {
@@ -198,6 +225,20 @@ router.post('/mapping', verifyJWT, async (req, res) => {
       return res.status(404).json({
         error: 'Equipment not found',
         details: `No row with client_id=${client_id} and id=${equipment_id}`
+      });
+    }
+    // Sync monitoring ASAP so inventory voyants + supervision center see warning/critical.
+    const family = TYPE_TO_FAMILY[equipment_type] || null;
+    if (family && hostName && SYNCABLE_FAMILIES.has(family)) {
+      runEquipmentMonitoringSync(req, {
+        equipmentId: equipment_id,
+        clientId: client_id,
+        family,
+        hostName,
+        site: siteVal,
+        force: true
+      }).catch(err => {
+        console.warn('[checkmk mapping] post-map sync:', err.message);
       });
     }
     res.json(mapping);

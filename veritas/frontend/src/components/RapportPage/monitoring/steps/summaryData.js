@@ -94,16 +94,123 @@ function computeCheckMKHealth(raw) {
   return "ok";
 }
 
+function getServiceStateNum(service) {
+  const raw = service?.state ?? service?.state_num ?? service?.hard_state ?? service?.extensions?.state;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function getServiceLabel(service) {
+  return String(
+    service?.title ||
+      service?.description ||
+      service?.display_name ||
+      service?.id ||
+      service?.name ||
+      ""
+  ).trim();
+}
+
+function getEventServiceLabel(event) {
+  return String(
+    event?.service ||
+      event?.log_service_description ||
+      event?.service_description ||
+      event?.display_name ||
+      event?.description ||
+      ""
+  ).trim();
+}
+
+/** Map CheckMK service/event labels to human-readable issue natures (FR). */
+const ISSUE_NATURE_RULES = [
+  { nature: "Espace disque", re: /\b(fs_|filesystem|file\s*system|disk\s*space|espace\s*disque|mount|mounted|df\b|volume\s*usage|utilisation\s*disque)\b/i },
+  { nature: "Disque HS / RAID", re: /\b(raid|physical\s*disk|hard\s*disk|smart|predicted\s*fail|disk\s*fail|disque\s*hs|failed\s*disk|hdd|ssd\b|multipath)\b/i },
+  { nature: "Charge CPU", re: /\b(cpu|processor|proc\b|load\b|charge\s*cpu|utilisation\s*cpu|cpu\s*util)\b/i },
+  { nature: "Mémoire", re: /\b(memory|mémoire|memoire|ram\b|swap|page\s*file|oom)\b/i },
+  { nature: "Interface réseau", re: /\b(interface|if_|nic\b|ethernet|link\b|bandwidth|réseau|reseau|packet|duplex|carrier)\b/i },
+  { nature: "Disponibilité hôte", re: /\b(ping|agent|host\s*check|check[_-]?mk|heartbeat|unreachable|down\b|disponibilit)\b/i },
+  { nature: "Température", re: /\b(temp|temperature|therm|thermal|fan\b|ventil)\b/i },
+  { nature: "Alimentation", re: /\b(power|psu|ups\b|alimentation|battery|batterie|voltage)\b/i },
+  { nature: "Certificat / TLS", re: /\b(certificat|certificate|ssl|tls|x509|https)\b/i },
+  { nature: "Sauvegarde", re: /\b(backup|sauvegarde|veeam|nakivo|job\b)\b/i },
+  { nature: "Base de données", re: /\b(sql|database|oracle|postgres|mysql|mssql)\b/i },
+  { nature: "Service Windows", re: /\b(windows|service\s*state|wmi|win_)\b/i }
+];
+
+function classifyIssueNature(label) {
+  const text = String(label || "").trim();
+  if (!text) return null;
+  for (const rule of ISSUE_NATURE_RULES) {
+    if (rule.re.test(text)) return rule.nature;
+  }
+  // Keep a short readable service name as fallback nature.
+  const cleaned = text.replace(/^\[+|\]+$/g, "").trim();
+  if (!cleaned) return null;
+  return cleaned.length > 48 ? `${cleaned.slice(0, 45)}…` : cleaned;
+}
+
+function collectFailingCheckMKIssues(raw) {
+  const natures = [];
+  const serviceLabels = [];
+  const seenNature = new Set();
+  const seenService = new Set();
+
+  const pushNature = nature => {
+    if (!nature) return;
+    const key = nature.toLowerCase();
+    if (seenNature.has(key)) return;
+    seenNature.add(key);
+    natures.push(nature);
+  };
+  const pushService = label => {
+    if (!label) return;
+    const key = label.toLowerCase();
+    if (seenService.has(key)) return;
+    seenService.add(key);
+    serviceLabels.push(label);
+    pushNature(classifyIssueNature(label));
+  };
+
+  const servicesRaw = raw?.services?.services ?? raw?.services;
+  const services = Array.isArray(servicesRaw) ? servicesRaw : [];
+  services.forEach(service => {
+    const state = getServiceStateNum(service);
+    if (state !== 1 && state !== 2) return;
+    pushService(getServiceLabel(service));
+  });
+
+  const eventsRaw = raw?.events?.events ?? raw?.events;
+  const events = Array.isArray(eventsRaw) ? eventsRaw : [];
+  events.forEach(event => {
+    const state = Number(event?.state);
+    if (state !== 1 && state !== 2) return;
+    const serviceLabel = getEventServiceLabel(event);
+    if (serviceLabel) {
+      pushService(serviceLabel);
+      return;
+    }
+    const message = String(event?.message || event?.plugin_output || event?.text || "").trim();
+    if (message) pushNature(classifyIssueNature(message));
+  });
+
+  return { natures, serviceLabels };
+}
+
 function getEquipmentMetrics(raw, supervision) {
   const availability = raw?.availability || raw?.availabilityData || {};
   const up = typeof availability.up === "number" ? availability.up : null;
   const events = Array.isArray(raw?.events) ? raw.events.filter(e => Number(e?.state) === 2).length : 0;
   const services = Array.isArray(raw?.services) ? raw.services.length : 0;
+  const failing = collectFailingCheckMKIssues(raw);
   return {
     availability: up,
     events: supervision.mapped ? supervision.events || events : events,
     services,
-    supervisionLabel: supervision.mapped ? supervision.label : null
+    supervisionLabel: supervision.mapped ? supervision.label : null,
+    natures: failing.natures,
+    failingServices: failing.serviceLabels
   };
 }
 
@@ -114,7 +221,10 @@ function formatAvailability(value) {
 
 function buildWatchReasons({ health, metrics, tickets, alerts, comments, supervision }) {
   const reasons = [];
-  if (health === "critical") {
+  const natures = Array.isArray(metrics?.natures) ? metrics.natures.filter(Boolean) : [];
+  if (natures.length > 0) {
+    reasons.push(...natures.slice(0, 4));
+  } else if (health === "critical") {
     reasons.push(
       metrics.availability != null
         ? `Disponibilité ${formatAvailability(metrics.availability)}`
@@ -129,10 +239,12 @@ function buildWatchReasons({ health, metrics, tickets, alerts, comments, supervi
           : "Point à surveiller"
     );
   }
-  if (alerts > 0) reasons.push(`${alerts} alerte${alerts > 1 ? "s" : ""}`);
+  if (alerts > 0 && natures.length === 0) {
+    reasons.push(`${alerts} alerte${alerts > 1 ? "s" : ""}`);
+  }
   if (tickets > 0) reasons.push(`${tickets} ticket${tickets > 1 ? "s" : ""}`);
   if (comments > 0) reasons.push(`${comments} note${comments > 1 ? "s" : ""}`);
-  if (supervision.mapped && metrics.supervisionLabel && (health === "critical" || health === "warn")) {
+  if (supervision.mapped && metrics.supervisionLabel && (health === "critical" || health === "warn") && natures.length === 0) {
     reasons.push(`Supervision : ${metrics.supervisionLabel}`);
   }
   return reasons;
@@ -317,6 +429,8 @@ export function buildSummarySnapshot({
           label: equipmentLabel(item, moduleKey),
           site: item?.site || item?.localisation || "",
           reasons: watchReasons,
+          natures: Array.isArray(metrics.natures) ? metrics.natures : [],
+          failingServices: Array.isArray(metrics.failingServices) ? metrics.failingServices : [],
           quantified: equipmentRow.quantified
         };
         watchPoints.push(watchEntry);
@@ -332,7 +446,7 @@ export function buildSummarySnapshot({
             detail: watchReasons.join(" · ")
           });
         }
-        if (alertCount > 0) {
+        if (alertCount > 0 && !(Array.isArray(metrics.natures) && metrics.natures.length > 0)) {
           alerts.push({
             id: `alert-${equipmentKey}`,
             type: "alerte",

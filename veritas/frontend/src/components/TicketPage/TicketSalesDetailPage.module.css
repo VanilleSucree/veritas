@@ -9,8 +9,21 @@
   grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(240px, 300px) 56px !important;
 }
 
+.layoutRightCollapsed {
+  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) 56px !important;
+}
+
+.centerPane {
+  padding: 0;
+  overflow: hidden;
+}
+
 .rightPane {
   overflow-y: auto;
+}
+
+.rightPaneHidden {
+  display: none !important;
 }
 
 .formInChat {
@@ -82,69 +95,89 @@
 
 .centerTabs {
   flex-shrink: 0;
-  display: flex;
-  align-items: stretch;
-  gap: 0.2rem;
-  padding: 0.55rem 0.7rem 0;
-  border-bottom: 1px solid var(--msp-border-light, #eef2f7);
-  background: var(--td-surface, var(--msp-surface, #fff));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--msp-border-light, #e8edf4);
+  background: var(--msp-surface-2, #f4f6fa);
+}
+
+.centerTabsTwo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .centerTab {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.55rem 0.75rem;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.48rem 0.55rem;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--msp-muted, #5c6b82);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 650;
+  font-family: inherit;
   cursor: pointer;
-  border-radius: 8px 8px 0 0;
+  border-radius: 9px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .centerTab svg {
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 1rem;
+  height: 1rem;
   flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.centerTabLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .centerTab:hover {
   color: var(--msp-text, #0f1c2e);
-  background: var(--msp-surface-2, #f7f9fc);
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .centerTabActive {
-  color: var(--msp-primary, #2563eb);
-  border-bottom-color: var(--msp-primary, #2563eb);
-  background: transparent;
+  color: var(--msp-accent, #2b5fab);
+  background: var(--msp-surface, #fff);
+  border-color: var(--msp-border, #e2e8f0);
+  box-shadow: 0 1px 2px rgba(15, 28, 46, 0.05);
+}
+
+.centerTabActive svg {
+  opacity: 1;
 }
 
 .centerTabActive:hover {
-  background: transparent;
-  color: var(--msp-primary, #2563eb);
+  color: var(--msp-accent, #2b5fab);
+  background: var(--msp-surface, #fff);
 }
 
 .centerTabBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.35rem;
-  padding: 0.05rem 0.35rem;
+  min-width: 1.3rem;
+  height: 1.2rem;
+  padding: 0 0.35rem;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  background: var(--msp-surface-2, #eef2f7);
+  background: rgba(15, 28, 46, 0.06);
   color: var(--msp-muted, #5c6b82);
+  flex-shrink: 0;
 }
 
 .centerTabActive .centerTabBadge {
-  background: rgba(37, 99, 235, 0.12);
-  color: var(--msp-primary, #2563eb);
+  background: rgba(43, 95, 171, 0.12);
+  color: var(--msp-accent, #2b5fab);
 }
 
 .centerTabPanels {
@@ -184,7 +217,7 @@
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  padding: 0.75rem 0.8rem 0.85rem;
+  padding: 0.75rem 0.65rem 0.85rem 0.8rem;
 }
 
 .centerTabPanelTasks > :first-child {
@@ -203,6 +236,7 @@
 
 .tasksInPane .tasksInChatHead {
   flex-shrink: 0;
+  padding-right: 0.15rem;
 }
 
 .tasksInPane .taskChatList {
@@ -210,6 +244,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  padding-right: 0.65rem;
+  padding-bottom: 0.15rem;
 }
 
 .formInPane {
@@ -240,6 +278,10 @@
 :global(html.dark) .chatPane {
   border-top-color: var(--msp-border, #2a3a55);
   border-bottom-color: var(--msp-border, #2a3a55);
+  background: var(--msp-surface-2, #152035);
+}
+
+:global(html.dark) .centerTabPanels {
   background: var(--msp-surface, #1a2540);
 }
 
@@ -249,23 +291,28 @@
 
 :global(html.dark) .centerTab:hover {
   color: var(--msp-text, #e8edf5);
-  background: var(--msp-surface-2, #152035);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-:global(html.dark) .centerTabActive,
+:global(html.dark) .centerTabActive {
+  color: #9ec4f5;
+  background: var(--msp-surface, #1a2540);
+  border-color: var(--msp-border, #2a3a55);
+}
+
 :global(html.dark) .centerTabActive:hover {
-  color: #93c5fd;
-  border-bottom-color: #60a5fa;
+  color: #9ec4f5;
+  background: var(--msp-surface, #1a2540);
 }
 
 :global(html.dark) .centerTabBadge {
-  background: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--msp-muted, #8fa8c4);
 }
 
 :global(html.dark) .centerTabActive .centerTabBadge {
-  background: rgba(96, 165, 250, 0.18);
-  color: #93c5fd;
+  background: rgba(90, 143, 212, 0.2);
+  color: #9ec4f5;
 }
 
 :global(html.dark) .formInPane {
@@ -604,6 +651,32 @@
   max-width: 100%;
 }
 
+.taskGlpiTagMuted {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.taskGlpiTagLink {
+  text-decoration: none;
+  color: var(--msp-accent, #2b5fab);
+  cursor: pointer;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskGlpiTagLink:hover {
+  border-color: rgba(43, 95, 171, 0.35);
+  background: rgba(43, 95, 171, 0.08);
+}
+
+.taskGlpiTagCredit {
+  color: #047857;
+  border-color: rgba(4, 120, 87, 0.22);
+  background: rgba(16, 185, 129, 0.12);
+}
+
 .taskGlpiTagSchedule {
   color: #b45309;
   border-color: rgba(180, 83, 9, 0.2);
@@ -616,6 +689,9 @@
   gap: 0.3rem;
   align-items: center;
   padding-top: 0.1rem;
+  padding-right: 0.15rem;
+  margin-right: 0.15rem;
+  flex-shrink: 0;
 }
 
 .taskGlpiDoneBtn {
@@ -709,6 +785,16 @@
   background: rgba(26, 37, 64, 0.9);
   border-color: var(--msp-border, #2a3a55);
   color: var(--msp-muted, #a8b6cc);
+}
+
+:global(html.dark) .taskGlpiTagLink {
+  color: #9ec4f5;
+}
+
+:global(html.dark) .taskGlpiTagCredit {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(52, 211, 153, 0.28);
 }
 
 :global(html.dark) .taskGlpiTagSchedule {
@@ -1365,12 +1451,21 @@
   .layout {
     grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(220px, 270px) 52px !important;
   }
+
+  .layoutRightCollapsed {
+    grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) 52px !important;
+  }
 }
 
 @media (max-width: 1024px) {
-  .layout {
+  .layout,
+  .layoutRightCollapsed {
     grid-template-columns: 1fr !important;
     overflow-y: auto;
+  }
+
+  .rightPaneHidden {
+    display: flex !important;
   }
 }
 

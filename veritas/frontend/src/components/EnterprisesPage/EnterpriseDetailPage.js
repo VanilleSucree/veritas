@@ -2279,6 +2279,10 @@ export default function ClientDetailPage({
         secteur: formData.secteur?.trim() || "",
         statut: toCompanyStatusValue(formData.statut)
       };
+      const siteRenames = detectClientSiteRenames(initialFormData?.sites ?? client?.sites, fieldsToUpdate.sites);
+      if (siteRenames.length) {
+        fieldsToUpdate.siteRenames = siteRenames;
+      }
       const contactEmail = formData.primaryContact?.email?.trim();
       if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
         toast.error(copy.toast.primaryContactEmailInvalid);
@@ -2341,6 +2345,10 @@ export default function ClientDetailPage({
         }
         await loadContacts(client.id);
       }
+      if (activeSiteFilter && siteRenames.length) {
+        const renamed = siteRenames.find(item => item.from === activeSiteFilter);
+        if (renamed?.to) setActiveSiteFilter(renamed.to);
+      }
       setClient(prev => ({
         ...prev,
         client_number: fieldsToUpdate.clientNumber,
@@ -2356,6 +2364,13 @@ export default function ClientDetailPage({
         address: fieldsToUpdate.address,
         secteur: fieldsToUpdate.secteur
       }));
+      if (siteRenames.length || serializeSitesForCompare(initialFormData?.sites) !== serializeSitesForCompare(fieldsToUpdate.sites)) {
+        try {
+          await refreshClientEquipment();
+        } catch (refreshError) {
+          console.warn("Equipment refresh after enterprise site save failed:", refreshError);
+        }
+      }
       notifyEnterprisesListRefresh();
       setEnterpriseEditModalOpen(false);
       setHasChanges(false);
@@ -3406,7 +3421,7 @@ export default function ClientDetailPage({
                     sites: formData.sites ?? client.sites ?? [],
                     ssid: Array.isArray(client.ssids) && client.ssids.length ? client.ssids : client.ssid,
                     ssids: Array.isArray(client.ssids) && client.ssids.length ? client.ssids : client.ssid
-                  } : null} initialEmbeddedType={initialPeripheralsUi?.activeType || null} initialTablePageByType={initialPeripheralsUi?.tablePageByType || null} initialTableSort={initialPeripheralsUi?.tableSort || null} initialEmbeddedPageSize={initialPeripheralsUi?.pageSize || null} onNavigate={onNavigate} searchQuery={equipmentSearchQuery} onSearchQueryChange={setEquipmentSearchQuery} onFilteredCountChange={setEquipmentResultCount} onTotalCountChange={setHardwareEquipmentTotalCount} onEquipmentChanged={refreshClientEquipment} onClientSsidsUpdated={ssids => {
+                  } : null} equipmentRevision={equipmentRevision} initialEmbeddedType={initialPeripheralsUi?.activeType || null} initialTablePageByType={initialPeripheralsUi?.tablePageByType || null} initialTableSort={initialPeripheralsUi?.tableSort || null} initialEmbeddedPageSize={initialPeripheralsUi?.pageSize || null} onNavigate={onNavigate} searchQuery={equipmentSearchQuery} onSearchQueryChange={setEquipmentSearchQuery} onFilteredCountChange={setEquipmentResultCount} onTotalCountChange={setHardwareEquipmentTotalCount} onEquipmentChanged={refreshClientEquipment} onClientSsidsUpdated={ssids => {
                     setClient(prev => prev ? {
                       ...prev,
                       ssid: ssids,

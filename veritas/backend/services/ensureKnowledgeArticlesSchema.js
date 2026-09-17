@@ -109,13 +109,21 @@ export async function ensureKnowledgeArticlesSchema() {
     } else {
       await client.query(`
         ALTER TABLE v_b_knowledge_articles
-          ADD COLUMN IF NOT EXISTS icon VARCHAR(32) NULL
+          ADD COLUMN IF NOT EXISTS icon VARCHAR(64) NULL
       `);
+      await client.query(`
+        ALTER TABLE v_b_knowledge_articles
+          ALTER COLUMN icon TYPE VARCHAR(64)
+      `).catch(() => {});
       if (await tableExists(client, "v_b_knowledge_folders")) {
         await client.query(`
           ALTER TABLE v_b_knowledge_folders
-            ADD COLUMN IF NOT EXISTS icon VARCHAR(32) NULL
+            ADD COLUMN IF NOT EXISTS icon VARCHAR(64) NULL
         `);
+        await client.query(`
+          ALTER TABLE v_b_knowledge_folders
+            ALTER COLUMN icon TYPE VARCHAR(64)
+        `).catch(() => {});
       }
     }
     ensured = true;

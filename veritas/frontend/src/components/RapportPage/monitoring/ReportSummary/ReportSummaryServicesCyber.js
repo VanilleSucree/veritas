@@ -23,6 +23,25 @@ function formatInt(value) {
   return Number(value).toLocaleString("fr-FR");
 }
 
+function getAntispamDisplayName(sol) {
+  if (!sol) return "Antispam";
+  // Prefer product/solution label over stored customer placeholder names.
+  const raw =
+    sol.logiciel ||
+    sol.solution ||
+    sol.nom ||
+    sol.name ||
+    sol.customerName ||
+    "";
+  let name = String(raw)
+    .replace(/\s+customer$/i, "")
+    .trim();
+  if (/^(client|cliente)\s+mailinblack$/i.test(name) || /^mailinblack[- ]kunde$/i.test(name)) {
+    name = "Mailinblack";
+  }
+  return name || "Antispam";
+}
+
 function formatDateFr(value) {
   if (!value) return "—";
   const d = new Date(value);
@@ -205,12 +224,7 @@ export default function ReportSummaryServicesCyber({
       if (Array.isArray(data.statsData) && data.statsData.length > 0) hasStats = true;
     });
     return {
-      solutionName:
-        antispamSolutions[0]?.nom ||
-        antispamSolutions[0]?.logiciel ||
-        antispamSolutions[0]?.solution ||
-        antispamSolutions[0]?.name ||
-        "Antispam",
+      solutionName: getAntispamDisplayName(antispamSolutions[0]),
       protectedUsers,
       domainsOrLicenses,
       hasStats
@@ -660,7 +674,11 @@ export default function ReportSummaryServicesCyber({
                       const used = Number(lic.utilisees || lic.used || 0) || 0;
                       return (
                         <tr key={lic.skuId || lic.id || `${lic.name || "lic"}-${idx}`}>
-                          <td>{getLicenseDisplayName(lic) || lic.name || lic.nom || "—"}</td>
+                          <td>
+                            {getLicenseDisplayName(
+                              lic.nom || lic.displayName || lic.name || lic.skuPartNumber || lic.skuId || "-"
+                            )}
+                          </td>
                           <td>{formatInt(used)}</td>
                           <td>{formatInt(total)}</td>
                           <td>{formatInt(Math.max(0, total - used))}</td>

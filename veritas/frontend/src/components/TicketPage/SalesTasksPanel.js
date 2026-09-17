@@ -1013,6 +1013,10 @@ export default function SalesTasksPanel({
           const createdRelative = formatRelativeLabel(task.createdAt, copy);
           const updatedRelative = formatRelativeLabel(task.updatedAt || task.createdAt, copy);
           const docs = Array.isArray(task.documents) ? task.documents : [];
+          const equipmentLabel =
+            (task.equipmentId && equipmentOptions.find(eq => eq.id === String(task.equipmentId))?.label) ||
+            task.equipmentLabel ||
+            null;
           return (
             <li key={task.id} className={`${styles.taskGlpiRow} ${task.done ? styles.taskGlpiRowDone : ""}`}>
               <div className={styles.taskGlpiAvatar} aria-hidden title={avatarLabel}>
@@ -1060,24 +1064,6 @@ export default function SalesTasksPanel({
                     <span className={styles.taskGlpiTitle}>{task.label}</span>
                   )}
                   {task.description ? <p className={styles.taskGlpiDescription}>{task.description}</p> : null}
-                  {docs.length > 0 ? (
-                    <ul className={styles.taskGlpiDocs}>
-                      {docs.map(doc => (
-                        <li key={doc.id || doc.filePath}>
-                          <a
-                            href={toAbsoluteUrl(doc.filePath)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={styles.taskGlpiDocLink}
-                            title={copy.documentsOpen}
-                          >
-                            <Icon icon="mdi:paperclip" aria-hidden />
-                            {doc.fileName}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
                 </div>
 
                 <div className={styles.taskGlpiFooter}>
@@ -1087,23 +1073,46 @@ export default function SalesTasksPanel({
                       {typeLabel}
                     </span>
                   ) : null}
-                  {creditDebited ? (
-                    <span className={styles.taskGlpiTag} title={creditAlreadyLabel || undefined}>
-                      <Icon icon="mdi:ticket-percent-outline" aria-hidden />
-                      {creditAlreadyLabel || "Credits"}
-                    </span>
-                  ) : null}
                   <span className={styles.taskGlpiTag}>
                     <Icon icon="mdi:account-outline" aria-hidden />
                     {assigneeLabels.length > 0 ? assigneeLabels.join(", ") : copy.assigneeNone}
                   </span>
-                  {task.equipmentId || task.equipmentLabel ? (
-                    <span className={styles.taskGlpiTag}>
-                      <Icon icon="mdi:desktop-classic" aria-hidden />
-                      {(task.equipmentId &&
-                        equipmentOptions.find(eq => eq.id === String(task.equipmentId))?.label) ||
-                        task.equipmentLabel ||
-                        copy.equipment}
+                  <span
+                    className={`${styles.taskGlpiTag} ${!equipmentLabel ? styles.taskGlpiTagMuted : ""}`.trim()}
+                    title={copy.equipment}
+                  >
+                    <Icon icon="mdi:desktop-classic" aria-hidden />
+                    {equipmentLabel || copy.equipmentNone}
+                  </span>
+                  {docs.length > 0 ? (
+                    docs.map(doc => (
+                      <a
+                        key={doc.id || doc.filePath}
+                        href={toAbsoluteUrl(doc.filePath)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`${styles.taskGlpiTag} ${styles.taskGlpiTagLink}`}
+                        title={copy.documentsOpen}
+                      >
+                        <Icon icon="mdi:paperclip" aria-hidden />
+                        {doc.fileName || copy.documents}
+                      </a>
+                    ))
+                  ) : (
+                    <span className={`${styles.taskGlpiTag} ${styles.taskGlpiTagMuted}`} title={copy.documents}>
+                      <Icon icon="mdi:paperclip" aria-hidden />
+                      {copy.documentsEmpty}
+                    </span>
+                  )}
+                  {canManageCredits ? (
+                    <span
+                      className={`${styles.taskGlpiTag} ${creditDebited ? styles.taskGlpiTagCredit : styles.taskGlpiTagMuted}`.trim()}
+                      title={creditDebited ? creditAlreadyLabel || copy.creditsDebited : copy.creditsNotDebited}
+                    >
+                      <Icon icon="mdi:ticket-percent-outline" aria-hidden />
+                      {creditDebited
+                        ? creditAlreadyLabel || copy.creditsDebited
+                        : copy.creditsNotDebited}
                     </span>
                   ) : null}
                   {schedule ? (

@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import SmartTooltip from "../SmartTooltip";
 import { resolveKnowledgeEmojiUrl } from "../../api/knowledgeBase";
 import { buildEmojiMap } from "./knowledgeEmojiHelpers";
+import { resolveKnowledgeIcon } from "./knowledgeStandardEmojis";
 import styles from "./knowledgeBase.module.css";
 
 const EXPANDED_STORAGE_KEY = "veritas.kb.folderExpanded";
@@ -65,26 +66,43 @@ function persistExpandedIds(ids) {
   }
 }
 
-function ArticleNavRow({ article, depth, copy, emojiMap, onOpenArticle, untitledLabel }) {
-  const customIcon = article.icon ? emojiMap?.get(String(article.icon).toLowerCase()) : null;
+function ArticleNavRow({ article, depth, copy, emojiMap, onOpenArticle, onChangeIcon, canManage, untitledLabel }) {
+  const icon = resolveKnowledgeIcon(article.icon, emojiMap);
+  const iconNode = icon.type === "custom" ? (
+    <img src={resolveKnowledgeEmojiUrl(icon.emoji)} alt="" className={styles.navEmojiIcon} />
+  ) : icon.type === "unicode" ? (
+    <span className={styles.navUnicodeIcon} aria-hidden>{icon.char}</span>
+  ) : (
+    <span className={styles.navArticleIcon} aria-hidden>
+      <Icon icon="mdi:file-document-outline" />
+    </span>
+  );
   return (
-    <button
-      type="button"
+    <div
       className={`${styles.navRow} ${styles.navArticleRow}`}
       style={{ paddingLeft: `${0.55 + depth * 0.9}rem` }}
-      onClick={() => onOpenArticle?.(article.id, "read", article.title || untitledLabel)}
-      title={article.title || untitledLabel}
     >
-      {customIcon ? (
-        <img src={resolveKnowledgeEmojiUrl(customIcon)} alt="" className={styles.navEmojiIcon} />
-      ) : (
-        <span className={styles.navArticleIcon} aria-hidden>
-          <Icon icon="mdi:file-document-outline" />
-        </span>
-      )}
-      <span className={styles.navRowLabel}>{article.title || untitledLabel}</span>
-      {article.status === "draft" ? <span className={styles.navDraftDot} title={copy.filterDraft} aria-label={copy.filterDraft} /> : null}
-    </button>
+      {canManage ? (
+        <button
+          type="button"
+          className={styles.navIconBtn}
+          title={copy.emojiChangeIcon || copy.emojiPageIcon}
+          aria-label={copy.emojiChangeIcon || copy.emojiPageIcon}
+          onClick={() => onChangeIcon?.(article)}
+        >
+          {iconNode}
+        </button>
+      ) : iconNode}
+      <button
+        type="button"
+        className={styles.navMain}
+        onClick={() => onOpenArticle?.(article.id, "read", article.title || untitledLabel)}
+        title={article.title || untitledLabel}
+      >
+        <span className={styles.navRowLabel}>{article.title || untitledLabel}</span>
+        {article.status === "draft" ? <span className={styles.navDraftDot} title={copy.filterDraft} aria-label={copy.filterDraft} /> : null}
+      </button>
+    </div>
   );
 }
 
@@ -102,6 +120,8 @@ function FolderNode({
   onRename,
   onShare,
   onDelete,
+  onChangeIcon,
+  onChangeArticleIcon,
   onOpenArticle,
   canManage
 }) {
@@ -111,7 +131,7 @@ function FolderNode({
   const canExpand = hasChildren || folderArticles.length > 0;
   const expanded = expandedIds.has(node.id);
   const color = collectionColor(node.id || node.name);
-  const customIcon = node.icon ? emojiMap?.get(String(node.icon).toLowerCase()) : null;
+  const icon = resolveKnowledgeIcon(node.icon, emojiMap);
 
   return (
     <div className={styles.navFolderBlock}>
@@ -137,20 +157,43 @@ function FolderNode({
           <span className={styles.navChevronSpacer} aria-hidden />
         )}
         <SmartTooltip content={node.name} className={styles.navNameTip}>
-          <button type="button" className={styles.navMain} onClick={() => onSelect(node.id)}>
-            {customIcon ? (
-              <img src={resolveKnowledgeEmojiUrl(customIcon)} alt="" className={styles.navEmojiIcon} />
+          <div className={styles.navMain}>
+            {canManage ? (
+              <button
+                type="button"
+                className={styles.navIconBtn}
+                title={copy.emojiChangeIcon || copy.emojiFolderIcon}
+                aria-label={copy.emojiChangeIcon || copy.emojiFolderIcon}
+                onClick={() => onChangeIcon?.(node)}
+              >
+                {icon.type === "custom" ? (
+                  <img src={resolveKnowledgeEmojiUrl(icon.emoji)} alt="" className={styles.navEmojiIcon} />
+                ) : icon.type === "unicode" ? (
+                  <span className={styles.navUnicodeIcon} aria-hidden>{icon.char}</span>
+                ) : (
+                  <span className={styles.navCollectionIcon} style={{ background: color }} aria-hidden>
+                    <Icon icon="mdi:cube-outline" />
+                  </span>
+                )}
+              </button>
+            ) : icon.type === "custom" ? (
+              <img src={resolveKnowledgeEmojiUrl(icon.emoji)} alt="" className={styles.navEmojiIcon} />
+            ) : icon.type === "unicode" ? (
+              <span className={styles.navUnicodeIcon} aria-hidden>{icon.char}</span>
             ) : (
               <span className={styles.navCollectionIcon} style={{ background: color }} aria-hidden>
                 <Icon icon="mdi:cube-outline" />
               </span>
             )}
-            <span className={styles.navRowLabel}>{node.name}</span>
-            {node.articleCount ? <span className={styles.navCount}>{node.articleCount}</span> : null}
-          </button>
+            <button type="button" className={styles.navLabelBtn} onClick={() => onSelect(node.id)}>
+              <span className={styles.navRowLabel}>{node.name}</span>
+              {node.articleCount ? <span className={styles.navCount}>{node.articleCount}</span> : null}
+            </button>
+          </div>
         </SmartTooltip>
         {canManage ? (
           <div className={styles.navTools}>
+            <button type="button" className={styles.navTool} title={copy.emojiChangeIcon || copy.emojiFolderIcon} onClick={() => onChangeIcon?.(node)}><Icon icon="mdi:emoticon-outline" /></button>
             <button type="button" className={styles.navTool} title={copy.shareFolder} onClick={() => onShare(node)}><Icon icon="mdi:share-variant-outline" /></button>
             <button type="button" className={styles.navTool} title={copy.renameFolder} onClick={() => onRename(node)}><Icon icon="mdi:pencil-outline" /></button>
             <button type="button" className={styles.navTool} title={copy.newSubfolder} onClick={() => onCreate(node.id)}><Icon icon="mdi:folder-plus-outline" /></button>
@@ -176,6 +219,8 @@ function FolderNode({
               onRename={onRename}
               onShare={onShare}
               onDelete={onDelete}
+              onChangeIcon={onChangeIcon}
+              onChangeArticleIcon={onChangeArticleIcon}
               onOpenArticle={onOpenArticle}
               canManage={canManage}
             />
@@ -188,6 +233,8 @@ function FolderNode({
               copy={copy}
               emojiMap={emojiMap}
               onOpenArticle={onOpenArticle}
+              onChangeIcon={onChangeArticleIcon}
+              canManage={canManage}
               untitledLabel={copy.untitled}
             />
           ))}
@@ -213,7 +260,9 @@ export default function KnowledgeFolderTree({
   onRename,
   onShare,
   onDelete,
-  onOpenArticle
+  onOpenArticle,
+  onChangeIcon,
+  onChangeArticleIcon
 }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const hydrated = useRef(false);
@@ -367,6 +416,8 @@ export default function KnowledgeFolderTree({
                     copy={copy}
                     emojiMap={emojiMap}
                     onOpenArticle={onOpenArticle}
+                    onChangeIcon={onChangeArticleIcon}
+                    canManage={canManage}
                     untitledLabel={copy.untitled}
                   />
                 ))}
@@ -390,6 +441,8 @@ export default function KnowledgeFolderTree({
               onRename={onRename}
               onShare={onShare}
               onDelete={onDelete}
+              onChangeIcon={onChangeIcon}
+              onChangeArticleIcon={onChangeArticleIcon}
               onOpenArticle={onOpenArticle}
               canManage={canManage}
             />

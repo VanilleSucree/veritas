@@ -148,18 +148,24 @@ function buildTechnicalRows(modules = []) {
 }
 
 function buildWatchConstat(point) {
-  const quantified = point.quantified || {};
+  const natures = Array.isArray(point?.natures) ? point.natures.filter(Boolean) : [];
+  if (natures.length > 0) {
+    return natures.slice(0, 4).join(" · ");
+  }
+  const reasons = Array.isArray(point?.reasons) ? point.reasons.filter(Boolean) : [];
+  const meaningful = reasons.filter(reason => !/^\d+\s+alerte/i.test(String(reason)));
+  if (meaningful.length > 0) {
+    return meaningful.slice(0, 3).join(" · ");
+  }
+  if (reasons.length > 0) {
+    return reasons[0];
+  }
+  const quantified = point?.quantified || {};
   if (quantified.events > 0) {
-    return `${quantified.events} alerte${quantified.events > 1 ? "s" : ""}`;
+    return `${quantified.events} événement${quantified.events > 1 ? "s" : ""} de surveillance`;
   }
-  if (quantified.alerts > 0) {
-    return `${quantified.alerts} alerte${quantified.alerts > 1 ? "s" : ""}`;
-  }
-  if (Array.isArray(point.reasons) && point.reasons.length) {
-    return point.reasons[0];
-  }
-  if (point.severity === "critical") return "État critique";
-  if (point.severity === "warn") return "À surveiller";
+  if (point?.severity === "critical") return "État critique";
+  if (point?.severity === "warn") return "À surveiller";
   return "Vérification requise";
 }
 
@@ -329,8 +335,6 @@ export default function ReportSummarySupervision({
   const infraCount = infraModules.reduce((sum, module) => sum + (Number(module.count) || 0), 0);
   const cyberCount = cyberModules.reduce((sum, module) => sum + (Number(module.count) || 0), 0);
   const cloudCount = cloudModules.reduce((sum, module) => sum + (Number(module.count) || 0), 0);
-  const cyberHealthy = cyberModules.filter(module => module.health === "ok" || !module.health).length;
-  const cloudHealthy = cloudModules.filter(module => module.health === "ok" || !module.health).length;
 
   const infraRows = useMemo(() => buildInventoryRows(infraModules), [infraModules]);
   const cyberRows = useMemo(() => buildInventoryRows(cyberModules), [cyberModules]);
@@ -503,7 +507,9 @@ export default function ReportSummarySupervision({
                     </td>
                     <td>{point.moduleLabel || "—"}</td>
                     <td>{point.site || "—"}</td>
-                    <td>{buildWatchConstat(point)}</td>
+                    <td>
+                      <span className={styles.watchConstat}>{buildWatchConstat(point)}</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -543,24 +549,42 @@ export default function ReportSummarySupervision({
         {cyberModules.length > 0 ? (
           <div className={styles.familyCard}>
             <h5 className={styles.familyCardTitle}>Cybersécurité — {cyberCount} éléments</h5>
-            <p className={styles.familySummaryLine}>
-              {cyberModules.map(module => module.label).join(" · ")}
-            </p>
-            <p className={styles.familySummaryLine}>
-              {cyberHealthy} / {cyberModules.length} sains
-            </p>
+            <div className={styles.familyModules}>
+              {cyberModules.map(module => (
+                <div key={module.key} className={styles.familyModule}>
+                  <span className={styles.familyModuleName}>{module.label}</span>
+                  <span className={styles.familyModuleValue}>{module.count}</span>
+                  {module.monitored > 0 ? (
+                    <span className={styles.familyModuleHint}>{module.monitored} supervisé{module.monitored > 1 ? "s" : ""}</span>
+                  ) : module.health && module.health !== "ok" ? (
+                    <span className={styles.familyModuleHint}>
+                      {module.health === "critical" ? "Critique" : "À surveiller"}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 
         {cloudModules.length > 0 ? (
           <div className={styles.familyCard}>
             <h5 className={styles.familyCardTitle}>Services cloud — {cloudCount} éléments</h5>
-            <p className={styles.familySummaryLine}>
-              {cloudModules.map(module => module.label).join(" · ")}
-            </p>
-            <p className={styles.familySummaryLine}>
-              {cloudHealthy} / {cloudModules.length} sains
-            </p>
+            <div className={styles.familyModules}>
+              {cloudModules.map(module => (
+                <div key={module.key} className={styles.familyModule}>
+                  <span className={styles.familyModuleName}>{module.label}</span>
+                  <span className={styles.familyModuleValue}>{module.count}</span>
+                  {module.monitored > 0 ? (
+                    <span className={styles.familyModuleHint}>{module.monitored} supervisé{module.monitored > 1 ? "s" : ""}</span>
+                  ) : module.health && module.health !== "ok" ? (
+                    <span className={styles.familyModuleHint}>
+                      {module.health === "critical" ? "Critique" : "À surveiller"}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </section>

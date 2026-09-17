@@ -476,10 +476,95 @@ async function loadCheckmkMonitoringByIds(ids) {
   return map;
 }
 
-function resolveSupervisionStatus(mkRow) {
-  if (!mkRow) return "inactive";
-  const host = String(mkRow.checkmk_host_name || "").trim();
-  if (!host) return "inactive";
+/**
+ * Mapping CheckMK stocké sur l'équipement (colonnes / data), indépendamment
+ * de la dernière synchronisation monitoring.
+ */
+async function loadCheckmkMappingsByIds(ids) {
+  const uuids = [...new Set((Array.isArray(ids) ? ids : []).filter(isUuid))];
+  if (!uuids.length) return new Map();
+  const map = new Map();
+  const tables = [...new Set(PURGE_HARDWARE_FAMILIES.map(row => row.table).filter(Boolean))];
+  await Promise.all(
+    tables.map(async table => {
+      const withCols = await queryOrEmpty(
+        `SELECT id::text AS equipment_id,
+                NULLIF(TRIM(COALESCE(
+                  checkmk_host_name,
+                  data->>'checkmk_host_name',
+                  data->'checkmkMapping'->>'checkmk_host_name',
+                  ''
+                )), '') AS checkmk_host_name,
+                NULLIF(TRIM(COALESCE(
+                  checkmk_site,
+                  data->>'checkmk_site',
+                  data->'checkmkMapping'->>'checkmk_site',
+                  ''
+                )), '') AS checkmk_site,
+                NULLIF(TRIM(COALESCE(
+                  checkmk_service_name,
+                  data->>'checkmk_service_name',
+                  data->'checkmkMapping'->>'checkmk_service_name',
+                  ''
+                )), '') AS checkmk_service_name
+           FROM ${table}
+          WHERE id = ANY($1::uuid[])
+            AND NULLIF(TRIM(COALESCE(
+              checkmk_host_name,
+              data->>'checkmk_host_name',
+              data->'checkmkMapping'->>'checkmk_host_name',
+              ''
+            )), '') IS NOT NULL`,
+        [uuids]
+      );
+      if (withCols?.rows?.length) {
+        for (const row of withCols.rows) {
+          const key = String(row.equipment_id || "").toLowerCase();
+          const host = String(row.checkmk_host_name || "").trim();
+          if (!key || !host || map.has(key)) continue;
+          map.set(key, {
+            checkmk_host_name: host,
+            checkmk_site: row.checkmk_site || null,
+            checkmk_service_name: row.checkmk_service_name || null
+          });
+        }
+        return;
+      }
+      // Tables without dedicated CheckMK columns: read from data JSON only.
+      const fromData = await queryOrEmpty(
+        `SELECT id::text AS equipment_id,
+                NULLIF(TRIM(COALESCE(data->>'checkmk_host_name', data->'checkmkMapping'->>'checkmk_host_name', '')), '') AS checkmk_host_name,
+                NULLIF(TRIM(COALESCE(data->>'checkmk_site', data->'checkmkMapping'->>'checkmk_site', '')), '') AS checkmk_site,
+                NULLIF(TRIM(COALESCE(data->>'checkmk_service_name', data->'checkmkMapping'->>'checkmk_service_name', '')), '') AS checkmk_service_name
+           FROM ${table}
+          WHERE id = ANY($1::uuid[])
+            AND NULLIF(TRIM(COALESCE(data->>'checkmk_host_name', data->'checkmkMapping'->>'checkmk_host_name', '')), '') IS NOT NULL`,
+        [uuids]
+      );
+      for (const row of fromData?.rows || []) {
+        const key = String(row.equipment_id || "").toLowerCase();
+        const host = String(row.checkmk_host_name || "").trim();
+        if (!key || !host || map.has(key)) continue;
+        map.set(key, {
+          checkmk_host_name: host,
+          checkmk_site: row.checkmk_site || null,
+          checkmk_service_name: row.checkmk_service_name || null
+        });
+      }
+    })
+  );
+  return map;
+}
+
+/**
+ * Aligné sur EnterpriseDetailPage / renderSupervisionDot :
+ * - non mappé → inactive
+ * - mappé sans sync (ou no_data) → ok
+ * - warning / critical depuis les données synchronisées
+ */
+function resolveSupervisionStatus(mkRow, isMapped) {
+  if (!isMapped) return "inactive";
+  if (!mkRow) return "ok";
   const summary = computeMonitoringSummary(mkRow.monitoring_data, mkRow.last_synced_at);
   const status = String(summary?.status || "").toLowerCase();
   if (status === "critical") return "critical";
@@ -487,7 +572,7 @@ function resolveSupervisionStatus(mkRow) {
   return "ok";
 }
 
-function attachAlertFields(item, settingsMap, nativeCountMap, checkmkMap) {
+function attachAlertFields(item, settingsMap, nativeCountMap, checkmkMap, mappingMap) {
   let settings = null;
   for (const key of settingsLookupKeys(item)) {
     if (settingsMap.has(key)) {
@@ -498,7 +583,12 @@ function attachAlertFields(item, settingsMap, nativeCountMap, checkmkMap) {
   const alertStatus = resolveAlertStatusFromSettings(settings);
   const dbId = String(item?.dbId || "").trim().toLowerCase();
   const mkRow = dbId ? checkmkMap.get(dbId) : null;
-  const supervisionStatus = resolveSupervisionStatus(mkRow);
+  const mapping = dbId ? mappingMap.get(dbId) : null;
+  const mappedHost = String(
+    mapping?.checkmk_host_name || mkRow?.checkmk_host_name || ""
+  ).trim();
+  const isMapped = Boolean(mappedHost);
+  const supervisionStatus = resolveSupervisionStatus(mkRow, isMapped);
   const supervisionMapped = supervisionStatus !== "inactive";
   const nativeLastMonth = dbId ? nativeCountMap.get(dbId) || 0 : 0;
   const checkmkLastMonth = mkRow ? countCheckmkHistoryLastDays(mkRow.monitoring_data, 30).total : 0;
@@ -509,6 +599,14 @@ function attachAlertFields(item, settingsMap, nativeCountMap, checkmkMap) {
     alertSuspended: isAlertSuspensionActive(settings),
     supervisionStatus,
     supervisionMapped,
+    checkmkMapping: isMapped
+      ? {
+          checkmk_host_name: mappedHost,
+          checkmk_site: mapping?.checkmk_site || mkRow?.checkmk_site || null,
+          checkmk_service_name: mapping?.checkmk_service_name || mkRow?.checkmk_service_name || null,
+          is_active: true
+        }
+      : null,
     alertsNativeLastMonth: nativeLastMonth,
     alertsSupervisionLastMonth: checkmkLastMonth,
     alertsLastMonth: nativeLastMonth + checkmkLastMonth
@@ -518,12 +616,13 @@ function attachAlertFields(item, settingsMap, nativeCountMap, checkmkMap) {
 async function enrichInventoryWithAlerts(items) {
   const list = Array.isArray(items) ? items : [];
   const ids = list.map(item => item.dbId).filter(Boolean);
-  const [settingsMap, nativeCountMap, checkmkMap] = await Promise.all([
+  const [settingsMap, nativeCountMap, checkmkMap, mappingMap] = await Promise.all([
     loadAlertSettingsByKey(ids),
     loadAlertCountsLastMonth(ids),
-    loadCheckmkMonitoringByIds(ids)
+    loadCheckmkMonitoringByIds(ids),
+    loadCheckmkMappingsByIds(ids)
   ]);
-  return list.map(item => attachAlertFields(item, settingsMap, nativeCountMap, checkmkMap));
+  return list.map(item => attachAlertFields(item, settingsMap, nativeCountMap, checkmkMap, mappingMap));
 }
 
 function resolveStandardTable(item) {

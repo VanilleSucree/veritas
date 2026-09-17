@@ -125,7 +125,7 @@
   display: block;
   margin: 0 0 0.25rem;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--msp-accent);
@@ -133,8 +133,8 @@
 
 .mspTitle {
   margin: 0;
-  font-size: clamp(1.2rem, 2vw, 1.5rem);
-  font-weight: 700;
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--msp-text);
 }

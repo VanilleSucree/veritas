@@ -36,13 +36,40 @@ function toFrontendType(familyType) {
 function buildFleetSelect(table, { withCheckmk }) {
   const checkmkCols = withCheckmk
     ? `,
-      e.checkmk_host_name,
-      e.checkmk_site,
-      e.checkmk_service_name`
+      NULLIF(TRIM(COALESCE(
+        e.checkmk_host_name,
+        e.data->>'checkmk_host_name',
+        e.data->'checkmkMapping'->>'checkmk_host_name',
+        ''
+      )), '') AS checkmk_host_name,
+      NULLIF(TRIM(COALESCE(
+        e.checkmk_site,
+        e.data->>'checkmk_site',
+        e.data->'checkmkMapping'->>'checkmk_site',
+        ''
+      )), '') AS checkmk_site,
+      NULLIF(TRIM(COALESCE(
+        e.checkmk_service_name,
+        e.data->>'checkmk_service_name',
+        e.data->'checkmkMapping'->>'checkmk_service_name',
+        ''
+      )), '') AS checkmk_service_name`
     : `,
-      NULL::text AS checkmk_host_name,
-      NULL::text AS checkmk_site,
-      NULL::text AS checkmk_service_name`;
+      NULLIF(TRIM(COALESCE(
+        e.data->>'checkmk_host_name',
+        e.data->'checkmkMapping'->>'checkmk_host_name',
+        ''
+      )), '') AS checkmk_host_name,
+      NULLIF(TRIM(COALESCE(
+        e.data->>'checkmk_site',
+        e.data->'checkmkMapping'->>'checkmk_site',
+        ''
+      )), '') AS checkmk_site,
+      NULLIF(TRIM(COALESCE(
+        e.data->>'checkmk_service_name',
+        e.data->'checkmkMapping'->>'checkmk_service_name',
+        ''
+      )), '') AS checkmk_service_name`;
 
   return `
     SELECT

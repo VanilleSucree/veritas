@@ -169,11 +169,15 @@ const COPY = {
       documentsHint: "Joignez des fichiers à cette tâche (PDF, images, Office…).",
       documentsAdd: "Ajouter un document",
       documentsEmpty: "Aucun document",
+      documentsCount: "{count} document",
+      documentsCountPlural: "{count} documents",
       documentsRemove: "Supprimer le document",
       documentsOpen: "Ouvrir le document",
       documentsUploadError: "Impossible d'envoyer le document",
       documentsDeleteError: "Impossible de supprimer le document",
       documentsFileTooLarge: "Fichier trop volumineux (max 15 Mo)",
+      creditsDebited: "Crédits décomptés",
+      creditsNotDebited: "Crédits non décomptés",
       relativeJustNow: "à l'instant",
       relativeMinutes: "il y a {count} min",
       relativeHours: "il y a {count} h",
@@ -221,6 +225,12 @@ const COPY = {
       chat: "Discussion",
       tasks: "Tâches",
       form: "Formulaire"
+    },
+    rightPaneToggle: {
+      collapseTitle: "Masquer le panneau latéral",
+      collapseAria: "Masquer le panneau latéral",
+      expandTitle: "Afficher le panneau latéral",
+      expandAria: "Afficher le panneau latéral"
     },
     report: {
       title: "Rapport d'intervention",
@@ -466,11 +476,15 @@ const COPY = {
       documentsHint: "Attach files to this task (PDF, images, Office…).",
       documentsAdd: "Add a document",
       documentsEmpty: "No documents",
+      documentsCount: "{count} document",
+      documentsCountPlural: "{count} documents",
       documentsRemove: "Remove document",
       documentsOpen: "Open document",
       documentsUploadError: "Unable to upload the document",
       documentsDeleteError: "Unable to delete the document",
       documentsFileTooLarge: "File too large (max 15 MB)",
+      creditsDebited: "Credits deducted",
+      creditsNotDebited: "Credits not deducted",
       relativeJustNow: "just now",
       relativeMinutes: "{count} min ago",
       relativeHours: "{count} h ago",
@@ -518,6 +532,12 @@ const COPY = {
       chat: "Discussion",
       tasks: "Tasks",
       form: "Form"
+    },
+    rightPaneToggle: {
+      collapseTitle: "Hide side panel",
+      collapseAria: "Hide side panel",
+      expandTitle: "Show side panel",
+      expandAria: "Show side panel"
     },
     report: {
       title: "Intervention report",
@@ -756,11 +776,15 @@ const COPY = {
       documentsHint: "Dateien an diese Aufgabe anhängen (PDF, Bilder, Office…).",
       documentsAdd: "Dokument hinzufügen",
       documentsEmpty: "Keine Dokumente",
+      documentsCount: "{count} Dokument",
+      documentsCountPlural: "{count} Dokumente",
       documentsRemove: "Dokument entfernen",
       documentsOpen: "Dokument öffnen",
       documentsUploadError: "Dokument konnte nicht hochgeladen werden",
       documentsDeleteError: "Dokument konnte nicht gelöscht werden",
       documentsFileTooLarge: "Datei zu groß (max. 15 MB)",
+      creditsDebited: "Credits abgezogen",
+      creditsNotDebited: "Keine Credits abgezogen",
       relativeJustNow: "gerade eben",
       relativeMinutes: "vor {count} Min.",
       relativeHours: "vor {count} Std.",
@@ -810,6 +834,12 @@ const COPY = {
       chat: "Diskussion",
       tasks: "Aufgaben",
       form: "Formular"
+    },
+    rightPaneToggle: {
+      collapseTitle: "Seitenbereich ausblenden",
+      collapseAria: "Seitenbereich ausblenden",
+      expandTitle: "Seitenbereich anzeigen",
+      expandAria: "Seitenbereich anzeigen"
     },
     report: {
       title: "Einsatzbericht",
@@ -1048,11 +1078,15 @@ const COPY = {
       documentsHint: "Allega file a questa attività (PDF, immagini, Office…).",
       documentsAdd: "Aggiungi un documento",
       documentsEmpty: "Nessun documento",
+      documentsCount: "{count} documento",
+      documentsCountPlural: "{count} documenti",
       documentsRemove: "Rimuovi documento",
       documentsOpen: "Apri documento",
       documentsUploadError: "Impossibile caricare il documento",
       documentsDeleteError: "Impossibile eliminare il documento",
       documentsFileTooLarge: "File troppo grande (max 15 MB)",
+      creditsDebited: "Crediti scalati",
+      creditsNotDebited: "Crediti non scalati",
       relativeJustNow: "proprio ora",
       relativeMinutes: "{count} min fa",
       relativeHours: "{count} h fa",
@@ -1102,6 +1136,12 @@ const COPY = {
       chat: "Discussione",
       tasks: "Attività",
       form: "Modulo"
+    },
+    rightPaneToggle: {
+      collapseTitle: "Nascondi pannello laterale",
+      collapseAria: "Nascondi pannello laterale",
+      expandTitle: "Mostra pannello laterale",
+      expandAria: "Mostra pannello laterale"
     },
     report: {
       title: "Rapporto di intervento",
@@ -1340,11 +1380,15 @@ const COPY = {
       documentsHint: "Adjunte archivos a esta tarea (PDF, imágenes, Office…).",
       documentsAdd: "Añadir un documento",
       documentsEmpty: "Sin documentos",
+      documentsCount: "{count} documento",
+      documentsCountPlural: "{count} documentos",
       documentsRemove: "Eliminar documento",
       documentsOpen: "Abrir documento",
       documentsUploadError: "No se pudo subir el documento",
       documentsDeleteError: "No se pudo eliminar el documento",
       documentsFileTooLarge: "Archivo demasiado grande (máx. 15 MB)",
+      creditsDebited: "Créditos descontados",
+      creditsNotDebited: "Créditos no descontados",
       relativeJustNow: "ahora mismo",
       relativeMinutes: "hace {count} min",
       relativeHours: "hace {count} h",
@@ -1394,6 +1438,12 @@ const COPY = {
       chat: "Discusión",
       tasks: "Tareas",
       form: "Formulario"
+    },
+    rightPaneToggle: {
+      collapseTitle: "Ocultar panel lateral",
+      collapseAria: "Ocultar panel lateral",
+      expandTitle: "Mostrar panel lateral",
+      expandAria: "Mostrar panel lateral"
     },
     report: {
       title: "Informe de intervención",

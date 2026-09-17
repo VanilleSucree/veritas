@@ -10,9 +10,13 @@ export function resolveEquipmentFamilyKey(type) {
   const map = {
     Ordinateurs: "ordinateurs",
     Serveurs: "servers",
+    Servers: "servers",
+    Server: "servers",
     NAS: "stockage",
+    Storage: "stockage",
     Stockage: "stockage",
     Firewalls: "firewall",
+    Firewall: "firewall",
     Switch: "switch",
     BorneWifi: "wifi",
     Alimentation: "alimentation",

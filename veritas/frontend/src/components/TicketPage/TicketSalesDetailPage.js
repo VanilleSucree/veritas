@@ -375,6 +375,16 @@ const SALES_TYPE_OPTIONS = [
   { key: "installation", icon: "mdi:tools" }
 ];
 
+const RIGHT_PANE_COLLAPSED_KEY = "veritas.salesTicket.rightPaneCollapsed";
+
+function readRightPaneCollapsed() {
+  try {
+    return localStorage.getItem(RIGHT_PANE_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
   const locale = useAppLocale();
   const { can } = usePermissions();
@@ -408,6 +418,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
   const [tagAddOpen, setTagAddOpen] = useState(false);
   const [tagBusy, setTagBusy] = useState(false);
   const [rightPaneView, setRightPaneView] = useState("context");
+  const [rightPaneCollapsed, setRightPaneCollapsed] = useState(readRightPaneCollapsed);
   const [centerTab, setCenterTab] = useState("chat");
   const [refreshingHistory, setRefreshingHistory] = useState(false);
   const [ticketDeleteConfirm, setTicketDeleteConfirm] = useState(null);
@@ -453,6 +464,23 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
   const categoryDropdownRef = useRef(null);
   const equipmentDropdownRef = useRef(null);
   const taskPlanningBackfillRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RIGHT_PANE_COLLAPSED_KEY, rightPaneCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [rightPaneCollapsed]);
+
+  const openRightPaneView = useCallback(view => {
+    setRightPaneView(view);
+    setRightPaneCollapsed(false);
+  }, []);
+
+  const toggleRightPaneCollapsed = useCallback(() => {
+    setRightPaneCollapsed(prev => !prev);
+  }, []);
 
   useEffect(() => {
     if (!canTasks && centerTab === "tasks") {
@@ -1800,7 +1828,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
         </header>
 
         <div className={td.workspace}>
-          <div className={`${td.layout} ${styles.layout}`}>
+          <div className={`${td.layout} ${styles.layout} ${rightPaneCollapsed ? styles.layoutRightCollapsed : ""}`.trim()}>
             <aside className={`${td.leftPane} ${heroStyles.rightSidebarContent}`}>
               <RightPaneStaticSection
                 title={detailCopy.leftPane.properties}
@@ -2423,9 +2451,13 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
               </RightPaneStaticSection>
             </aside>
 
-            <section className={td.centerPane}>
+            <section className={`${td.centerPane} ${styles.centerPane}`.trim()}>
               <div className={styles.centerStack}>
-                <div className={styles.centerTabs} role="tablist" aria-label={copy.centerTabs.aria}>
+                <div
+                  className={`${styles.centerTabs} ${!canTasks ? styles.centerTabsTwo : ""}`.trim()}
+                  role="tablist"
+                  aria-label={copy.centerTabs.aria}
+                >
                   <button
                     type="button"
                     role="tab"
@@ -2436,7 +2468,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
                     onClick={() => setCenterTab("form")}
                   >
                     <Icon icon="mdi:form-select" aria-hidden />
-                    <span>{copy.centerTabs.form}</span>
+                    <span className={styles.centerTabLabel}>{copy.centerTabs.form}</span>
                     {formEntries.length > 0 ? <span className={styles.centerTabBadge}>{formEntries.length}</span> : null}
                   </button>
                   {canTasks ? (
@@ -2450,7 +2482,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
                       onClick={() => setCenterTab("tasks")}
                     >
                       <Icon icon="mdi:checkbox-marked-outline" aria-hidden />
-                      <span>{copy.centerTabs.tasks}</span>
+                      <span className={styles.centerTabLabel}>{copy.centerTabs.tasks}</span>
                       <span className={styles.centerTabBadge}>
                         {tasksDone}/{tasksTotal}
                       </span>
@@ -2466,7 +2498,7 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
                     onClick={() => setCenterTab("chat")}
                   >
                     <Icon icon="mdi:message-text-outline" aria-hidden />
-                    <span>{copy.centerTabs.chat}</span>
+                    <span className={styles.centerTabLabel}>{copy.centerTabs.chat}</span>
                     {comments.length > 0 ? <span className={styles.centerTabBadge}>{comments.length}</span> : null}
                   </button>
                 </div>
@@ -2652,7 +2684,10 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
               </div>
             </section>
 
-            <aside className={`${td.rightPane} ${heroStyles.rightSidebarContent} ${styles.rightPane}`}>
+            <aside
+              className={`${td.rightPane} ${heroStyles.rightSidebarContent} ${styles.rightPane} ${rightPaneCollapsed ? styles.rightPaneHidden : ""}`.trim()}
+              aria-hidden={rightPaneCollapsed}
+            >
               {rightPaneView === "history" ? (
                 <RightPaneStaticSection
                   title={detailCopy.rightPane.historyToggleTitle}
@@ -2847,22 +2882,32 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
             <aside className={td.rightSidebar}>
               <button
                 type="button"
-                className={`${td.sidebarActionBtn} ${rightPaneView === "context" ? td.sidebarActionBtnActive : ""}`.trim()}
+                className={td.sidebarActionBtn}
+                title={rightPaneCollapsed ? copy.rightPaneToggle.expandTitle : copy.rightPaneToggle.collapseTitle}
+                aria-label={rightPaneCollapsed ? copy.rightPaneToggle.expandAria : copy.rightPaneToggle.collapseAria}
+                aria-expanded={!rightPaneCollapsed}
+                onClick={toggleRightPaneCollapsed}
+              >
+                <Icon icon={rightPaneCollapsed ? "mdi:chevron-left" : "mdi:chevron-right"} />
+              </button>
+              <button
+                type="button"
+                className={`${td.sidebarActionBtn} ${!rightPaneCollapsed && rightPaneView === "context" ? td.sidebarActionBtnActive : ""}`.trim()}
                 title={detailCopy.sidebar.classicViewTitle}
                 aria-label={detailCopy.sidebar.classicViewAria}
-                aria-pressed={rightPaneView === "context"}
-                onClick={() => setRightPaneView("context")}
+                aria-pressed={!rightPaneCollapsed && rightPaneView === "context"}
+                onClick={() => openRightPaneView("context")}
               >
                 <Icon icon="mdi:view-dashboard-outline" />
               </button>
               <button
                 type="button"
-                className={`${td.sidebarActionBtn} ${rightPaneView === "history" ? td.sidebarActionBtnActive : ""}`.trim()}
+                className={`${td.sidebarActionBtn} ${!rightPaneCollapsed && rightPaneView === "history" ? td.sidebarActionBtnActive : ""}`.trim()}
                 title={detailCopy.rightPane.historyToggleTitle}
                 aria-label={detailCopy.rightPane.historyToggleAria}
-                aria-pressed={rightPaneView === "history"}
+                aria-pressed={!rightPaneCollapsed && rightPaneView === "history"}
                 onClick={() => {
-                  setRightPaneView("history");
+                  openRightPaneView("history");
                   void refreshTicketHistory({ showSpinner: true });
                 }}
               >
@@ -2871,11 +2916,11 @@ export default function TicketSalesDetailPage({ onNavigate, ticketData }) {
               {canTasks ? (
                 <button
                   type="button"
-                  className={`${td.sidebarActionBtn} ${rightPaneView === "taskStats" ? td.sidebarActionBtnActive : ""}`.trim()}
+                  className={`${td.sidebarActionBtn} ${!rightPaneCollapsed && rightPaneView === "taskStats" ? td.sidebarActionBtnActive : ""}`.trim()}
                   title={copy.taskStats.toggleTitle}
                   aria-label={copy.taskStats.toggleAria}
-                  aria-pressed={rightPaneView === "taskStats"}
-                  onClick={() => setRightPaneView("taskStats")}
+                  aria-pressed={!rightPaneCollapsed && rightPaneView === "taskStats"}
+                  onClick={() => openRightPaneView("taskStats")}
                 >
                   <Icon icon="mdi:chart-timeline-variant" />
                 </button>

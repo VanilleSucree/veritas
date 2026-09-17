@@ -1,5 +1,6 @@
 import { pool } from "../database/db.js";
 import { ensureKnowledgeArticlesSchema } from "./ensureKnowledgeArticlesSchema.js";
+import { normalizeKnowledgeIcon } from "./knowledgeEmojisService.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_DEPTH = 24;
@@ -310,7 +311,7 @@ export async function createKnowledgeFolder({ name, parentId, icon } = {}) {
     err.status = 404;
     throw err;
   }
-  const iconName = icon ? String(icon).replace(/^:|:$/g, "").trim().toLowerCase().slice(0, 32) || null : null;
+  const iconName = normalizeKnowledgeIcon(icon);
   const sortOrder = await nextSortOrder(parent);
   const { rows } = await pool.query(
     `INSERT INTO v_b_knowledge_folders (name, parent_id, sort_order, icon)
@@ -350,7 +351,7 @@ export async function updateKnowledgeFolder(folderId, patch = {}) {
   const visibleToAllClients = patch.visibleToAllClients != null ? Boolean(patch.visibleToAllClients) : existing.visibleToAllClients;
   const visibleToAllContacts = patch.visibleToAllContacts != null ? Boolean(patch.visibleToAllContacts) : existing.visibleToAllContacts;
   const icon = patch.icon !== undefined
-    ? (patch.icon ? String(patch.icon).replace(/^:|:$/g, "").trim().toLowerCase().slice(0, 32) || null : null)
+    ? normalizeKnowledgeIcon(patch.icon)
     : existing.icon;
   const { rows } = await pool.query(
     `UPDATE v_b_knowledge_folders

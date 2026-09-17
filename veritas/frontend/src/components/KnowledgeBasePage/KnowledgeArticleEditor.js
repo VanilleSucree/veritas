@@ -7,6 +7,7 @@ import { fetchClientsList, fetchContactsList } from "../../api/clients";
 import { deleteKnowledgeArticle, deleteKnowledgeArticleComment, fetchKnowledgeArticle, fetchKnowledgeArticleRevision, fetchKnowledgeArticleRevisions, fetchKnowledgeArticles, fetchKnowledgeEmojis, fetchKnowledgeFolder, fetchKnowledgeFolders, fetchKnowledgeSearchMisses, fetchKnowledgeTagCatalog, publishKnowledgeArticle, resolveKnowledgeEmojiUrl, resolveKnowledgeHtml, resolveKnowledgeJson, restoreKnowledgeArticleRevision, toStoredKnowledgeHtml, toStoredKnowledgeJson, unpublishKnowledgeArticle, updateKnowledgeArticle, updateKnowledgeArticlePublicLink } from "../../api/knowledgeBase";
 import KnowledgeEmojiModal from "./KnowledgeEmojiModal";
 import { buildEmojiMap, expandEmojiShortcodesInHtml, renderEmojiShortcodes } from "./knowledgeEmojiHelpers";
+import { resolveKnowledgeIcon } from "./knowledgeStandardEmojis";
 import ConfirmModal from "../Misc/ConfirmModal/ConfirmModal";
 import MspPageHero from "../Misc/MspPageHero/MspPageHero";
 import cyberStyles from "../CybersecuritePage/CybersecuritePage.module.css";
@@ -112,7 +113,7 @@ function ArticleReader({
 }) {
   const titleHtml = renderEmojiShortcodes(title || copy.untitled, emojiMap);
   const bodyHtml = expandEmojiShortcodesInHtml(resolveKnowledgeHtml(contentHtml), emojiMap);
-  const iconEmoji = icon ? emojiMap?.get(String(icon).toLowerCase()) : null;
+  const pageIcon = resolveKnowledgeIcon(icon, emojiMap);
   return (
     <article className={styles.reader}>
       {showBanner ? (
@@ -124,7 +125,11 @@ function ArticleReader({
       <div className={styles.readerInner}>
         {category ? <p className={styles.readerCategory}>{category}</p> : null}
         <div className={styles.readerTitleRow}>
-          {iconEmoji ? <img src={resolveKnowledgeEmojiUrl(iconEmoji)} alt="" className={styles.pageIconLarge} /> : null}
+          {pageIcon.type === "custom" ? (
+            <img src={resolveKnowledgeEmojiUrl(pageIcon.emoji)} alt="" className={styles.pageIconLarge} />
+          ) : pageIcon.type === "unicode" ? (
+            <span className={styles.pageIconUnicode} aria-hidden>{pageIcon.char}</span>
+          ) : null}
           <h1 className={styles.readerTitle} dangerouslySetInnerHTML={{ __html: titleHtml }} />
         </div>
         <p className={styles.readerMeta}>
@@ -159,7 +164,8 @@ export default function KnowledgeArticleEditor({
   locale,
   canEdit,
   canDelete,
-  onBack
+  onBack,
+  onRequestEdit
 }) {
   const [article, setArticle] = useState(null);
   const [title, setTitle] = useState("");
@@ -616,6 +622,15 @@ export default function KnowledgeArticleEditor({
             >
               <Icon icon="mdi:arrow-left" />
             </button>
+            {isReadTab && canEdit ? (
+              <button
+                type="button"
+                className={`${layout.primaryBtn} ${styles.heroActionBtn}`}
+                onClick={() => onRequestEdit?.(title || copy.untitled)}
+              >
+                <Icon icon="mdi:pencil-outline" /> {copy.edit}
+              </button>
+            ) : null}
             {editable ? (
               <>
                 <div className={styles.modeSwitch} role="tablist" aria-label={copy.previewMode}>
@@ -687,11 +702,16 @@ export default function KnowledgeArticleEditor({
                       title={copy.emojiPageIcon}
                       aria-label={copy.emojiPageIcon}
                     >
-                      {icon && emojiMap.get(String(icon).toLowerCase()) ? (
-                        <img src={resolveKnowledgeEmojiUrl(emojiMap.get(String(icon).toLowerCase()))} alt="" className={styles.pageIconImg} />
-                      ) : (
-                        <Icon icon="mdi:emoticon-outline" />
-                      )}
+                      {(() => {
+                        const pageIcon = resolveKnowledgeIcon(icon, emojiMap);
+                        if (pageIcon.type === "custom") {
+                          return <img src={resolveKnowledgeEmojiUrl(pageIcon.emoji)} alt="" className={styles.pageIconImg} />;
+                        }
+                        if (pageIcon.type === "unicode") {
+                          return <span className={styles.pageIconUnicode} aria-hidden>{pageIcon.char}</span>;
+                        }
+                        return <Icon icon="mdi:emoticon-outline" />;
+                      })()}
                     </button>
                     <input className={styles.titleInput} value={title} onChange={event => setTitle(event.target.value)} placeholder={copy.titlePlaceholder} />
                     {icon ? (
@@ -1052,11 +1072,9 @@ export default function KnowledgeArticleEditor({
             /* ignore */
           }
         }}
-        onPick={emoji => {
+        onPick={value => {
           if (emojiModal?.target === "icon") {
-            setIcon(emoji.name);
-            setEmojiModal(null);
-            return;
+            setIcon(value || null);
           }
           setEmojiModal(null);
         }}

@@ -19,10 +19,11 @@ function PortalRolePicker({
   onChange,
   disabled,
   copy,
-  compact = false
+  compact = false,
+  stacked = false
 }) {
   const role = normalizePortalRole(value);
-  return <div className={s.roleCard}>
+  return <div className={`${s.roleRow} ${stacked ? s.roleRowStacked : ""}`.trim()}>
       <div className={s.roleText}>
         <span className={s.roleTitle}>{copy.roleTitle}</span>
         {!compact ? <span className={s.roleHint}>
@@ -323,19 +324,13 @@ export default function ContactPortalSection({
               {portalCopy.revoke}
             </button> : null}
           </div> : null}
-        </> : canManage && canCreate && <div className={s.emptyState}>
-            <div className={s.emptyHeader}>
-              <Icon icon="mdi:account-key-outline" className={s.emptyIcon} aria-hidden />
-              <div>
-                <p className={s.emptyTitle}>{portalCopy.emptyTitle}</p>
-                <p className={s.emptyDesc}>
-                  {interpolate(portalCopy.emptyDescInvite || portalCopy.emptyDesc, {
-            email: loginEmail
-          })}
-                </p>
-              </div>
-            </div>
-            <PortalRolePicker value={createPortalRole} onChange={setCreatePortalRole} disabled={busy} copy={portalCopy} />
+        </> : canManage && canCreate && <div className={s.inviteBlock}>
+            <p className={s.inviteDesc}>
+              {interpolate(portalCopy.emptyDescInvite || portalCopy.emptyDesc, {
+          email: loginEmail
+        })}
+            </p>
+            <PortalRolePicker value={createPortalRole} onChange={setCreatePortalRole} disabled={busy} copy={portalCopy} stacked />
             <button type="button" className={s.primaryBtn} onClick={() => {
         if (portalAtLimit) {
           warnPortalLimit();

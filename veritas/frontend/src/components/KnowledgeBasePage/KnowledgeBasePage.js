@@ -11,7 +11,7 @@ import { interpolate } from "../../i18n/translate";
 import { formatPageInfo } from "../../i18n/commonI18n";
 import { useCommonCopy } from "../../hooks/useCommonCopy";
 import { useDefaultPageSize } from "../../hooks/useDefaultPageSize";
-import { createKnowledgeArticle, createKnowledgeFolder, deleteKnowledgeArticle, deleteKnowledgeArticles, deleteKnowledgeFolder, fetchKnowledgeArticles, fetchKnowledgeCategories, fetchKnowledgeEmojis, fetchKnowledgeFolders, moveKnowledgeArticles, updateKnowledgeFolder } from "../../api/knowledgeBase";
+import { createKnowledgeArticle, createKnowledgeFolder, deleteKnowledgeArticle, deleteKnowledgeArticles, deleteKnowledgeFolder, fetchKnowledgeArticles, fetchKnowledgeCategories, fetchKnowledgeEmojis, fetchKnowledgeFolders, moveKnowledgeArticles, updateKnowledgeArticle, updateKnowledgeFolder } from "../../api/knowledgeBase";
 import ConfirmModal from "../Misc/ConfirmModal/ConfirmModal";
 import MspPageHero from "../Misc/MspPageHero/MspPageHero";
 import SmartTooltip from "../SmartTooltip";
@@ -79,7 +79,7 @@ export default function KnowledgeBasePage({ onNavigate }) {
   const [folderTree, setFolderTree] = useState([]);
   const [navArticles, setNavArticles] = useState([]);
   const [navEmojis, setNavEmojis] = useState([]);
-  const [emojiModal, setEmojiModal] = useState(false);
+  const [emojiModal, setEmojiModal] = useState(null);
   const [currentFolder, setCurrentFolder] = useState("all");
   const [folderModal, setFolderModal] = useState(null);
   const [folderBusy, setFolderBusy] = useState(false);
@@ -340,6 +340,7 @@ export default function KnowledgeBasePage({ onNavigate }) {
           canEdit={canEdit}
           canDelete={canDelete}
           onBack={backToList}
+          onRequestEdit={title => openArticle(articleId, "edit", title || copy.untitled)}
         />
         <PageGuideTour open={pageGuideOpen} steps={kbGuide.steps} title={kbGuide.tourTitle} locale={locale} onClose={() => setPageGuideOpen(false)} />
       </KnowledgeBaseShell>
@@ -402,11 +403,13 @@ export default function KnowledgeBasePage({ onNavigate }) {
                 searchInputRef.current?.select?.();
               }}
               onOpenArticle={openArticle}
-              onManageEmojis={() => setEmojiModal(true)}
+              onManageEmojis={() => setEmojiModal({ mode: "manage" })}
               onCreate={parentId => setFolderModal({ mode: "create", parentId })}
               onRename={node => setFolderModal({ mode: "rename", folder: node })}
               onShare={node => setFolderModal({ mode: "share", folder: node })}
               onDelete={node => setConfirmFolderDelete(node)}
+              onChangeIcon={node => setEmojiModal({ mode: "pick", target: "folder", id: node.id, title: node.name })}
+              onChangeArticleIcon={article => setEmojiModal({ mode: "pick", target: "article", id: article.id, title: article.title })}
             />
             </div>
             <div className={styles.listColumn}>
@@ -651,11 +654,32 @@ export default function KnowledgeBasePage({ onNavigate }) {
         }}
       />
       <KnowledgeEmojiModal
-        open={emojiModal}
+        open={Boolean(emojiModal)}
         copy={copy}
         canManage={canEdit}
-        onClose={() => setEmojiModal(false)}
+        pickMode={emojiModal?.mode === "pick"}
+        onClose={() => setEmojiModal(null)}
         onChanged={() => loadNavEmojis()}
+        onPick={async value => {
+          if (emojiModal?.mode !== "pick" || !emojiModal.id) return;
+          const icon = value || null;
+          try {
+            if (emojiModal.target === "folder") {
+              await updateKnowledgeFolder(emojiModal.id, { icon });
+              toast.success(copy.folderSaved);
+              await loadFolders();
+            } else if (emojiModal.target === "article") {
+              await updateKnowledgeArticle(emojiModal.id, { icon });
+              toast.success(copy.saved || copy.folderSaved);
+              await loadNavArticles();
+              await load();
+            }
+          } catch (err) {
+            toast.error(err.message || copy.folderError);
+          } finally {
+            setEmojiModal(null);
+          }
+        }}
       />
       {templateOpen ? (
         <div className={styles.modalOverlay} onClick={() => { if (!creating) setTemplateOpen(false); }}>

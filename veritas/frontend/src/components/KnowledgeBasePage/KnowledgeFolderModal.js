@@ -82,11 +82,12 @@ export default function KnowledgeFolderModal({
     return () => { cancelled = true; };
   }, [open, mode, folder]);
 
+  const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
+  const selectedEmoji = icon ? emojiMap.get(String(icon).toLowerCase()) : null;
+
   if (!open) return null;
 
   const title = mode === "share" ? copy.shareFolder : mode === "rename" ? copy.renameFolder : parentId ? copy.newSubfolder : copy.newFolder;
-  const emojiMap = useMemo(() => buildEmojiMap(emojis), [emojis]);
-  const selectedEmoji = icon ? emojiMap.get(String(icon).toLowerCase()) : null;
 
   const submit = async () => {
     if (mode === "create") {

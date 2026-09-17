@@ -400,8 +400,14 @@ export default function MonitoringSteps({
             const isDone = index < safeIndex;
             return (
               <button key={stepKey} type="button" className={`${shellStyles.stepNavItem} ${isActive ? shellStyles.stepNavItemActive : ""} ${isDone ? shellStyles.stepNavItemDone : ""}`} onClick={() => setCurrentIndex(index)}>
-                <span className={shellStyles.stepNavIndex}>{index + 1}</span>
-                <Icon icon={MODULE_ICONS[stepKey] || "mdi:checkbox-marked-outline"} className={shellStyles.stepNavIcon} width={18} height={18} aria-hidden />
+                <span className={shellStyles.stepNavIndex} aria-hidden>
+                  {isDone && !isActive ? (
+                    <Icon icon="mdi:check" width={12} height={12} />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <Icon icon={MODULE_ICONS[stepKey] || "mdi:checkbox-marked-outline"} className={shellStyles.stepNavIcon} width={16} height={16} aria-hidden />
                 <span className={shellStyles.stepNavLabel}>{getStepLabel(stepKey)}</span>
               </button>
             );

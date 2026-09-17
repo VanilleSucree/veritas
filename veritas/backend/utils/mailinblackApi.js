@@ -459,7 +459,7 @@ export function normalizeMailinblackCustomer(item, session = null) {
   if (id == null) return null;
   return {
     id: String(id),
-    name: item.name || item.companyName || item.company || item.label || item.customerName || 'Mailinblack customer',
+    name: item.name || item.companyName || item.company || item.label || item.customerName || 'Mailinblack',
     domain: item.domain || item.primaryDomain || item.mainDomain || null,
     usersCount: toNumericCount(item.usersCount ?? item.users ?? item.nbUsers),
     licenseCount: toNumericCount(item.licenseCount ?? (typeof item.licenses === 'number' || typeof item.licenses === 'string' ? item.licenses : null) ?? item.nbLicences ?? item.nbLicense ?? item.totalLicenses ?? item.licenceCount ?? item.nbLicenceProtect ?? item.protectLicenses ?? item.seats),
@@ -1112,7 +1112,7 @@ export async function mailinblackGetCustomer(apiUrl, credentials, customerId) {
   return normalizeMailinblackCustomer({
     id: customerId || session.clientId,
     clientId: session.clientId,
-    name: credentials.label || 'Mailinblack customer',
+    name: credentials.label || 'Mailinblack',
     domain: domains[0]?.name || null,
     usersCount: users.length,
     domainsCount: domains.length,
@@ -1174,7 +1174,7 @@ export async function mailinblackBuildDashboard(apiUrl, credentials, customerId 
     data: effectiveCustomerId ? normalizeMailinblackCustomer({
       id: effectiveCustomerId,
       clientId: session.clientId || effectiveCustomerId,
-      name: credentials.label || 'Mailinblack customer',
+      name: credentials.label || 'Mailinblack',
       domain: domains.items?.[0]?.name || null,
       usersCount: users.total || users.items?.length || 0,
       domainsCount: domains.total || domains.items?.length || 0,

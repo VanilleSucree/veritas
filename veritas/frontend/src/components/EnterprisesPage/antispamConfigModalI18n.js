@@ -305,7 +305,7 @@ const ANTISPAM_MODAL_COPY = {
     },
     solution: {
       fallbackLabel: "Antispam solution",
-      defaultCustomerName: "Mailinblack customer",
+      defaultCustomerName: "Mailinblack",
       defaultProductName: "Mailinblack Protect",
       productFallback: "Antispam"
     },

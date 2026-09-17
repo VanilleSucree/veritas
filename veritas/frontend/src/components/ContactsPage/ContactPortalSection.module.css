@@ -110,16 +110,30 @@
   border: 1px solid rgba(43, 95, 171, 0.28);
 }
 
-.roleCard {
+.roleRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 10px;
-  border: 1px solid var(--msp-border, #e2e8f0);
-  background: var(--msp-surface-2, #f8fafc);
   min-width: 0;
+}
+
+.roleRowStacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.roleRowStacked .roleSeg {
+  width: 100%;
+}
+
+.roleRowStacked .roleBtn {
+  flex: 1;
+}
+
+.roleRowStacked .roleHint {
+  white-space: normal;
 }
 
 .toggleText,
@@ -201,7 +215,7 @@
   gap: 2px;
   padding: 2px;
   border-radius: 8px;
-  background: var(--msp-surface, #fff);
+  background: var(--msp-surface-2, #f4f6fa);
   border: 1px solid var(--msp-border, #e2e8f0);
   flex-shrink: 0;
 }
@@ -228,22 +242,6 @@
 .roleBtn:disabled {
   cursor: not-allowed;
   opacity: 0.7;
-}
-
-.emptyState .roleCard {
-  width: 100%;
-  text-align: left;
-  margin: 0.15rem 0;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.emptyState .roleSeg {
-  width: 100%;
-}
-
-.emptyState .roleBtn {
-  flex: 1;
 }
 
 .actions {
@@ -313,7 +311,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  margin-top: 0.2rem;
+  width: 100%;
+  margin-top: 0.1rem;
   padding: 0.5rem 0.9rem;
   border: none;
   border-radius: 9px;
@@ -331,42 +330,18 @@
   filter: brightness(1.06);
 }
 
-.emptyState {
+.inviteBlock {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  text-align: left;
-  gap: 0.55rem;
-  padding: 0.85rem 0.9rem;
-  border-radius: 11px;
-  border: 1px dashed var(--msp-border, #dde3ed);
-  background: var(--msp-surface-2, #f8fafc);
+  gap: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--msp-border, #e8edf4);
 }
 
-.emptyHeader {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-}
-
-.emptyIcon {
-  font-size: 1.35rem;
-  color: var(--msp-muted-light, #8b9bb5);
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-}
-
-.emptyTitle {
-  margin: 0 0 0.15rem;
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: var(--msp-text, #0f1c2e);
-}
-
-.emptyDesc {
+.inviteDesc {
   margin: 0;
   font-size: 0.74rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--msp-muted, #5c6b82);
 }
 
