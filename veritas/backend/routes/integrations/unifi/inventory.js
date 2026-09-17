@@ -106,52 +106,42 @@ router.get("/devices", verifyJWT, async (req, res) => {
     let devices = [];
     let resolvedSiteId = siteId || null;
     let source = "site-manager";
+    let warning = null;
 
     // Prefer Network Integration (site-scoped) when a site is requested.
-    // Site Manager /devices is host-wide and often omits siteId on devices.
+    // Site Manager /devices is host-wide and has no per-device siteId.
     if (siteId && keys.network) {
       try {
         const resolved = await resolveNetworkSiteId({
           networkApiKey: keys.network,
           hostId,
           siteId,
-          siteName: siteName || null
+          siteName: siteName || null,
+          siteManagerApiKey: keys.siteManager
         });
 
-        if (resolved) {
+        const candidates = [...new Set([resolved, siteId].filter(Boolean))];
+        for (const candidate of candidates) {
           const networkDevices = await fetchNetworkDevicesViaConnector({
             networkApiKey: keys.network,
             hostId,
-            siteId: resolved
-          });
-          resolvedSiteId = resolved;
-          source = "network";
-          devices = networkDevices.map(device =>
-            normalizeUnifiDevice(device, { hostId, siteId: resolved })
-          );
-        } else {
-          // Unknown SM→Network mapping: only keep Network if it actually returns devices.
-          const networkDevices = await fetchNetworkDevicesViaConnector({
-            networkApiKey: keys.network,
-            hostId,
-            siteId
+            siteId: candidate
           });
           if (networkDevices.length) {
-            resolvedSiteId = siteId;
+            resolvedSiteId = candidate;
             source = "network";
             devices = networkDevices.map(device =>
-              normalizeUnifiDevice(device, { hostId, siteId })
+              normalizeUnifiDevice(device, { hostId, siteId: candidate })
             );
+            break;
           }
         }
       } catch (err) {
         console.warn("[unifi] Network site devices fallback to Site Manager:", err.message);
-        source = "site-manager";
-        devices = [];
       }
     }
 
-    if (source !== "network") {
+    if (source !== "network" || devices.length === 0) {
       let rawDevices = await listDevicesForHost(keys.siteManager, hostId);
 
       if (rawDevices.length === 0) {
@@ -163,7 +153,7 @@ router.get("/devices", verifyJWT, async (req, res) => {
             extractUiList(hostPayload?.devices) ||
             extractUiList(hostPayload?.data?.devices) ||
             extractUiList(hostPayload);
-          if (Array.isArray(nested) && nested.length && nested[0]?.mac) {
+          if (Array.isArray(nested) && nested.length && (nested[0]?.mac || nested[0]?.id)) {
             rawDevices = nested;
           }
         } catch {
@@ -172,13 +162,34 @@ router.get("/devices", verifyJWT, async (req, res) => {
       }
 
       if (siteId) {
-        // Strict filter: never keep devices without a matching siteId.
-        rawDevices = rawDevices.filter(device => {
+        const matchedBySite = rawDevices.filter(device => {
           const deviceSite = extractDeviceSiteId(device);
           return deviceSite && String(deviceSite) === String(siteId);
         });
+
+        if (matchedBySite.length) {
+          rawDevices = matchedBySite;
+        } else {
+          // Site Manager devices usually have no siteId. Scope by host site count.
+          let sitesOnHost = [];
+          try {
+            sitesOnHost = (await listAllSites(keys.siteManager)).filter(site => {
+              const siteHost = site.hostId || site.host_id || site.meta?.hostId || null;
+              return String(siteHost || "") === String(hostId);
+            });
+          } catch {
+            sitesOnHost = [];
+          }
+
+          if (sitesOnHost.length > 1) {
+            warning =
+              "Les devices UniFi n’ont pas pu être filtrés précisément par site (API Network indisponible ou site non résolu). Affichage de tous les devices de la console.";
+          }
+          // Keep all host devices — empty list is worse than host-wide for single-site consoles.
+        }
       }
 
+      source = "site-manager";
       devices = rawDevices.map(device =>
         normalizeUnifiDevice(device, { hostId, siteId: resolvedSiteId })
       );
@@ -193,6 +204,7 @@ router.get("/devices", verifyJWT, async (req, res) => {
       hostId,
       siteId: resolvedSiteId,
       source,
+      warning,
       devices,
       switches,
       accessPoints,

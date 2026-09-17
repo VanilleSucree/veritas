@@ -37,7 +37,30 @@ export function buildReportPeriodLabel(client) {
   }
   return "";
 }
-export function buildExportPrintStyles() {
+export function buildExportPrintStyles(branding = null) {
+  const style = branding?.style || {};
+  const fontSans = style.fontSans || '"Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  const fontSerif = style.fontSerif || '"Source Serif 4", Georgia, "Times New Roman", serif';
+  const accent = style.accent || "#0f766e";
+  const accentDark = style.accentDark || "#115e59";
+  const accentSoft = style.accentSoft || "#ecfdf5";
+  const navy = style.navy || "#1e3a5f";
+  const headerBg = style.headerBg || "#0b3d4a";
+  const headerBgEnd = style.headerBgEnd || "#0f766e";
+  const headerText = style.headerText || "#f8fafc";
+  const headerBrandColor = style.headerBrandColor || "#99f6e4";
+  const headerAccentBar = style.headerAccentBar || "#99f6e4";
+  const headerAccentBarEnd = style.headerAccentBarEnd || "#fbbf24";
+  const footerBg = style.footerBg || "#ffffff";
+  const footerText = style.footerText || "#1e3a5f";
+  const footerMuted = style.footerMuted || "#64748b";
+  const footerLink = style.footerLink || "#115e59";
+  const brandSize = style.brandSize || "0.72rem";
+  const companySize = style.companySize || "1.05rem";
+  const clientSize = style.clientSize || "2.1rem";
+  const footerBrandSize = style.footerBrandSize || "0.95rem";
+  const footerNoteSize = style.footerNoteSize || "0.78rem";
+
   return `
     :root {
       --vex-bg: #f1f5f9;
@@ -47,10 +70,10 @@ export function buildExportPrintStyles() {
       --vex-border-strong: #cbd5e1;
       --vex-text: #0f172a;
       --vex-text-muted: #64748b;
-      --vex-accent: #0f766e;
-      --vex-accent-dark: #115e59;
-      --vex-accent-soft: #ecfdf5;
-      --vex-navy: #1e3a5f;
+      --vex-accent: ${accent};
+      --vex-accent-dark: ${accentDark};
+      --vex-accent-soft: ${accentSoft};
+      --vex-navy: ${navy};
       --vex-ok: #15803d;
       --vex-ok-soft: #dcfce7;
       --vex-warn: #b45309;
@@ -60,6 +83,23 @@ export function buildExportPrintStyles() {
       --vex-max: 1120px;
       --vex-radius: 14px;
       --vex-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+      --vex-font-sans: ${fontSans};
+      --vex-font-serif: ${fontSerif};
+      --vex-header-bg: ${headerBg};
+      --vex-header-bg-end: ${headerBgEnd};
+      --vex-header-text: ${headerText};
+      --vex-header-brand: ${headerBrandColor};
+      --vex-header-bar: ${headerAccentBar};
+      --vex-header-bar-end: ${headerAccentBarEnd};
+      --vex-footer-bg: ${footerBg};
+      --vex-footer-text: ${footerText};
+      --vex-footer-muted: ${footerMuted};
+      --vex-footer-link: ${footerLink};
+      --vex-brand-size: ${brandSize};
+      --vex-company-size: ${companySize};
+      --vex-client-size: ${clientSize};
+      --vex-footer-brand-size: ${footerBrandSize};
+      --vex-footer-note-size: ${footerNoteSize};
     }
 
     * { box-sizing: border-box !important; }
@@ -72,11 +112,11 @@ export function buildExportPrintStyles() {
       margin: 0 !important;
       padding: 0 !important;
       background:
-        radial-gradient(1200px 480px at 8% -10%, rgba(15, 118, 110, 0.08), transparent 55%),
-        radial-gradient(900px 420px at 100% 0%, rgba(30, 58, 95, 0.07), transparent 50%),
+        radial-gradient(1200px 480px at 8% -10%, color-mix(in srgb, var(--vex-accent) 12%, transparent), transparent 55%),
+        radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--vex-navy) 10%, transparent), transparent 50%),
         var(--vex-bg) !important;
       color: var(--vex-text) !important;
-      font-family: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+      font-family: var(--vex-font-sans) !important;
       font-size: 15px !important;
       line-height: 1.55 !important;
       -webkit-font-smoothing: antialiased;
@@ -110,8 +150,8 @@ export function buildExportPrintStyles() {
     .vex-header {
       position: relative;
       background:
-        linear-gradient(135deg, #0b3d4a 0%, #115e59 42%, #0f766e 100%);
-      color: #f8fafc;
+        linear-gradient(135deg, var(--vex-header-bg) 0%, color-mix(in srgb, var(--vex-header-bg) 40%, var(--vex-header-bg-end)) 42%, var(--vex-header-bg-end) 100%);
+      color: var(--vex-header-text);
       border-bottom: none;
     }
     .vex-header::after {
@@ -119,7 +159,7 @@ export function buildExportPrintStyles() {
       position: absolute;
       inset: auto 0 0 0;
       height: 4px;
-      background: linear-gradient(90deg, #99f6e4 0%, #5eead4 40%, #fbbf24 100%);
+      background: linear-gradient(90deg, var(--vex-header-bar) 0%, color-mix(in srgb, var(--vex-header-bar) 55%, var(--vex-header-bar-end)) 40%, var(--vex-header-bar-end) 100%);
     }
     .vex-header-inner {
       max-width: var(--vex-max);
@@ -135,38 +175,40 @@ export function buildExportPrintStyles() {
       margin-bottom: 1.15rem;
     }
     .vex-brand {
-      font-size: 0.72rem;
+      font-size: var(--vex-brand-size);
       font-weight: 700;
       letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: #99f6e4;
+      color: var(--vex-header-brand);
       margin: 0;
+      font-family: var(--vex-font-sans);
     }
     .vex-company {
       margin: 0.35rem 0 0;
-      font-size: 1.05rem;
+      font-size: var(--vex-company-size);
       font-weight: 600;
       letter-spacing: -0.01em;
-      color: #ffffff;
+      color: var(--vex-header-text);
+      font-family: var(--vex-font-sans);
     }
     .vex-generated {
       margin: 0;
       font-size: 0.78rem;
-      color: rgba(248, 250, 252, 0.72);
+      color: color-mix(in srgb, var(--vex-header-text) 72%, transparent);
     }
     .vex-client {
       margin: 0;
-      font-size: clamp(1.7rem, 3.6vw, 2.35rem);
+      font-size: var(--vex-client-size);
       font-weight: 700;
       letter-spacing: -0.025em;
       line-height: 1.15;
-      color: #ffffff;
-      font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+      color: var(--vex-header-text);
+      font-family: var(--vex-font-serif);
     }
     .vex-period {
       margin: 0.45rem 0 0;
       font-size: 0.98rem;
-      color: rgba(248, 250, 252, 0.82);
+      color: color-mix(in srgb, var(--vex-header-text) 82%, transparent);
     }
     .vex-report-pill {
       display: inline-flex;
@@ -175,9 +217,9 @@ export function buildExportPrintStyles() {
       margin-top: 1.05rem;
       padding: 0.38rem 0.9rem;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      color: #ecfdf5;
+      background: color-mix(in srgb, var(--vex-header-text) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--vex-header-text) 22%, transparent);
+      color: var(--vex-header-text);
       font-size: 0.8rem;
       font-weight: 650;
       letter-spacing: 0.03em;
@@ -188,8 +230,8 @@ export function buildExportPrintStyles() {
       width: 0.45rem;
       height: 0.45rem;
       border-radius: 999px;
-      background: #5eead4;
-      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.25);
+      background: var(--vex-header-brand);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--vex-header-brand) 25%, transparent);
     }
 
     /* ── Contenu rapport ── */
@@ -219,28 +261,399 @@ export function buildExportPrintStyles() {
       padding-right: 0 !important;
     }
 
+    /* Executive root spacing */
+    .vex-main [class*="executiveRoot"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1.85rem !important;
+      width: 100% !important;
+    }
+
+    .vex-main [class*="executiveHeader"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.55rem !important;
+      padding: 1.15rem 1.25rem 1.2rem !important;
+      border-radius: 14px !important;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--vex-accent) 8%, #fff) 0%, var(--vex-bg-muted) 100%) !important;
+      border: 1px solid var(--vex-border) !important;
+      border-left: 4px solid var(--vex-accent) !important;
+    }
+
     .vex-main h1,
     .vex-main h2,
     .vex-main h3,
     .vex-main [class*="executiveTitle"],
     .vex-main [class*="summaryChapterTitle"] {
-      font-family: "Source Serif 4", Georgia, "Times New Roman", serif !important;
-      font-size: 1.45rem !important;
+      font-family: var(--vex-font-serif) !important;
+      font-size: 1.55rem !important;
       font-weight: 700 !important;
       letter-spacing: -0.02em !important;
       line-height: 1.25 !important;
       color: var(--vex-navy) !important;
-      margin: 1.75rem 0 0.85rem !important;
-      padding-bottom: 0.55rem !important;
-      border-bottom: 2px solid var(--vex-border) !important;
+      margin: 0 0 0.15rem !important;
+      padding-bottom: 0 !important;
+      border-bottom: none !important;
     }
 
-    .vex-main h1:first-child,
-    .vex-main h2:first-child,
-    .vex-main h3:first-child,
-    .vex-main [class*="executiveTitle"]:first-child,
-    .vex-main [class*="summaryChapterTitle"]:first-child {
+    .vex-main [class*="summaryChapter"] > [class*="summaryChapterHead"] [class*="summaryChapterTitle"],
+    .vex-main [class*="summaryChapterTitle"] {
+      margin: 1.5rem 0 0.35rem !important;
+      padding-bottom: 0.45rem !important;
+      border-bottom: 2px solid color-mix(in srgb, var(--vex-accent) 35%, var(--vex-border)) !important;
+    }
+
+    .vex-main [class*="executiveClient"] {
+      margin: 0 !important;
+      font-size: 0.92rem !important;
+      font-weight: 650 !important;
+      letter-spacing: 0.04em !important;
+      text-transform: uppercase !important;
+      color: var(--vex-text-muted) !important;
+      font-family: var(--vex-font-sans) !important;
+    }
+
+    .vex-main [class*="executiveMeta"] {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      gap: 0.45rem !important;
       margin-top: 0.25rem !important;
+    }
+
+    .vex-main [class*="executivePeriod"] {
+      display: inline-flex !important;
+      align-items: center !important;
+      padding: 0.28rem 0.75rem !important;
+      border-radius: 999px !important;
+      background: color-mix(in srgb, var(--vex-accent) 14%, #fff) !important;
+      color: var(--vex-accent-dark) !important;
+      font-size: 0.78rem !important;
+      font-weight: 650 !important;
+      border: 1px solid color-mix(in srgb, var(--vex-accent) 28%, transparent) !important;
+    }
+
+    .vex-main [class*="executiveBadge"] {
+      display: inline-flex !important;
+      align-items: center !important;
+      padding: 0.28rem 0.75rem !important;
+      border-radius: 999px !important;
+      background: #eef2f7 !important;
+      color: #4b5563 !important;
+      font-size: 0.76rem !important;
+      font-weight: 550 !important;
+    }
+
+    .vex-main [class*="overviewTitle"],
+    .vex-main [class*="sectionHeading"],
+    .vex-main [class*="detailSectionTitle"],
+    .vex-main h4,
+    .vex-main [class*="sectionTitle"],
+    .vex-main [class*="stepTitle"],
+    .vex-main [class*="tableBlockTitle"] {
+      color: var(--vex-navy) !important;
+      font-family: var(--vex-font-sans) !important;
+      font-size: 1.05rem !important;
+      font-weight: 750 !important;
+      letter-spacing: -0.01em !important;
+      margin: 0 0 0.85rem !important;
+      padding: 0 0 0.45rem !important;
+      border-bottom: 1px solid var(--vex-border) !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.45rem !important;
+    }
+
+    .vex-main [class*="overviewTitle"]::before,
+    .vex-main [class*="sectionHeading"]::before {
+      content: "" !important;
+      width: 0.55rem !important;
+      height: 0.55rem !important;
+      border-radius: 3px !important;
+      background: var(--vex-accent) !important;
+      flex-shrink: 0 !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--vex-accent) 18%, transparent) !important;
+    }
+
+    .vex-main [class*="sectionBlock"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.85rem !important;
+      padding: 1.15rem 1.2rem !important;
+      border: 1px solid var(--vex-border) !important;
+      border-radius: 14px !important;
+      background: var(--vex-surface) !important;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+    }
+
+    .vex-main [class*="sectionLead"] {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.45rem !important;
+      margin: 0 !important;
+      padding: 0.55rem 0.8rem !important;
+      border-radius: 10px !important;
+      background: #fffbeb !important;
+      color: #b45309 !important;
+      font-size: 0.88rem !important;
+      font-weight: 650 !important;
+      border: 1px solid #fde68a !important;
+    }
+
+    .vex-main [class*="sectionLeadOk"] {
+      background: #ecfdf5 !important;
+      color: #047857 !important;
+      border-color: #a7f3d0 !important;
+    }
+
+    .vex-main p,
+    .vex-main li {
+      color: var(--vex-text) !important;
+    }
+
+    .vex-main [class*="sectionSubtitle"],
+    .vex-main [class*="stepSubtitle"],
+    .vex-main [class*="globalStatsLabel"],
+    .vex-main [class*="tableBlockCount"],
+    .vex-main [class*="globalStatsHint"],
+    .vex-main [class*="overviewCardHint"],
+    .vex-main [class*="perimeterLead"],
+    .vex-main [class*="sectionFootnote"] {
+      color: var(--vex-text-muted) !important;
+    }
+
+    /* Overview KPI cards */
+    .vex-main [class*="overviewGrid"] {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 0.85rem !important;
+      margin: 0 0 0.25rem !important;
+    }
+
+    .vex-main [class*="_overviewCard_"],
+    .vex-main article[class*="overviewCard"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.4rem !important;
+      padding: 1rem 1.05rem !important;
+      border-radius: 14px !important;
+      border: 1px solid var(--vex-border) !important;
+      background: linear-gradient(180deg, #ffffff 0%, var(--vex-bg-muted) 100%) !important;
+      min-height: 118px !important;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+      position: relative !important;
+      overflow: hidden !important;
+    }
+
+    .vex-main [class*="_overviewCard_"]::before,
+    .vex-main article[class*="overviewCard"]::before {
+      content: "" !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      bottom: 0 !important;
+      width: 3px !important;
+      background: var(--vex-accent) !important;
+    }
+
+    .vex-main [class*="overviewCardHead"] {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.4rem !important;
+      color: var(--vex-text-muted) !important;
+      font-size: 0.8rem !important;
+      font-weight: 650 !important;
+    }
+
+    .vex-main [class*="overviewCardValue"] {
+      font-size: 1.45rem !important;
+      font-weight: 750 !important;
+      line-height: 1.2 !important;
+      letter-spacing: -0.025em !important;
+      color: var(--vex-navy) !important;
+      font-family: var(--vex-font-sans) !important;
+    }
+
+    .vex-main [class*="overviewCardValueOk"] { color: var(--vex-ok) !important; }
+    .vex-main [class*="overviewCardValueWarn"] { color: var(--vex-warn) !important; }
+    .vex-main [class*="overviewCardValueCritical"] { color: var(--vex-crit) !important; }
+
+    .vex-main [class*="overviewCardHint"] {
+      font-size: 0.78rem !important;
+      line-height: 1.4 !important;
+    }
+
+    .vex-main [class*="synthesisBlock"] {
+      margin: 0 !important;
+      padding: 1rem 1.15rem !important;
+      border-left: 4px solid var(--vex-accent) !important;
+      color: var(--vex-text) !important;
+      font-size: 0.94rem !important;
+      line-height: 1.6 !important;
+      background: color-mix(in srgb, var(--vex-accent) 7%, #fff) !important;
+      border-radius: 0 12px 12px 0 !important;
+      border-top: 1px solid color-mix(in srgb, var(--vex-accent) 12%, var(--vex-border)) !important;
+      border-right: 1px solid color-mix(in srgb, var(--vex-accent) 12%, var(--vex-border)) !important;
+      border-bottom: 1px solid color-mix(in srgb, var(--vex-accent) 12%, var(--vex-border)) !important;
+    }
+
+    .vex-main [class*="synthesisLabel"] {
+      font-weight: 750 !important;
+      color: var(--vex-navy) !important;
+    }
+
+    /* Watch points */
+    .vex-main [class*="watchList"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.75rem !important;
+    }
+
+    .vex-main [class*="_watchCard_"],
+    .vex-main article[class*="watchCard"] {
+      padding: 0.95rem 1.05rem !important;
+      border-radius: 12px !important;
+      border: 1px solid #f5d0a9 !important;
+      background: #fffbeb !important;
+    }
+
+    .vex-main [class*="watchCardTitle"] {
+      margin: 0 0 0.35rem !important;
+      font-size: 0.95rem !important;
+      font-weight: 700 !important;
+      color: #92400e !important;
+      border: none !important;
+      padding: 0 !important;
+    }
+
+    .vex-main [class*="watchCardBody"],
+    .vex-main [class*="watchCardAction"] {
+      margin: 0 !important;
+      font-size: 0.86rem !important;
+      line-height: 1.45 !important;
+      color: var(--vex-text) !important;
+    }
+
+    .vex-main [class*="watchCardAction"] {
+      margin-top: 0.4rem !important;
+      color: var(--vex-text-muted) !important;
+      font-size: 0.82rem !important;
+    }
+
+    .vex-main [class*="watchNote"] {
+      margin: 0 !important;
+      padding: 0.85rem 1rem !important;
+      border-radius: 10px !important;
+      border-left: 4px solid #f59e0b !important;
+      background: rgba(245, 158, 11, 0.08) !important;
+      font-size: 0.84rem !important;
+      color: var(--vex-text-muted) !important;
+      line-height: 1.45 !important;
+    }
+
+    /* Service / metric cards */
+    .vex-main [class*="serviceCard"],
+    .vex-main [class*="familyCard"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.85rem !important;
+      padding: 1.05rem 1.15rem !important;
+      border-radius: 14px !important;
+      border: 1px solid var(--vex-border) !important;
+      background: var(--vex-surface) !important;
+    }
+
+    .vex-main [class*="serviceHead"] {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.75rem !important;
+    }
+
+    .vex-main [class*="serviceIdentity"] {
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.7rem !important;
+    }
+
+    .vex-main [class*="serviceIcon"] {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 40px !important;
+      height: 40px !important;
+      border-radius: 10px !important;
+      background: color-mix(in srgb, var(--vex-accent) 12%, #fff) !important;
+      color: var(--vex-accent-dark) !important;
+    }
+
+    .vex-main [class*="serviceName"],
+    .vex-main [class*="familyCardTitle"] {
+      margin: 0 !important;
+      font-size: 1.05rem !important;
+      font-weight: 700 !important;
+      color: var(--vex-navy) !important;
+      border: none !important;
+      padding: 0 !important;
+    }
+
+    .vex-main [class*="serviceBadge"] {
+      display: inline-flex !important;
+      align-items: center !important;
+      padding: 0.22rem 0.65rem !important;
+      border-radius: 999px !important;
+      font-size: 0.75rem !important;
+      font-weight: 650 !important;
+      background: #ecfdf5 !important;
+      color: #047857 !important;
+    }
+
+    .vex-main [class*="metricGrid"] {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 0.65rem !important;
+    }
+
+    .vex-main [class*="metricGrid4"] {
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+
+    .vex-main [class*="metricItem"] {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.15rem !important;
+      padding: 0.75rem 0.85rem !important;
+      border-radius: 10px !important;
+      background: var(--vex-bg-muted) !important;
+      border: 1px solid var(--vex-border) !important;
+    }
+
+    .vex-main [class*="metricLabel"] {
+      font-size: 0.74rem !important;
+      color: var(--vex-text-muted) !important;
+      font-weight: 650 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.04em !important;
+    }
+
+    .vex-main [class*="metricValue"] {
+      font-size: 1.25rem !important;
+      font-weight: 750 !important;
+      color: var(--vex-navy) !important;
+      letter-spacing: -0.02em !important;
+    }
+
+    .vex-main [class*="domainRow"] {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.65rem !important;
+      padding: 0.85rem 1rem !important;
+      border-radius: 12px !important;
+      border: 1px solid var(--vex-border) !important;
+      background: var(--vex-bg-muted) !important;
     }
 
     [class*="summaryToc"] {
@@ -256,35 +669,11 @@ export function buildExportPrintStyles() {
       padding-right: 0 !important;
     }
 
-    .vex-main h4,
-    .vex-main [class*="sectionTitle"],
-    .vex-main [class*="stepTitle"],
-    .vex-main [class*="sectionHeading"],
-    .vex-main [class*="tableBlockTitle"] {
-      color: var(--vex-text) !important;
-      font-size: 1.02rem !important;
-      font-weight: 700 !important;
-      letter-spacing: -0.01em !important;
-      margin: 1.35rem 0 0.65rem !important;
-    }
-
-    .vex-main p,
-    .vex-main li {
-      color: var(--vex-text) !important;
-    }
-
-    .vex-main [class*="sectionSubtitle"],
-    .vex-main [class*="stepSubtitle"],
-    .vex-main [class*="globalStatsLabel"],
-    .vex-main [class*="tableBlockCount"],
-    .vex-main [class*="globalStatsHint"] {
-      color: var(--vex-text-muted) !important;
-    }
-
     /* KPI / stats */
     .vex-main [class*="globalStatsGrid"],
     .vex-main [class*="globalStatsGridStylized"],
-    .vex-main [class*="kpiGrid"] {
+    .vex-main [class*="kpiGrid"],
+    .vex-main [class*="supportGrid"] {
       display: grid !important;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
       gap: 0.75rem !important;
@@ -293,7 +682,8 @@ export function buildExportPrintStyles() {
 
     .vex-main [class*="globalStatsItem"],
     .vex-main [class*="globalStatsGridStylized"] [class*="globalStatsItem"],
-    .vex-main [class*="kpiCard"] {
+    .vex-main [class*="kpiCard"],
+    .vex-main [class*="supportCard"] {
       position: relative !important;
       background: var(--vex-bg-muted) !important;
       border: 1px solid var(--vex-border) !important;
@@ -304,7 +694,8 @@ export function buildExportPrintStyles() {
     }
 
     .vex-main [class*="globalStatsItem"]::before,
-    .vex-main [class*="kpiCard"]::before {
+    .vex-main [class*="kpiCard"]::before,
+    .vex-main [class*="supportCard"]::before {
       content: "" !important;
       position: absolute !important;
       left: 0 !important;
@@ -315,7 +706,8 @@ export function buildExportPrintStyles() {
     }
 
     .vex-main [class*="globalStatsValue"],
-    .vex-main [class*="kpiValue"] {
+    .vex-main [class*="kpiValue"],
+    .vex-main [class*="supportCardValue"] {
       font-size: 1.45rem !important;
       font-weight: 750 !important;
       letter-spacing: -0.03em !important;
@@ -334,7 +726,8 @@ export function buildExportPrintStyles() {
     /* Tables */
     .vex-main [class*="infraTableWrapper"],
     .vex-main [class*="tableWrapper"],
-    .vex-main [class*="tableBlock"] {
+    .vex-main [class*="tableBlock"],
+    .vex-main [class*="watchTableWrap"] {
       border: 1px solid var(--vex-border) !important;
       border-radius: 12px !important;
       overflow: hidden !important;
@@ -342,7 +735,8 @@ export function buildExportPrintStyles() {
       margin: 0.65rem 0 1.35rem !important;
     }
 
-    .vex-main table {
+    .vex-main table,
+    .vex-main [class*="watchTable"] {
       width: 100% !important;
       border-collapse: collapse !important;
       border-spacing: 0 !important;
@@ -350,7 +744,8 @@ export function buildExportPrintStyles() {
     }
 
     .vex-main [class*="infraTableHeaderCell"],
-    .vex-main thead th {
+    .vex-main thead th,
+    .vex-main [class*="watchTable"] th {
       background: #eef2f7 !important;
       color: var(--vex-text-muted) !important;
       font-size: 0.72rem !important;
@@ -364,7 +759,8 @@ export function buildExportPrintStyles() {
     }
 
     .vex-main [class*="infraTableCell"],
-    .vex-main tbody td {
+    .vex-main tbody td,
+    .vex-main [class*="watchTable"] td {
       color: var(--vex-text) !important;
       font-size: 0.86rem !important;
       padding: 0.7rem 0.85rem !important;
@@ -382,18 +778,27 @@ export function buildExportPrintStyles() {
       border-bottom: none !important;
     }
 
-    /* Cards / chips */
+    /* Cards / chips — avoid matching overviewCard via case */
     .vex-main [class*="topologyStorageChip"],
     .vex-main [class*="topologyServerChip"],
     .vex-main [class*="topologyFirewallChip"],
     .vex-main [class*="topologyLinkChip"],
-    .vex-main [class*="card"],
     .vex-main [class*="execCard"],
-    .vex-main [class*="panel"] {
+    .vex-main [class*="panel"],
+    .vex-main [class*="equipmentChip"] {
       background: var(--vex-surface) !important;
       border: 1px solid var(--vex-border) !important;
       border-radius: 12px !important;
       box-shadow: none !important;
+    }
+
+    .vex-main [class*="equipmentChip"] {
+      display: inline-flex !important;
+      padding: 0.2rem 0.55rem !important;
+      border-radius: 999px !important;
+      font-size: 0.75rem !important;
+      font-weight: 650 !important;
+      background: var(--vex-bg-muted) !important;
     }
 
     /* Status badges */
@@ -425,6 +830,29 @@ export function buildExportPrintStyles() {
     .vex-main [class*="critical"],
     .vex-main [class*="fail"] {
       color: var(--vex-crit) !important;
+    }
+
+    @media (max-width: 900px) {
+      .vex-main [class*="overviewGrid"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+      .vex-main [class*="metricGrid4"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+
+    @media print {
+      .vex-main [class*="overviewGrid"] {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      }
+      .vex-main [class*="_overviewCard_"],
+      .vex-main article[class*="overviewCard"],
+      .vex-main [class*="sectionBlock"],
+      .vex-main [class*="serviceCard"],
+      .vex-main [class*="_watchCard_"],
+      .vex-main article[class*="watchCard"] {
+        break-inside: avoid !important;
+      }
     }
 
     /* ── Comments ── */
@@ -505,7 +933,7 @@ export function buildExportPrintStyles() {
     /* ── Pied de page ── */
     .vex-footer {
       border-top: 1px solid var(--vex-border);
-      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      background: var(--vex-footer-bg);
       margin-top: 0;
     }
     .vex-footer-inner {
@@ -513,13 +941,15 @@ export function buildExportPrintStyles() {
       margin: 0 auto;
       padding: 1.45rem 2rem 1.6rem;
       text-align: center;
+      font-family: var(--vex-font-sans);
     }
     .vex-footer-brand {
-      font-size: 0.78rem;
+      font-size: var(--vex-footer-brand-size);
       font-weight: 750;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--vex-navy);
+      color: var(--vex-footer-text);
+      font-family: var(--vex-font-sans);
     }
     .vex-footer-contacts {
       margin-top: 0.7rem;
@@ -528,9 +958,10 @@ export function buildExportPrintStyles() {
       justify-content: center;
       gap: 0.85rem 1.35rem;
       font-size: 0.86rem;
+      color: var(--vex-footer-muted);
     }
     .vex-footer-contacts a {
-      color: var(--vex-accent-dark);
+      color: var(--vex-footer-link);
       text-decoration: none;
       font-weight: 600;
     }
@@ -544,7 +975,7 @@ export function buildExportPrintStyles() {
       gap: 0.9rem;
     }
     .vex-footer-social a {
-      color: var(--vex-text-muted);
+      color: var(--vex-footer-muted);
       text-decoration: none;
       display: inline-flex;
       width: 2rem;
@@ -553,12 +984,12 @@ export function buildExportPrintStyles() {
       justify-content: center;
       border-radius: 999px;
       border: 1px solid var(--vex-border);
-      background: #fff;
+      background: var(--vex-footer-bg);
     }
     .vex-footer-note {
       margin: 0.95rem 0 0;
-      font-size: 0.75rem;
-      color: var(--vex-text-muted);
+      font-size: var(--vex-footer-note-size);
+      color: var(--vex-footer-muted);
     }
 
     .vex-back-top {
@@ -728,6 +1159,12 @@ export function buildReportDocumentHtml({
   commentsHtml = "",
   branding = null
 }) {
+  const fontsHref =
+    branding?.style?.googleFontsHref ||
+    "https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap";
+  const fontsLink = fontsHref
+    ? `<link href="${escapeHtml(fontsHref)}" rel="stylesheet" />`
+    : "";
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -737,11 +1174,11 @@ export function buildReportDocumentHtml({
   <title>${escapeHtml(documentTitle)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet" />
+  ${fontsLink}
   <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
   <style>
     ${collectedCss}
-    ${buildExportPrintStyles()}
+    ${buildExportPrintStyles(branding)}
   </style>
 </head>
 <body id="top">

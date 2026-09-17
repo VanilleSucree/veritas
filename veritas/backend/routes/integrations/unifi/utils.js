@@ -80,16 +80,26 @@ export function normalizeMac(mac) {
 }
 
 export function classifyUnifiDevice(device = {}) {
-  const model = String(device.model || device.productLine || device.shortname || device.type || "").toLowerCase();
-  const name = String(device.name || "").toLowerCase();
+  const model = String(device.model || device.productModel || device.productLine || device.shortname || device.type || "").toLowerCase();
+  const name = String(device.name || device.hostname || "").toLowerCase();
   const productLine = String(device.productLine || device.product_line || "").toLowerCase();
+  const shortname = String(device.shortname || device.model || "").toLowerCase();
   const typeHint = String(device.type || device.deviceType || device.category || "").toLowerCase();
-  const blob = `${model} ${name} ${productLine} ${typeHint}`;
+  const features = Array.isArray(device.features)
+    ? device.features.map(f => String(f || "").toLowerCase())
+    : [];
+  const featureBlob = features.join(" ");
+  const blob = `${model} ${name} ${productLine} ${shortname} ${typeHint} ${featureBlob}`;
+
+  const hasFeature = (...needles) =>
+    features.some(f => needles.some(n => f === n || f.includes(n)));
 
   if (
-    /\b(uap|u6|u7|uai|wifi|access.?point|ap)\b/.test(blob) ||
+    hasFeature("accesspoint", "access_point", "wifi", "wireless", "uap") ||
+    /\b(uap|u6|u7|uai|u7-|u6-|wifi|access.?point|\bap\b)\b/.test(blob) ||
     typeHint.includes("uap") ||
-    typeHint === "ap"
+    typeHint === "ap" ||
+    /^u(6|7|ap|ai)/i.test(shortname)
   ) {
     return {
       category: "ap",
@@ -97,25 +107,29 @@ export function classifyUnifiDevice(device = {}) {
     };
   }
   if (
+    hasFeature("switching", "switch", "usw") ||
     /\b(usw|switch|enterprise.?switch)\b/.test(blob) ||
     typeHint.includes("usw") ||
-    typeHint === "switch"
+    typeHint === "switch" ||
+    /^usw/i.test(shortname)
   ) {
     return {
       category: "switch",
       moduleKey: "Switch"
     };
   }
-  if (/\b(edgerouter|er-)\b/.test(blob)) {
+  if (/\b(edgerouter|er-)\b/.test(blob) || /^er[-_]/i.test(shortname)) {
     return {
       category: "router",
       moduleKey: "Routeur"
     };
   }
   if (
+    hasFeature("gateway", "routing", "firewall", "securitygateway") ||
     /\b(udm|uxg|ucg|ugw|gateway|dream.?machine|cloud.?gateway|security.?gateway)\b/.test(blob) ||
     typeHint.includes("ugw") ||
-    typeHint === "gateway"
+    typeHint === "gateway" ||
+    /^(udm|uxg|ucg|ugw)/i.test(shortname)
   ) {
     return {
       category: "gateway",
@@ -266,7 +280,8 @@ export async function resolveNetworkSiteId({
   networkApiKey,
   hostId,
   siteId,
-  siteName = null
+  siteName = null,
+  siteManagerApiKey = null
 }) {
   if (!networkApiKey || !hostId || !siteId) return null;
   const networkSites = await listNetworkSitesViaConnector({ networkApiKey, hostId });
@@ -275,12 +290,42 @@ export async function resolveNetworkSiteId({
   const byId = networkSites.find(site => String(site.id) === String(siteId));
   if (byId) return byId.id;
 
-  const targetNames = [siteName]
-    .filter(Boolean)
-    .map(normalizeSiteLabel);
-  if (targetNames.length) {
-    const byName = networkSites.find(site => targetNames.includes(normalizeSiteLabel(site.name)));
+  const targetNames = new Set(
+    [siteName]
+      .filter(Boolean)
+      .map(normalizeSiteLabel)
+      .filter(Boolean)
+  );
+
+  if (siteManagerApiKey) {
+    try {
+      const smSites = await listAllSites(siteManagerApiKey);
+      const sm = smSites.find(site => {
+        const id = site.siteId || site.id || site.site_id;
+        return String(id || "") === String(siteId);
+      });
+      if (sm) {
+        [sm.meta?.desc, sm.meta?.name, sm.name, sm.siteName, sm.description]
+          .filter(Boolean)
+          .map(normalizeSiteLabel)
+          .filter(Boolean)
+          .forEach(label => targetNames.add(label));
+      }
+    } catch {
+      /* ignore SM lookup failures */
+    }
+  }
+
+  if (targetNames.size) {
+    const byName = networkSites.find(site => targetNames.has(normalizeSiteLabel(site.name)));
     if (byName) return byName.id;
+
+    // Loose match: Network "Default" often maps to the only / primary SM site name.
+    const loose = networkSites.find(site => {
+      const label = normalizeSiteLabel(site.name);
+      return [...targetNames].some(target => label.includes(target) || target.includes(label));
+    });
+    if (loose) return loose.id;
   }
 
   // Single-site console: safe to use the only Network site.

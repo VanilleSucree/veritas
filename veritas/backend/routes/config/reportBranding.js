@@ -9,6 +9,8 @@ import {
   REPORT_BRANDING_KEYS,
   REPORT_BRANDING_LABELS,
   REPORT_BRANDING_SECTION,
+  REPORT_FONT_SANS_PRESETS,
+  REPORT_FONT_SERIF_PRESETS,
   loadReportBranding,
   normalizeReportBranding,
   toPublicReportBranding
@@ -80,7 +82,16 @@ router.get("/admin", verifyJWT, requirePermission("admin_panel.reports"), requir
     const fromDb = await readRawReportBranding();
     const raw = normalizeReportBranding({ ...DEFAULT_REPORT_BRANDING, ...fromDb });
     const branding = toPublicReportBranding(raw, fromDb);
-    res.json({ success: true, settings: raw, branding });
+    res.json({
+      success: true,
+      settings: raw,
+      branding,
+      fontPresets: {
+        sans: Object.values(REPORT_FONT_SANS_PRESETS).map(({ id, label }) => ({ id, label })),
+        serif: Object.values(REPORT_FONT_SERIF_PRESETS).map(({ id, label }) => ({ id, label }))
+      },
+      defaults: DEFAULT_REPORT_BRANDING
+    });
   } catch (err) {
     console.error("GET /report-branding/admin", err);
     res.status(500).json({ success: false, error: "Unable to load report branding." });

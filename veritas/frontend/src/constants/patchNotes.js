@@ -5,6 +5,16 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.21",
+    date: "2026-09-17",
+    highlights: [
+      "Admin → Rapports : personnalisation avancée de l’identité et de l’apparence (polices, couleurs header/footer, tailles) avec aperçu en direct.",
+      "Exports HTML : mise en forme renforcée (titres, cartes KPI Vue d’ensemble, sections, synthèse, points à surveiller).",
+      "UniFi : correctif de l’import matériel vide après liaison d’un site (fallback Site Manager, classification Network, filtre site).",
+      "NDD OVH : correctif du refresh « Unable to save NDD » (UUID / item_key)."
+    ]
+  },
+  {
     version: "1.0.20",
     date: "2026-09-17",
     highlights: [

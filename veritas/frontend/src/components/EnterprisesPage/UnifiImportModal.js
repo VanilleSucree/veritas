@@ -31,7 +31,9 @@ const COPY = {
     importSuccess: "{count} équipement(s) importé(s).",
     importPartial: "{ok} importé(s), {fail} échec(s).",
     selectAtLeast: "Sélectionnez au moins un device.",
-    loadError: "Impossible de charger les devices UniFi."
+    loadError: "Impossible de charger les devices UniFi.",
+    unclassified: "Type non reconnu — non importable",
+    warningPrefix: "Attention"
   },
   en: {
     title: "Import from UniFi",
@@ -53,7 +55,9 @@ const COPY = {
     importSuccess: "{count} device(s) imported.",
     importPartial: "{ok} imported, {fail} failed.",
     selectAtLeast: "Select at least one device.",
-    loadError: "Unable to load UniFi devices."
+    loadError: "Unable to load UniFi devices.",
+    unclassified: "Unrecognized type — not importable",
+    warningPrefix: "Warning"
   }
 };
 
@@ -105,6 +109,7 @@ export default function UnifiImportModal({
   const [importing, setImporting] = useState(false);
   const [link, setLink] = useState(null);
   const [devices, setDevices] = useState([]);
+  const [warning, setWarning] = useState(null);
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(() => new Set());
 
@@ -141,6 +146,7 @@ export default function UnifiImportModal({
         setLink(current);
         if (!current?.hostId || !current?.siteId) {
           setDevices([]);
+          setWarning(null);
           return;
         }
         const devicesRes = await fetchUnifiDevices({
@@ -150,6 +156,7 @@ export default function UnifiImportModal({
         });
         if (cancelled) return;
         setDevices(devicesRes.devices || []);
+        setWarning(devicesRes.warning || null);
       } catch (err) {
         if (!cancelled) showError(err.message || copy.loadError);
       } finally {
@@ -165,7 +172,8 @@ export default function UnifiImportModal({
     if (filter === "switch") return devices.filter(d => d.category === "switch");
     if (filter === "ap") return devices.filter(d => d.category === "ap");
     if (filter === "gateway") return devices.filter(d => d.category === "gateway" || d.category === "router");
-    return devices.filter(d => d.moduleKey);
+    // "all" = importable equipment; fall back to any classified or unknown network gear
+    return devices.filter(d => d.moduleKey || d.category === "other" || d.mac || d.id);
   }, [devices, filter]);
 
   if (!open) return null;
@@ -180,7 +188,7 @@ export default function UnifiImportModal({
   };
 
   const handleImport = async () => {
-    const toImport = filtered.filter(d => selected.has(deviceKey(d)) && d.moduleKey);
+    const toImport = filtered.filter(d => selected.has(deviceKey(d)) && (d.moduleKey || d.category));
     if (!toImport.length) {
       showError(copy.selectAtLeast);
       return;
@@ -193,8 +201,13 @@ export default function UnifiImportModal({
         (device.macNormalized && importedMacs.has(device.macNormalized)) ||
         (device.id && importedMacs.has(String(device.id)));
       if (already) continue;
+      const moduleKey = device.moduleKey;
+      if (!moduleKey) {
+        fail += 1;
+        continue;
+      }
       try {
-        await createEquipment(clientId, device.moduleKey, mapDeviceToFormData(device));
+        await createEquipment(clientId, moduleKey, mapDeviceToFormData(device));
         ok += 1;
       } catch (err) {
         console.error("[unifi import]", err);
@@ -241,6 +254,11 @@ export default function UnifiImportModal({
               <p className={formStyles.sectionDesc}>{copy.noLink}</p>
             ) : (
               <>
+                {warning ? (
+                  <p className={formStyles.sectionDesc} style={{ marginBottom: "0.85rem", color: "var(--msp-warn, #b45309)" }}>
+                    {copy.warningPrefix} : {warning}
+                  </p>
+                ) : null}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "0.85rem" }}>
                   {[
                     ["all", copy.filterAll],
@@ -265,16 +283,17 @@ export default function UnifiImportModal({
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem", maxHeight: "min(420px, 50vh)", overflow: "auto" }}>
                     {filtered.map(device => {
                       const key = deviceKey(device);
-                      const already =
+                          const already =
                         (device.macNormalized && importedMacs.has(device.macNormalized)) ||
                         (device.id && importedMacs.has(String(device.id)));
                       const isSelected = selected.has(key);
+                      const canImport = Boolean(device.moduleKey);
                       return (
                         <button
                           key={key}
                           type="button"
-                          onClick={() => !already && toggle(key)}
-                          disabled={already}
+                          onClick={() => !already && canImport && toggle(key)}
+                          disabled={already || !canImport}
                           style={{
                             display: "flex",
                             alignItems: "flex-start",
@@ -283,22 +302,26 @@ export default function UnifiImportModal({
                             padding: "0.7rem 0.8rem",
                             borderRadius: 10,
                             border: `1px solid ${isSelected ? "var(--msp-accent, #2b5fab)" : "var(--msp-border-light, #e2e8f0)"}`,
-                            background: already ? "var(--msp-surface-2, #f7f9fc)" : isSelected ? "rgba(43,95,171,0.06)" : "var(--msp-surface, #fff)",
-                            cursor: already ? "default" : "pointer",
-                            opacity: already ? 0.65 : 1,
+                            background: already || !canImport ? "var(--msp-surface-2, #f7f9fc)" : isSelected ? "rgba(43,95,171,0.06)" : "var(--msp-surface, #fff)",
+                            cursor: already || !canImport ? "default" : "pointer",
+                            opacity: already || !canImport ? 0.65 : 1,
                             font: "inherit",
                             color: "inherit"
                           }}
                         >
-                          <input type="checkbox" checked={isSelected || already} readOnly disabled={already} style={{ marginTop: 3 }} />
+                          <input type="checkbox" checked={isSelected || already} readOnly disabled={already || !canImport} style={{ marginTop: 3 }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <strong style={{ display: "block", fontSize: "0.88rem" }}>{device.name}</strong>
                             <span style={{ fontSize: "0.75rem", color: "var(--msp-muted, #5c6b82)" }}>
-                              {[device.model, device.ip, device.mac, device.moduleKey].filter(Boolean).join(" · ")}
+                              {[device.model, device.ip, device.mac, device.moduleKey || device.category].filter(Boolean).join(" · ")}
                             </span>
                             {already ? (
                               <span style={{ display: "block", fontSize: "0.7rem", marginTop: 2, color: "var(--msp-muted, #5c6b82)" }}>
                                 {copy.alreadyImported}
+                              </span>
+                            ) : !canImport ? (
+                              <span style={{ display: "block", fontSize: "0.7rem", marginTop: 2, color: "var(--msp-muted, #5c6b82)" }}>
+                                {copy.unclassified}
                               </span>
                             ) : null}
                           </span>
