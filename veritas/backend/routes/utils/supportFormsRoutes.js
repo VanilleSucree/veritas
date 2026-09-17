@@ -2,11 +2,15 @@ import express from "express";
 import { body, param, query, validationResult } from "express-validator";
 import { pool } from "../../database/db.js";
 import verifyJWT from "../../middleware/auth.js";
+import { requirePermission } from "../../middleware/permissions.js";
+import { userHasAnyPermission } from "../../services/permissionService.js";
 import { getUserTeamIds, hasAssignmentTargets, loadAssignmentsByFormIds, mapFormAssignments, syncFormAssignments, userCanAccessForm } from "../../services/supportFormAssignments.js";
 import { normalizeTicketTargetsConfig, parseTicketTargetsFromRow } from "../../services/salesFormTicketTargets.js";
 import { normalizeVisibilityRules } from "../../services/salesFormConditions.js";
 const router = express.Router();
 router.use(verifyJWT);
+const MANAGE_SUPPORT_FORMS_PERMISSION = "admin_panel.tickets";
+const requireSupportFormsAdmin = requirePermission(MANAGE_SUPPORT_FORMS_PERMISSION);
 const SUPPORT_KINDS = new Set(["incident", "demande", "probleme", "changement"]);
 const FIELD_TYPES = new Set(["section", "text", "textarea", "select", "radio", "multiselect", "checkbox", "user", "contact", "client", "number", "currency", "email", "phone", "url", "date", "time", "datetime", "rating", "file"]);
 const VISIBILITY_VALUES = new Set(["public", "assigned"]);
@@ -21,8 +25,8 @@ function validationErrorOrNull(req, res) {
   }
   return false;
 }
-function isAdminUser(req) {
-  return String(req.user?.role || "").toLowerCase() === "admin";
+async function canManageSupportForms(req) {
+  return userHasAnyPermission(req.user, [MANAGE_SUPPORT_FORMS_PERMISSION]);
 }
 async function getUserProfileName(userId) {
   if (!userId) return null;
@@ -222,7 +226,7 @@ async function assertUserCanAccessForm(req, res, formRow) {
     });
     return false;
   }
-  if (isAdminUser(req) && (req.query?.includeDisabled === "true" || req.query?.includeDisabled === true)) {
+  if (await canManageSupportForms(req) && (req.query?.includeDisabled === "true" || req.query?.includeDisabled === true)) {
     return true;
   }
   const visibility = normalizeVisibility(formRow.visibility);
@@ -246,7 +250,7 @@ router.get("/", verifyJWT, [query("kind").optional().isIn(["incident", "demande"
   try {
     const kind = req.query?.kind ? String(req.query.kind) : "";
     const includeDisabled = req.query?.includeDisabled === "true" || req.query?.includeDisabled === true;
-    const isAdmin = isAdminUser(req);
+    const isAdmin = await canManageSupportForms(req);
     const userId = req.user?.id;
     const userProfileName = await getUserProfileName(userId);
     const userTeamIds = await getUserTeamIds(userId);
@@ -275,9 +279,10 @@ router.get("/:formId", verifyJWT, [param("formId").isString().notEmpty()], async
     const formId = String(req.params.formId);
     const raw = await pool.query(`SELECT * FROM v_b_support_form_definitions WHERE id = $1`, [formId]);
     if (!(await assertUserCanAccessForm(req, res, raw.rows[0]))) return;
+    const canManage = await canManageSupportForms(req);
     const form = await loadFormById(formId, {
-      includeDisabledFields: isAdminUser(req),
-      includeAssignments: isAdminUser(req)
+      includeDisabledFields: canManage,
+      includeAssignments: canManage
     });
     return res.json(form);
   } catch (err) {
@@ -287,10 +292,7 @@ router.get("/:formId", verifyJWT, [param("formId").isString().notEmpty()], async
     });
   }
 });
-router.post("/", verifyJWT, [body("kind").isIn(["incident", "demande", "probleme", "changement"]), body("key").isString().notEmpty(), body("label").isString().notEmpty(), body("icon").optional().isString(), body("categorySlug").optional().isString(), body("description").optional().isString(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean(), body("visibility").optional().isIn(["public", "assigned"]), body("publicEnabled").optional().isBoolean(), body("publicSlug").optional().isString(), body("profileNames").optional().isArray(), body("userIds").optional().isArray(), body("teamIds").optional().isArray(), body("ticketTargets").optional().isObject()], async (req, res) => {
-  if (!isAdminUser(req)) return res.status(403).json({
-    error: "Access restricted to administrators"
-  });
+router.post("/", requireSupportFormsAdmin, [body("kind").isIn(["incident", "demande", "probleme", "changement"]), body("key").isString().notEmpty(), body("label").isString().notEmpty(), body("icon").optional().isString(), body("categorySlug").optional().isString(), body("description").optional().isString(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean(), body("visibility").optional().isIn(["public", "assigned"]), body("publicEnabled").optional().isBoolean(), body("publicSlug").optional().isString(), body("profileNames").optional().isArray(), body("userIds").optional().isArray(), body("teamIds").optional().isArray(), body("ticketTargets").optional().isObject()], async (req, res) => {
   const validationResponse = validationErrorOrNull(req, res);
   if (validationResponse) return;
   try {
@@ -337,10 +339,7 @@ router.post("/", verifyJWT, [body("kind").isIn(["incident", "demande", "probleme
     });
   }
 });
-router.put("/:formId", verifyJWT, [param("formId").isString().notEmpty(), body("kind").optional().isIn(["incident", "demande", "probleme", "changement"]), body("key").optional().isString(), body("label").optional().isString(), body("icon").optional().isString(), body("categorySlug").optional().isString(), body("description").optional().isString(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean(), body("visibility").optional().isIn(["public", "assigned"]), body("publicEnabled").optional().isBoolean(), body("publicSlug").optional().isString(), body("profileNames").optional().isArray(), body("userIds").optional().isArray(), body("teamIds").optional().isArray(), body("ticketTargets").optional().isObject()], async (req, res) => {
-  if (!isAdminUser(req)) return res.status(403).json({
-    error: "Access restricted to administrators"
-  });
+router.put("/:formId", requireSupportFormsAdmin, [param("formId").isString().notEmpty(), body("kind").optional().isIn(["incident", "demande", "probleme", "changement"]), body("key").optional().isString(), body("label").optional().isString(), body("icon").optional().isString(), body("categorySlug").optional().isString(), body("description").optional().isString(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean(), body("visibility").optional().isIn(["public", "assigned"]), body("publicEnabled").optional().isBoolean(), body("publicSlug").optional().isString(), body("profileNames").optional().isArray(), body("userIds").optional().isArray(), body("teamIds").optional().isArray(), body("ticketTargets").optional().isObject()], async (req, res) => {
   const validationResponse = validationErrorOrNull(req, res);
   if (validationResponse) return;
   try {
@@ -436,10 +435,7 @@ router.put("/:formId", verifyJWT, [param("formId").isString().notEmpty(), body("
     });
   }
 });
-router.delete("/:formId", verifyJWT, [param("formId").isString().notEmpty()], async (req, res) => {
-  if (!isAdminUser(req)) return res.status(403).json({
-    error: "Access restricted to administrators"
-  });
+router.delete("/:formId", requireSupportFormsAdmin, [param("formId").isString().notEmpty()], async (req, res) => {
   const validationResponse = validationErrorOrNull(req, res);
   if (validationResponse) return;
   try {
@@ -458,10 +454,7 @@ router.delete("/:formId", verifyJWT, [param("formId").isString().notEmpty()], as
     });
   }
 });
-router.post("/:formId/fields", verifyJWT, [param("formId").isString().notEmpty(), body("fieldKey").isString().notEmpty(), body("label").isString().notEmpty(), body("fieldType").optional().isString(), body("required").optional().isBoolean(), body("placeholder").optional().isString(), body("options").optional().isArray(), body("visibilityRules").optional().isObject(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean()], async (req, res) => {
-  if (!isAdminUser(req)) return res.status(403).json({
-    error: "Access restricted to administrators"
-  });
+router.post("/:formId/fields", requireSupportFormsAdmin, [param("formId").isString().notEmpty(), body("fieldKey").isString().notEmpty(), body("label").isString().notEmpty(), body("fieldType").optional().isString(), body("required").optional().isBoolean(), body("placeholder").optional().isString(), body("options").optional().isArray(), body("visibilityRules").optional().isObject(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean()], async (req, res) => {
   const validationResponse = validationErrorOrNull(req, res);
   if (validationResponse) return;
   try {
@@ -497,10 +490,7 @@ router.post("/:formId/fields", verifyJWT, [param("formId").isString().notEmpty()
     });
   }
 });
-router.put("/:formId/fields/:fieldId", verifyJWT, [param("formId").isString().notEmpty(), param("fieldId").isString().notEmpty(), body("fieldKey").optional().isString(), body("label").optional().isString(), body("fieldType").optional().isString(), body("required").optional().isBoolean(), body("placeholder").optional().isString(), body("options").optional().isArray(), body("visibilityRules").optional().isObject(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean()], async (req, res) => {
-  if (!isAdminUser(req)) return res.status(403).json({
-    error: "Access restricted to administrators"
-  });
+router.put("/:formId/fields/:fieldId", requireSupportFormsAdmin, [param("formId").isString().notEmpty(), param("fieldId").isString().notEmpty(), body("fieldKey").optional().isString(), body("label").optional().isString(), body("fieldType").optional().isString(), body("required").optional().isBoolean(), body("placeholder").optional().isString(), body("options").optional().isArray(), body("visibilityRules").optional().isObject(), body("displayOrder").optional().isInt(), body("enabled").optional().isBoolean()], async (req, res) => {
   const validationResponse = validationErrorOrNull(req, res);
   if (validationResponse) return;
   try {
@@ -556,10 +546,7 @@ router.put("/:formId/fields/:fieldId", verifyJWT, [param("formId").isString().no
     });
   }
 });
-router.delete("/:formId/fields/:fieldId", verifyJWT, [param("formId").isString().notEmpty(), param("fieldId").isString().notEmpty()], async (req, res) => {
-  if (!isAdminUser(req)) return res.status(403).json({
-    error: "Access restricted to administrators"
-  });
+router.delete("/:formId/fields/:fieldId", requireSupportFormsAdmin, [param("formId").isString().notEmpty(), param("fieldId").isString().notEmpty()], async (req, res) => {
   const validationResponse = validationErrorOrNull(req, res);
   if (validationResponse) return;
   try {
