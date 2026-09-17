@@ -397,7 +397,8 @@ async function queryOrEmpty(sql, params) {
   try {
     return await pool.query(sql, params);
   } catch (err) {
-    if (err?.code === "42P01") return { rows: [] };
+    // 42P01 = undefined table, 42703 = undefined column (ex. checkmk_* absentes)
+    if (err?.code === "42P01" || err?.code === "42703") return { rows: [] };
     throw err;
   }
 }
@@ -485,52 +486,63 @@ async function loadCheckmkMappingsByIds(ids) {
   if (!uuids.length) return new Map();
   const map = new Map();
   const tables = [...new Set(PURGE_HARDWARE_FAMILIES.map(row => row.table).filter(Boolean))];
+
+  const ingestRows = rows => {
+    for (const row of rows || []) {
+      const key = String(row.equipment_id || "").toLowerCase();
+      const host = String(row.checkmk_host_name || "").trim();
+      if (!key || !host || map.has(key)) continue;
+      map.set(key, {
+        checkmk_host_name: host,
+        checkmk_site: row.checkmk_site || null,
+        checkmk_service_name: row.checkmk_service_name || null
+      });
+    }
+  };
+
   await Promise.all(
     tables.map(async table => {
-      const withCols = await queryOrEmpty(
-        `SELECT id::text AS equipment_id,
-                NULLIF(TRIM(COALESCE(
-                  checkmk_host_name,
-                  data->>'checkmk_host_name',
-                  data->'checkmkMapping'->>'checkmk_host_name',
-                  ''
-                )), '') AS checkmk_host_name,
-                NULLIF(TRIM(COALESCE(
-                  checkmk_site,
-                  data->>'checkmk_site',
-                  data->'checkmkMapping'->>'checkmk_site',
-                  ''
-                )), '') AS checkmk_site,
-                NULLIF(TRIM(COALESCE(
-                  checkmk_service_name,
-                  data->>'checkmk_service_name',
-                  data->'checkmkMapping'->>'checkmk_service_name',
-                  ''
-                )), '') AS checkmk_service_name
-           FROM ${table}
-          WHERE id = ANY($1::uuid[])
-            AND NULLIF(TRIM(COALESCE(
-              checkmk_host_name,
-              data->>'checkmk_host_name',
-              data->'checkmkMapping'->>'checkmk_host_name',
-              ''
-            )), '') IS NOT NULL`,
-        [uuids]
-      );
-      if (withCols?.rows?.length) {
-        for (const row of withCols.rows) {
-          const key = String(row.equipment_id || "").toLowerCase();
-          const host = String(row.checkmk_host_name || "").trim();
-          if (!key || !host || map.has(key)) continue;
-          map.set(key, {
-            checkmk_host_name: host,
-            checkmk_site: row.checkmk_site || null,
-            checkmk_service_name: row.checkmk_service_name || null
-          });
-        }
+      // Prefer dedicated CheckMK columns when present; fall back to data JSON.
+      let withCols;
+      try {
+        withCols = await pool.query(
+          `SELECT id::text AS equipment_id,
+                  NULLIF(TRIM(COALESCE(
+                    checkmk_host_name,
+                    data->>'checkmk_host_name',
+                    data->'checkmkMapping'->>'checkmk_host_name',
+                    ''
+                  )), '') AS checkmk_host_name,
+                  NULLIF(TRIM(COALESCE(
+                    checkmk_site,
+                    data->>'checkmk_site',
+                    data->'checkmkMapping'->>'checkmk_site',
+                    ''
+                  )), '') AS checkmk_site,
+                  NULLIF(TRIM(COALESCE(
+                    checkmk_service_name,
+                    data->>'checkmk_service_name',
+                    data->'checkmkMapping'->>'checkmk_service_name',
+                    ''
+                  )), '') AS checkmk_service_name
+             FROM ${table}
+            WHERE id = ANY($1::uuid[])
+              AND NULLIF(TRIM(COALESCE(
+                checkmk_host_name,
+                data->>'checkmk_host_name',
+                data->'checkmkMapping'->>'checkmk_host_name',
+                ''
+              )), '') IS NOT NULL`,
+          [uuids]
+        );
+      } catch (err) {
+        if (err?.code !== "42P01" && err?.code !== "42703") throw err;
+        withCols = null;
+      }
+      if (withCols) {
+        ingestRows(withCols.rows);
         return;
       }
-      // Tables without dedicated CheckMK columns: read from data JSON only.
       const fromData = await queryOrEmpty(
         `SELECT id::text AS equipment_id,
                 NULLIF(TRIM(COALESCE(data->>'checkmk_host_name', data->'checkmkMapping'->>'checkmk_host_name', '')), '') AS checkmk_host_name,
@@ -541,16 +553,7 @@ async function loadCheckmkMappingsByIds(ids) {
             AND NULLIF(TRIM(COALESCE(data->>'checkmk_host_name', data->'checkmkMapping'->>'checkmk_host_name', '')), '') IS NOT NULL`,
         [uuids]
       );
-      for (const row of fromData?.rows || []) {
-        const key = String(row.equipment_id || "").toLowerCase();
-        const host = String(row.checkmk_host_name || "").trim();
-        if (!key || !host || map.has(key)) continue;
-        map.set(key, {
-          checkmk_host_name: host,
-          checkmk_site: row.checkmk_site || null,
-          checkmk_service_name: row.checkmk_service_name || null
-        });
-      }
+      ingestRows(fromData?.rows);
     })
   );
   return map;

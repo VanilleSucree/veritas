@@ -153,6 +153,74 @@ export async function buildReportZipBlob(ref, config) {
   };
 }
 
+/**
+ * Builds the three (or N) independent HTML report files without zipping.
+ */
+export async function buildReportHtmlParts(ref, config) {
+  if (!ref?.current) {
+    throw new Error("Contenu de synthèse indisponible. Ouvrez l’étape Synthèse, puis réessayez.");
+  }
+  if (!config?.client) {
+    throw new Error("Configuration client manquante.");
+  }
+  const root = ref.current;
+  const parts = Array.from(root.querySelectorAll("[data-report-export]"));
+  const collectedCss = collectDocumentCSS();
+  const clientName = config.client.name || config.client.nom || "CLIENT";
+  const periodLabel = buildReportPeriodLabel(config.client);
+  const safeName = String(clientName).replace(/\s+/g, " ").trim() || "CLIENT";
+
+  const reports = parts.length
+    ? parts.map(part => {
+        const clone = stripExportHidden(part.cloneNode(true));
+        if (clone.style) {
+          clone.style.setProperty("display", "block", "important");
+          clone.style.removeProperty("visibility");
+        }
+        clone.removeAttribute?.("aria-hidden");
+        Array.from(clone.classList || []).forEach(cls => {
+          if (/hidden/i.test(cls)) clone.classList.remove(cls);
+        });
+        return buildSingleReportHtml({
+          clone,
+          clientName,
+          periodLabel,
+          reportKey: part.getAttribute("data-report-export") || "supervision",
+          collectedCss
+        });
+      })
+    : [
+        buildSingleReportHtml({
+          clone: stripExportHidden(root.cloneNode(true)),
+          clientName,
+          periodLabel,
+          reportKey: "supervision",
+          collectedCss
+        })
+      ];
+
+  const start = config.client.reportStartDate;
+  const end = config.client.reportEndDate;
+  let folderLabel = "Rapport de supervision";
+  if (start && end) {
+    folderLabel = `Rapport supervision ${formatZipDate(start)} - ${formatZipDate(end)}`;
+  }
+
+  return {
+    folderLabel,
+    files: reports.map(report => {
+      const safeLabel = String(report.fileLabel || "Rapport").replace(/[<>:"/\\|?*]+/g, " ").trim() || "Rapport";
+      const fileName = `${safeName} - ${safeLabel}.html`;
+      const html = report.html || "";
+      return {
+        fileName,
+        html,
+        blob: new Blob([html], { type: "text/html;charset=utf-8" })
+      };
+    })
+  };
+}
+
 export async function exportReportAsZIP(ref, config) {
   const { blob, fileName } = await buildReportZipBlob(ref, config);
   saveAs(blob, fileName);

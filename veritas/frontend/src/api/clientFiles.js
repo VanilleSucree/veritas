@@ -3,11 +3,15 @@ const BASE = `${API_BASE_URL}/client-files`;
 export async function fetchClientFiles({
   clientId,
   category,
+  folderId,
   signal
 } = {}) {
   const params = new URLSearchParams();
   if (clientId) params.set("clientId", clientId);
   if (category && category !== "all") params.set("category", category);
+  if (folderId !== undefined && folderId !== null && folderId !== "all") {
+    params.set("folderId", folderId === "root" ? "root" : String(folderId));
+  }
   const res = await fetch(`${BASE}?${params}`, {
     credentials: "include",
     signal
@@ -20,13 +24,81 @@ export async function fetchClientFiles({
   }
   return res.json();
 }
+
+export async function fetchClientFileFolders({
+  clientId,
+  parentId = null,
+  signal
+} = {}) {
+  const params = new URLSearchParams();
+  if (clientId) params.set("clientId", clientId);
+  if (parentId) params.set("parentId", parentId);
+  const res = await fetch(`${BASE}/folders?${params}`, {
+    credentials: "include",
+    signal
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Error ${res.status}`);
+  }
+  const data = await res.json();
+  return Array.isArray(data?.folders) ? data.folders : [];
+}
+
+export async function createClientFileFolder({
+  clientId,
+  name,
+  parentId = null
+}) {
+  const res = await fetch(`${BASE}/folders`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, name, parentId: parentId || null })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Error ${res.status}`);
+  }
+  const data = await res.json();
+  return data.folder;
+}
+
+export async function renameClientFileFolder(id, name) {
+  const res = await fetch(`${BASE}/folders/${id}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Error ${res.status}`);
+  }
+  const data = await res.json();
+  return data.folder;
+}
+
+export async function deleteClientFileFolder(id) {
+  const res = await fetch(`${BASE}/folders/${id}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function uploadClientFile({
   clientId,
   clientName,
   category,
   description,
   file,
-  visibleToClient = false
+  visibleToClient = false,
+  folderId = null
 }) {
   const form = new FormData();
   form.append("file", file);
@@ -35,6 +107,7 @@ export async function uploadClientFile({
   if (category) form.append("category", category);
   if (description) form.append("description", description);
   if (visibleToClient) form.append("visibleToClient", "true");
+  if (folderId) form.append("folderId", String(folderId));
   const res = await fetch(BASE, {
     method: "POST",
     credentials: "include",

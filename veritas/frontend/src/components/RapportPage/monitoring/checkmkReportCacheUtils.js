@@ -212,10 +212,26 @@ export function isCheckMKCacheValidForPeriod(cachedPeriod, reportStartDate, repo
   return cachedPeriod.reportStartDate === reportStartDate && cachedPeriod.reportEndDate === reportEndDate;
 }
 export function buildCheckMKReportSnapshot(equipmentData, equipmentStatus, reportStartDate, reportEndDate) {
+  // Persist a slim snapshot: full CheckMK event dumps easily exceed reverse-proxy body limits (413).
+  const slimEquipmentData = {};
+  const source = equipmentData && typeof equipmentData === "object" ? equipmentData : {};
+  for (const [key, entry] of Object.entries(source)) {
+    if (!entry || typeof entry !== "object") {
+      slimEquipmentData[key] = entry;
+      continue;
+    }
+    slimEquipmentData[key] = {
+      syncedAt: entry.syncedAt || null,
+      period: entry.period || null,
+      eventsCount: Array.isArray(entry.events) ? entry.events.length : (Number(entry.eventsCount) || 0),
+      servicesCount: Array.isArray(entry.services) ? entry.services.length : (Number(entry.servicesCount) || 0),
+      hasAvailability: Boolean(entry.availability)
+    };
+  }
   return {
     reportStartDate: reportStartDate || null,
     reportEndDate: reportEndDate || null,
-    equipmentData: equipmentData && typeof equipmentData === "object" ? equipmentData : {},
+    equipmentData: slimEquipmentData,
     equipmentStatus: equipmentStatus && typeof equipmentStatus === "object" ? equipmentStatus : {}
   };
 }

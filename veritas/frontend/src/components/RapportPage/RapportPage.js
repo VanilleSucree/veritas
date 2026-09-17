@@ -26,9 +26,9 @@ import shellStyles from "./RapportBuilderPlaceholder.module.css";
 import ConfirmModal from "../Misc/ConfirmModal/ConfirmModal";
 import { isReportBuilderSessionActive } from "../../utils/monitoringReportGuard";
 import saveModalStyles from "../Monitoring/MonitoringSummary/MonitoringSummary.module.css";
-import { exportReportAsZIP, buildReportZipBlob } from "./exportRapportZip";
-import { uploadReportArchiveToClientVault } from "../../utils/uploadReportToClientVault";
-import ReportSaveVisibilitySwitch from "../shared/ReportSaveVisibilitySwitch";
+import { exportReportAsZIP, buildReportHtmlParts } from "./exportRapportZip";
+import { uploadReportHtmlFolderToClientVault } from "../../utils/uploadReportToClientVault";
+import SaveSupervisionReportModal from "./SaveSupervisionReportModal";
 import { safeJsonClone } from "../../utils/safeJson";
 import { useAppLocale } from "../../hooks/useAppGeneralSettings";
 import PageGuideTour from "../PageGuide/PageGuideTour";
@@ -937,25 +937,23 @@ export default function ReportPage({
       };
     }
     try {
-      const {
-        blob,
-        fileName
-      } = await buildReportZipBlob(summaryContentRef, {
+      const { files, folderLabel } = await buildReportHtmlParts(summaryContentRef, {
         client: builderClient
       });
-      if (!blob || blob.size < 32) {
-        throw new Error("ZIP du rapport vide ou invalide.");
+      if (!files?.length) {
+        throw new Error("Aucun fichier HTML à archiver.");
       }
-      await uploadReportArchiveToClientVault({
-        blob,
-        fileName: documentName ? `${documentName}.zip` : fileName,
+      await uploadReportHtmlFolderToClientVault({
+        files,
+        folderName: documentName || folderLabel,
         clientId,
         clientName: builderClient.name || builderClient.nom || "",
         description: reportPeriod || "",
         visibleToClient
       });
       return {
-        success: true
+        success: true,
+        fileCount: files.length
       };
     } catch (err) {
       console.error("Archivage vault:", err);
@@ -970,7 +968,14 @@ export default function ReportPage({
     setSaving(true);
     try {
       const configCopy = safeJsonClone({
-        client: builderClient
+        client: {
+          id: builderClient.id ?? builderClient.uuid ?? null,
+          name: builderClient.name || builderClient.nom || "",
+          nom: builderClient.nom || builderClient.name || "",
+          reportStartDate: builderClient.reportStartDate || null,
+          reportEndDate: builderClient.reportEndDate || null,
+          reportPeriod: builderClient.reportPeriod || null
+        }
       });
       const dataCopy = safeJsonClone({
         reportComments: {
@@ -1009,7 +1014,9 @@ export default function ReportPage({
         refreshRecentDocs();
         setTimeout(() => setSaveSuccessVisible(false), 3000);
         if (vaultResult.success) {
-          toast.success(saveVisibleToClient ? "Rapport enregistré et partagé avec l’entreprise." : "Rapport enregistré (interne agents).");
+          toast.success(saveVisibleToClient
+            ? `Rapport enregistré : dossier + ${vaultResult.fileCount || 3} HTML partagés avec l’entreprise.`
+            : `Rapport enregistré : dossier + ${vaultResult.fileCount || 3} HTML (interne agents).`);
         } else if (!vaultResult.skipped) {
           toast.warn(vaultResult.error ? `Rapport enregistré, mais archivage échoué : ${vaultResult.error}` : "Rapport enregistré, mais l’archivage documentaire a échoué.");
         } else {
@@ -1295,73 +1302,19 @@ export default function ReportPage({
 
               <div ref={builderSectionRef} className={shellStyles.builderBody}>
 
-                {showSaveModal && <div className={saveModalStyles.modalOverlay} onClick={e => {
-            if (e.target === e.currentTarget) setShowSaveModal(false);
-          }}>
-                    <div className={saveModalStyles.modalContent} onClick={e => e.stopPropagation()}>
-                      <div className={saveModalStyles.modalHeader}>
-                        <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem"
-                }}>
-                          <Icon icon="mdi:content-save" className={saveModalStyles.modalIcon} />
-                          <h3>Enregistrer le rapport</h3>
-                        </div>
-                        <button type="button" className={saveModalStyles.closeButton} onClick={() => setShowSaveModal(false)} title="Fermer">
-                          <Icon icon="mdi:close" />
-                        </button>
-                      </div>
-                      <div className={saveModalStyles.modalBody}>
-                        <div className={saveModalStyles.saveInputSection}>
-                          <label className={saveModalStyles.saveInputLabel}>Nom du document</label>
-                          <input type="text" value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="Ex. Rapport supervision — Client Alpha" className={saveModalStyles.saveInput} />
-                        </div>
-                        <ReportSaveVisibilitySwitch visibleToClient={saveVisibleToClient} onChange={setSaveVisibleToClient} disabled={saving} />
-                        {recentDocs.length > 0 && <div className={saveModalStyles.recentDocs}>
-                            <h4 className={saveModalStyles.recentDocsTitle}>
-                              <Icon icon="mdi:file-document-multiple" style={{
-                      fontSize: "1.1rem",
-                      marginRight: "0.5rem"
-                    }} />
-                              Mes documents ({recentDocs.length})
-                            </h4>
-                            <div className={saveModalStyles.docsTableContainer}>
-                              <table className={saveModalStyles.docsTable}>
-                                <thead>
-                                  <tr>
-                                    <th>Nom</th>
-                                    <th>Client</th>
-                                    <th>Période</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {recentDocs.slice(0, 10).map(doc => <tr key={doc.id} className={saveModalStyles.docTableRow} onClick={() => handleLoadSavedDocument(doc)} title="Réutiliser ce nom">
-                                      <td className={saveModalStyles.docNameCell}>
-                                        <span className={saveModalStyles.docName}>{doc.name}</span>
-                                      </td>
-                                      <td className={saveModalStyles.docCell}>{doc.client_name || "-"}</td>
-                                      <td className={saveModalStyles.docCell}>{doc.report_period || "-"}</td>
-                                    </tr>)}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>}
-                      </div>
-                      <div className={saveModalStyles.modalActions} style={{
-                justifyContent: "flex-end"
-              }}>
-                        <button type="button" onClick={() => handleSaveReport()} className={saveModalStyles.primaryButton} disabled={saving || !saveName.trim()} title="Enregistrer">
-                          {saving ? <Icon icon="mdi:loading" style={{
-                    fontSize: "1.1rem",
-                    animation: "spin 1s linear infinite"
-                  }} /> : <Icon icon="mdi:content-save" style={{
-                    fontSize: "1.1rem"
-                  }} />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>}
+                <SaveSupervisionReportModal
+                  open={showSaveModal}
+                  saving={saving}
+                  saveName={saveName}
+                  onSaveNameChange={setSaveName}
+                  visibleToClient={saveVisibleToClient}
+                  onVisibleToClientChange={setSaveVisibleToClient}
+                  recentDocs={recentDocs}
+                  onPickRecentDoc={handleLoadSavedDocument}
+                  onClose={() => { if (!saving) setShowSaveModal(false); }}
+                  onSubmit={() => handleSaveReport()}
+                  clientName={builderClient?.name || builderClient?.nom || ""}
+                />
 
                 {showOverwriteConfirm && pendingSave && <div className={saveModalStyles.modalOverlay} onClick={e => {
             if (e.target === e.currentTarget) {

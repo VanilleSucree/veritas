@@ -24,6 +24,104 @@
   line-height: 1.45;
 }
 
+.vaultNavRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.breadcrumbSeg {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.breadcrumbItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  background: transparent;
+  color: var(--msp-muted, #5c6b82);
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  cursor: pointer;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumbItem:hover {
+  background: rgba(15, 28, 46, 0.06);
+  color: var(--msp-text, #1a2b3c);
+}
+
+.breadcrumbCurrent {
+  color: var(--msp-text, #1a2b3c);
+  cursor: default;
+}
+
+.breadcrumbSep {
+  color: var(--msp-muted, #8a97a8);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.vaultNavActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.navActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--msp-border-light, #e8eef5);
+  background: var(--msp-surface, #fff);
+  color: var(--msp-text, #1a2b3c);
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.navActionBtn:hover {
+  border-color: var(--msp-accent, #2b5fab);
+  color: var(--msp-accent, #2b5fab);
+}
+
+.folderCard .cardThumb {
+  cursor: pointer;
+}
+
+.thumbFolder {
+  color: #e8a317 !important;
+}
+
+.folderNameBtn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
 .filters {
   display: flex;
   align-items: center;

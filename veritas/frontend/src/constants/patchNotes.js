@@ -5,6 +5,15 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.19",
+    date: "2026-09-17",
+    highlights: [
+      "Coffre documentaire client : création et navigation de dossiers sur la fiche entreprise.",
+      "Rapports de supervision : modal d’enregistrement revue ; archivage en dossier avec les 3 HTML (plus de ZIP) ; correction du 413 à l’enregistrement.",
+      "Inventaire périphériques : correction du chargement (mappings CheckMK sur tables sans colonnes dédiées)."
+    ]
+  },
+  {
     version: "1.0.18",
     date: "2026-09-17",
     highlights: [

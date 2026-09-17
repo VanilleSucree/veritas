@@ -159,7 +159,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(securityHeaders);
 const jsonBodyParser = express.json({
-  limit: "25mb",
+  limit: "50mb",
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
@@ -173,7 +173,7 @@ app.use((req, res, next) => {
 });
 app.use(express.urlencoded({
   extended: true,
-  limit: "25mb"
+  limit: "50mb"
 }));
 app.use(cookieParser());
 app.use(checkMaintenanceMode);

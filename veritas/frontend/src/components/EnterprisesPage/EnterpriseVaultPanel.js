@@ -3,7 +3,17 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { FaSearch, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { deleteClientFile, fetchClientFiles, getDownloadUrl, getPreviewUrl, updateClientFile, uploadClientFile } from "../../api/clientFiles";
+import {
+  createClientFileFolder,
+  deleteClientFile,
+  deleteClientFileFolder,
+  fetchClientFileFolders,
+  fetchClientFiles,
+  getDownloadUrl,
+  getPreviewUrl,
+  updateClientFile,
+  uploadClientFile
+} from "../../api/clientFiles";
 import { useAppLocale } from "../../hooks/useAppGeneralSettings";
 import { useVeritasEdition } from "../../hooks/useVeritasEdition";
 import { getEnterpriseVaultCopy } from "./enterpriseVaultI18n";
@@ -26,12 +36,17 @@ export default forwardRef(function EnterpriseVaultPanel({
   const internalCopy = useMemo(() => getEnterpriseVaultCopy(locale), [locale]);
   const copy = copyProp ?? internalCopy;
   const [files, setFiles] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [folderPath, setFolderPath] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [previewFile, setPreviewFile] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showFolderModal, setShowFolderModal] = useState(false);
   const [editingFile, setEditingFile] = useState(null);
+  const currentFolderId = folderPath.length ? folderPath[folderPath.length - 1].id : null;
+
   const load = useCallback(async () => {
     if (!editionLoaded) {
       setLoading(true);
@@ -39,27 +54,42 @@ export default forwardRef(function EnterpriseVaultPanel({
     }
     if (isCommunity || !clientId) {
       setFiles([]);
+      setFolders([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const rows = await fetchClientFiles({
-        clientId
-      });
+      const [rows, folderRows] = await Promise.all([
+        fetchClientFiles({
+          clientId,
+          folderId: currentFolderId || "root"
+        }),
+        fetchClientFileFolders({
+          clientId,
+          parentId: currentFolderId || null
+        }).catch(() => [])
+      ]);
       setFiles(Array.isArray(rows) ? rows : []);
+      setFolders(Array.isArray(folderRows) ? folderRows : []);
     } catch (err) {
       setFiles([]);
+      setFolders([]);
       if (err?.code !== "PRO_FEATURE_REQUIRED") {
         toast.error(copy.toast.loadError);
       }
     } finally {
       setLoading(false);
     }
-  }, [clientId, copy.toast.loadError, editionLoaded, isCommunity]);
+  }, [clientId, copy.toast.loadError, currentFolderId, editionLoaded, isCommunity]);
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    setFolderPath([]);
+    setSearch("");
+    setCategoryFilter("all");
+  }, [clientId]);
   useImperativeHandle(ref, () => ({
     openUploadModal: () => setShowUploadModal(true)
   }), []);
@@ -71,6 +101,11 @@ export default forwardRef(function EnterpriseVaultPanel({
       return String(file.file_name || "").toLowerCase().includes(q) || String(file.category || "").toLowerCase().includes(q) || String(file.description || "").toLowerCase().includes(q);
     });
   }, [files, search, categoryFilter]);
+  const filteredFolders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return folders;
+    return folders.filter(folder => String(folder.name || "").toLowerCase().includes(q));
+  }, [folders, search]);
   const sharedCount = useMemo(() => files.filter(file => file.visible_to_client).length, [files]);
   const handleDelete = async file => {
     if (!window.confirm(copy.formatDeleteConfirm(file.file_name))) return;
@@ -115,11 +150,61 @@ export default forwardRef(function EnterpriseVaultPanel({
       toast.error(err.message || copy.toast.shareError);
     }
   };
+  const openFolder = folder => {
+    setFolderPath(prev => [...prev, { id: folder.id, name: folder.name }]);
+    setSearch("");
+  };
+  const goToBreadcrumb = index => {
+    if (index < 0) {
+      setFolderPath([]);
+      return;
+    }
+    setFolderPath(prev => prev.slice(0, index + 1));
+  };
+  const handleDeleteFolder = async folder => {
+    const confirmMsg = (copy.panel.confirmDeleteFolder || "Delete « {name} »?").replace("{name}", folder.name);
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      await deleteClientFileFolder(folder.id);
+      toast.success(copy.panel.folderDeleted || "OK");
+      await load();
+    } catch (err) {
+      toast.error(err.message || copy.panel.folderDeleteError || copy.toast.deleteError);
+    }
+  };
+  const isEmpty = !loading && filteredFolders.length === 0 && filtered.length === 0;
   return <div className={styles.panelRoot}>
       <p className={styles.introText}>
         {copy.panel.intro}
         {copy.formatIntroSharedCount(sharedCount)}
       </p>
+
+      <div className={styles.vaultNavRow}>
+        <nav className={styles.breadcrumb} aria-label={copy.panel.rootBreadcrumb || "Vault"}>
+          <button type="button" className={`${styles.breadcrumbItem} ${!folderPath.length ? styles.breadcrumbCurrent : ""}`} onClick={() => goToBreadcrumb(-1)}>
+            <Icon icon="mdi:safe-square-outline" aria-hidden />
+            {copy.panel.rootBreadcrumb || "Coffre-fort"}
+          </button>
+          {folderPath.map((crumb, index) => (
+            <span key={crumb.id} className={styles.breadcrumbSeg}>
+              <Icon icon="mdi:chevron-right" className={styles.breadcrumbSep} aria-hidden />
+              <button
+                type="button"
+                className={`${styles.breadcrumbItem} ${index === folderPath.length - 1 ? styles.breadcrumbCurrent : ""}`}
+                onClick={() => goToBreadcrumb(index)}
+              >
+                {crumb.name}
+              </button>
+            </span>
+          ))}
+        </nav>
+        <div className={styles.vaultNavActions}>
+          <button type="button" className={styles.navActionBtn} onClick={() => setShowFolderModal(true)} title={copy.panel.newFolder}>
+            <Icon icon="mdi:folder-plus-outline" aria-hidden />
+            <span>{copy.panel.newFolder}</span>
+          </button>
+        </div>
+      </div>
 
       <div className={styles.filters}>
         <div className={`${pageLayout.searchWrap} ${styles.searchWrap}`}>
@@ -140,18 +225,42 @@ export default forwardRef(function EnterpriseVaultPanel({
       {loading ? <div className={styles.loadingState}>
           <Icon icon="mdi:loading" className={styles.spinning} aria-hidden />
           {copy.panel.loading}
-        </div> : filtered.length === 0 ? <div className={styles.empty}>
-          <Icon icon="mdi:safe-square-outline" className={styles.emptyIcon} aria-hidden />
-          <p>{copy.panel.empty}</p>
+        </div> : isEmpty ? <div className={styles.empty}>
+          <Icon icon={currentFolderId ? "mdi:folder-open-outline" : "mdi:safe-square-outline"} className={styles.emptyIcon} aria-hidden />
+          <p>{currentFolderId ? (copy.panel.emptyFolder || copy.panel.empty) : copy.panel.empty}</p>
         </div> : <div className={styles.grid}>
+          {filteredFolders.map(folder => (
+            <VaultFolderCard
+              key={folder.id}
+              folder={folder}
+              copy={copy}
+              onOpen={() => openFolder(folder)}
+              onDelete={() => handleDeleteFolder(folder)}
+            />
+          ))}
           {filtered.map(file => <VaultFileCard key={file.id} file={file} copy={copy} onPreview={() => setPreviewFile(file)} onEditDescription={() => setEditingFile(file)} onShareWithPortal={() => handleShareWithPortal(file)} onDelete={() => handleDelete(file)} />)}
         </div>}
 
-      {showUploadModal ? <VaultUploadModal clientId={clientId} clientName={clientName} copy={copy} onClose={() => setShowUploadModal(false)} onUploaded={newFile => {
+      {showUploadModal ? <VaultUploadModal clientId={clientId} clientName={clientName} folderId={currentFolderId} copy={copy} onClose={() => setShowUploadModal(false)} onUploaded={newFile => {
       setFiles(prev => [newFile, ...prev]);
       setShowUploadModal(false);
       toast.success(newFile?.visible_to_client ? copy.toast.uploadedVisible : copy.toast.uploadedInternal);
     }} /> : null}
+
+      {showFolderModal ? <VaultCreateFolderModal
+        copy={copy}
+        onClose={() => setShowFolderModal(false)}
+        onCreate={async name => {
+          const folder = await createClientFileFolder({
+            clientId,
+            name,
+            parentId: currentFolderId
+          });
+          setFolders(prev => [...prev, folder].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" })));
+          setShowFolderModal(false);
+          toast.success(copy.panel.folderCreated || "OK");
+        }}
+      /> : null}
 
       {previewFile ? <VaultDocumentPreviewModal file={previewFile} copy={copy} onClose={() => setPreviewFile(null)} previewUrl={getPreviewUrl(previewFile.id)} downloadUrl={getDownloadUrl(previewFile.id)} onEditDescription={() => {
       setEditingFile(previewFile);
@@ -161,6 +270,87 @@ export default forwardRef(function EnterpriseVaultPanel({
       {editingFile ? <VaultEditDescriptionModal file={editingFile} copy={copy} onClose={() => setEditingFile(null)} onSaved={handleDescriptionUpdated} /> : null}
     </div>;
 });
+function VaultFolderCard({ folder, copy, onOpen, onDelete }) {
+  const fileCount = Number(folder.fileCount) || 0;
+  const childCount = Number(folder.childCount) || 0;
+  return <div className={`${styles.card} ${styles.folderCard}`}>
+      <button type="button" className={styles.cardThumb} onClick={onOpen} title={copy.panel.openFolder || folder.name}>
+        <Icon icon="mdi:folder" className={`${styles.thumbIcon} ${styles.thumbFolder}`} aria-hidden />
+      </button>
+      <div className={styles.cardBody}>
+        <button type="button" className={styles.folderNameBtn} onClick={onOpen} title={folder.name}>
+          <p className={styles.cardName}>{folder.name}</p>
+        </button>
+        <p className={styles.cardDesc}>
+          {[
+            fileCount ? (copy.panel.filesCount || "{count}").replace("{count}", String(fileCount)) : null,
+            childCount ? (copy.panel.subfoldersCount || "{count}").replace("{count}", String(childCount)) : null
+          ].filter(Boolean).join(" · ") || "—"}
+        </p>
+      </div>
+      <div className={styles.cardActions}>
+        <button type="button" className={styles.actionBtn} onClick={onOpen} title={copy.panel.openFolder}>
+          <Icon icon="mdi:folder-open-outline" aria-hidden />
+        </button>
+        <button type="button" className={`${styles.actionBtn} ${styles.actionDelete}`} onClick={onDelete} title={copy.panel.deleteFolder}>
+          <Icon icon="mdi:trash-can-outline" aria-hidden />
+        </button>
+      </div>
+    </div>;
+}
+function VaultCreateFolderModal({ copy, onClose, onCreate }) {
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async e => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return toast.error(copy.panel.folderNameRequired || "Name required");
+    try {
+      setSaving(true);
+      await onCreate(trimmed);
+    } catch (err) {
+      toast.error(err.message || copy.panel.folderCreateError || copy.toast.uploadError);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return createPortal(<div className={formStyles.overlay} onClick={onClose} role="presentation">
+      <div className={`${formStyles.shell} ${formStyles.shellMedium}`} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="vault-folder-modal-title">
+        <div className={formStyles.accentBar} aria-hidden />
+        <header className={formStyles.header}>
+          <div className={formStyles.headerMain}>
+            <div className={formStyles.headerIconWrap} aria-hidden>
+              <Icon icon="mdi:folder-plus-outline" />
+            </div>
+            <div className={formStyles.headerText}>
+              <p className={formStyles.eyebrow}>{copy.uploadModal?.eyebrow || copy.panel.sectionTitle}</p>
+              <h2 className={formStyles.title} id="vault-folder-modal-title">{copy.panel.newFolder}</h2>
+            </div>
+          </div>
+          <button type="button" className={formStyles.closeBtn} onClick={onClose} disabled={saving} aria-label={copy.uploadModal?.closeAria || "Close"}>
+            <FaTimes />
+          </button>
+        </header>
+        <form className={styles.modalForm} onSubmit={submit}>
+          <div className={styles.modalFormBody}>
+            <div className={formStyles.field}>
+              <label className={formStyles.label} htmlFor="vault-folder-name">{copy.panel.newFolderPlaceholder}</label>
+              <input id="vault-folder-name" className={formStyles.input} value={name} onChange={e => setName(e.target.value)} placeholder={copy.panel.newFolderPlaceholder} autoFocus disabled={saving} />
+            </div>
+          </div>
+          <footer className={formStyles.footer}>
+            <span className={formStyles.footerHint} />
+            <div className={formStyles.footerActions}>
+              <button type="button" className={formStyles.ghostBtn} onClick={onClose} disabled={saving}>{copy.uploadModal?.cancel || "Cancel"}</button>
+              <button type="submit" className={formStyles.primaryBtn} disabled={saving || !name.trim()}>
+                {saving ? (copy.uploadModal?.uploading || "…") : (copy.panel.createFolder || "Create")}
+              </button>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </div>, document.body);
+}
 function VaultFileCard({
   file,
   copy,
@@ -210,6 +400,7 @@ function VaultFileCard({
 function VaultUploadModal({
   clientId,
   clientName,
+  folderId = null,
   copy,
   onClose,
   onUploaded
@@ -237,7 +428,8 @@ function VaultUploadModal({
         category,
         description,
         file,
-        visibleToClient
+        visibleToClient,
+        folderId
       });
       onUploaded(result);
     } catch (err) {
@@ -295,7 +487,7 @@ function VaultUploadModal({
               <div ref={dropRef} className={`${styles.dropZone} ${file ? styles.dropZoneActive : ""}`} onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={() => document.getElementById("vault-file-input")?.click()}>
                 <input id="vault-file-input" type="file" style={{
                 display: "none"
-              }} onChange={e => setFile(e.target.files?.[0] || null)} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" disabled={uploading} />
+              }} onChange={e => setFile(e.target.files?.[0] || null)} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.html,.htm,.zip" disabled={uploading} />
                 {file ? <span className={styles.dropZoneFile}>
                     <Icon icon="mdi:file-document-outline" aria-hidden />
                     {file.name} ({copy.formatSize(file.size)})

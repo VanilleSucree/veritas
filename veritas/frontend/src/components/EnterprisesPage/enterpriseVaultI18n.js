@@ -6,15 +6,17 @@ const LOCALE_BCP47 = {
   it: "it-IT",
   es: "es-ES"
 };
-const CATEGORY_KEYS = ["Facture", "Notice / Guide", "Rapport", "Contrat", "Procédure", "Autre"];
+const CATEGORY_KEYS = ["Facture matériel", "Image client", "Baie de brassage", "Plan de réseau", "Procédure", "Contrat", "Rapport", "Autre"];
 const ENTERPRISE_VAULT_COPY = {
   fr: {
     categories: {
-      Facture: "Facture",
-      "Notice / Guide": "Notice / Guide",
-      Rapport: "Rapport",
-      Contrat: "Contrat",
+      "Facture matériel": "Facture matériel",
+      "Image client": "Image client",
+      "Baie de brassage": "Baie de brassage",
+      "Plan de réseau": "Plan de réseau",
       Procédure: "Procédure",
+      Contrat: "Contrat",
+      Rapport: "Rapport",
       Autre: "Autre"
     },
     panel: {
@@ -27,7 +29,23 @@ const ENTERPRISE_VAULT_COPY = {
       clearSearchAria: "Effacer",
       allTypes: "Tous les types",
       loading: "Chargement du coffre-fort…",
-      empty: "Aucun document dans le coffre-fort."
+      empty: "Aucun document dans le coffre-fort.",
+      emptyFolder: "Ce dossier est vide.",
+      rootBreadcrumb: "Coffre-fort",
+      newFolder: "Nouveau dossier",
+      newFolderPlaceholder: "Nom du dossier",
+      createFolder: "Créer",
+      folderCreated: "Dossier créé.",
+      folderCreateError: "Impossible de créer le dossier.",
+      folderNameRequired: "Indiquez un nom de dossier.",
+      renameFolder: "Renommer",
+      deleteFolder: "Supprimer le dossier",
+      confirmDeleteFolder: "Supprimer le dossier « {name} » ? Son contenu remontera d’un niveau.",
+      folderDeleted: "Dossier supprimé.",
+      folderDeleteError: "Impossible de supprimer le dossier.",
+      openFolder: "Ouvrir le dossier",
+      filesCount: "{count} fichier(s)",
+      subfoldersCount: "{count} sous-dossier(s)"
     },
     card: {
       previewTitle: "Prévisualiser",
@@ -50,7 +68,7 @@ const ENTERPRISE_VAULT_COPY = {
       descriptionPlaceholder: "Ex. : Facture matériel Q1 2026, Guide utilisateur VPN…",
       fileLabel: "Fichier",
       dropHint: "Glisser-déposer ou cliquer pour sélectionner",
-      dropFormats: "PDF, images, Word, Excel · max 20 Mo",
+      dropFormats: "PDF, images, Word, Excel, HTML, ZIP · max 50 Mo",
       visiblePortalLabel: "Visible sur le portail client",
       visiblePortalHint: "Activé : le contact peut consulter le document. Désactivé : réservé aux agents.",
       visibleOn: "Visible",
@@ -108,11 +126,13 @@ const ENTERPRISE_VAULT_COPY = {
   },
   en: {
     categories: {
-      Facture: "Invoice",
-      "Notice / Guide": "Manual / guide",
-      Report: "Report",
-      Contrat: "Contract",
+      "Facture matériel": "Hardware invoice",
+      "Image client": "Client image",
+      "Baie de brassage": "Patch panel",
+      "Plan de réseau": "Network plan",
       Procédure: "Procedure",
+      Contrat: "Contract",
+      Rapport: "Report",
       Autre: "Other"
     },
     panel: {
@@ -125,7 +145,23 @@ const ENTERPRISE_VAULT_COPY = {
       clearSearchAria: "Clear",
       allTypes: "All types",
       loading: "Loading document vault…",
-      empty: "No documents in the vault."
+      empty: "No documents in the vault.",
+      emptyFolder: "This folder is empty.",
+      rootBreadcrumb: "Vault",
+      newFolder: "New folder",
+      newFolderPlaceholder: "Folder name",
+      createFolder: "Create",
+      folderCreated: "Folder created.",
+      folderCreateError: "Unable to create folder.",
+      folderNameRequired: "Enter a folder name.",
+      renameFolder: "Rename",
+      deleteFolder: "Delete folder",
+      confirmDeleteFolder: "Delete folder « {name} »? Its contents will move up one level.",
+      folderDeleted: "Folder deleted.",
+      folderDeleteError: "Unable to delete folder.",
+      openFolder: "Open folder",
+      filesCount: "{count} file(s)",
+      subfoldersCount: "{count} subfolder(s)"
     },
     card: {
       previewTitle: "Preview",
@@ -148,7 +184,7 @@ const ENTERPRISE_VAULT_COPY = {
       descriptionPlaceholder: "E.g. Q1 2026 hardware invoice, VPN user guide…",
       fileLabel: "File",
       dropHint: "Drag and drop or click to select",
-      dropFormats: "PDF, images, Word, Excel · max 20 MB",
+      dropFormats: "PDF, images, Word, Excel, HTML, ZIP · max 50 MB",
       visiblePortalLabel: "Visible on client portal",
       visiblePortalHint: "On: contact can view the document. Off: agents only.",
       visibleOn: "Visible",
@@ -206,11 +242,13 @@ const ENTERPRISE_VAULT_COPY = {
   },
   de: {
     categories: {
-      Facture: "Rechnung",
-      "Notice / Guide": "Handbuch / Anleitung",
-      Rapport: "Bericht",
-      Contrat: "Vertrag",
+      "Facture matériel": "Hardware-Rechnung",
+      "Image client": "Kundenbild",
+      "Baie de brassage": "Patchpanel",
+      "Plan de réseau": "Netzplan",
       Procédure: "Verfahren",
+      Contrat: "Vertrag",
+      Rapport: "Bericht",
       Autre: "Sonstiges"
     },
     panel: {
@@ -246,7 +284,7 @@ const ENTERPRISE_VAULT_COPY = {
       descriptionPlaceholder: "z. B. Hardware-Rechnung Q1 2026, VPN-Benutzerhandbuch…",
       fileLabel: "Datei",
       dropHint: "Ziehen und ablegen oder klicken zum Auswählen",
-      dropFormats: "PDF, Bilder, Word, Excel · max. 20 MB",
+      dropFormats: "PDF, Bilder, Word, Excel, HTML, ZIP · max. 50 MB",
       visiblePortalLabel: "Im Kundenportal sichtbar",
       visiblePortalHint: "Ein: Kontakt kann das Dokument sehen. Aus: nur Agenten.",
       visibleOn: "Sichtbar",
@@ -304,11 +342,13 @@ const ENTERPRISE_VAULT_COPY = {
   },
   it: {
     categories: {
-      Facture: "Fattura",
-      "Notice / Guide": "Manuale / guida",
-      Rapport: "Report",
-      Contrat: "Contratto",
+      "Facture matériel": "Fattura hardware",
+      "Image client": "Immagine cliente",
+      "Baie de brassage": "Pannello patch",
+      "Plan de réseau": "Piano di rete",
       Procédure: "Procedura",
+      Contrat: "Contratto",
+      Rapport: "Report",
       Autre: "Altro"
     },
     panel: {
@@ -344,7 +384,7 @@ const ENTERPRISE_VAULT_COPY = {
       descriptionPlaceholder: "Es. Fattura hardware Q1 2026, Guida utente VPN…",
       fileLabel: "File",
       dropHint: "Trascina e rilascia o clicca per selezionare",
-      dropFormats: "PDF, immagini, Word, Excel · max 20 MB",
+      dropFormats: "PDF, immagini, Word, Excel, HTML, ZIP · max 50 MB",
       visiblePortalLabel: "Visibile sul portale cliente",
       visiblePortalHint: "Attivo: il contatto può consultarlo. Disattivo: solo agenti.",
       visibleOn: "Visibile",
@@ -402,11 +442,13 @@ const ENTERPRISE_VAULT_COPY = {
   },
   es: {
     categories: {
-      Facture: "Factura",
-      "Notice / Guide": "Manual / guía",
-      Rapport: "Informe",
-      Contrat: "Contrato",
+      "Facture matériel": "Factura hardware",
+      "Image client": "Imagen cliente",
+      "Baie de brassage": "Panel de patch",
+      "Plan de réseau": "Plano de red",
       Procédure: "Procedimiento",
+      Contrat: "Contrato",
+      Rapport: "Informe",
       Autre: "Otro"
     },
     panel: {
@@ -442,7 +484,7 @@ const ENTERPRISE_VAULT_COPY = {
       descriptionPlaceholder: "Ej. Factura material T1 2026, Guía usuario VPN…",
       fileLabel: "Archivo",
       dropHint: "Arrastrar y soltar o clic para seleccionar",
-      dropFormats: "PDF, imágenes, Word, Excel · máx. 20 MB",
+      dropFormats: "PDF, imágenes, Word, Excel, HTML, ZIP · máx. 50 MB",
       visiblePortalLabel: "Visible en el portal cliente",
       visiblePortalHint: "Activado: el contacto puede consultarlo. Desactivado: solo agentes.",
       visibleOn: "Visible",
