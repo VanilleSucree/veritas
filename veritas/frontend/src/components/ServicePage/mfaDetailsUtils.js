@@ -77,6 +77,48 @@ export function normalizeMfaList(raw) {
   return raw.map(normalizeMfaRecord).filter(Boolean);
 }
 
+/** O(1) MFA lookups for large tenant user tables. */
+export function buildMfaLookupIndex(mfaDetails) {
+  const list = normalizeMfaList(mfaDetails);
+  const byId = new Map();
+  const byKey = new Map();
+  for (const entry of list) {
+    const entryId = entry?.id != null ? String(entry.id) : entry?.user_id != null ? String(entry.user_id) : "";
+    if (entryId && !byId.has(entryId)) byId.set(entryId, entry);
+    for (const key of collectMfaIdentityKeys(entry)) {
+      if (!byKey.has(key)) byKey.set(key, entry);
+    }
+  }
+  return { byId, byKey, list };
+}
+
+export function getMfaUserFromIndex(user, mfaIndex) {
+  if (!user) return null;
+  if (mfaIndex?.byId || mfaIndex?.byKey) {
+    const userId = user.id != null ? String(user.id) : user.userId != null ? String(user.userId) : "";
+    if (userId && mfaIndex.byId?.has(userId)) return mfaIndex.byId.get(userId);
+    for (const key of collectMfaIdentityKeys(user)) {
+      if (mfaIndex.byKey?.has(key)) return mfaIndex.byKey.get(key);
+    }
+  } else if (Array.isArray(mfaIndex)) {
+    return getMfaUserForUser(user, mfaIndex);
+  }
+  if (
+    user.has_mfa != null
+    || user.hasMfa != null
+    || user.hasMFA != null
+    || user.mfaMethods
+    || user.mfa_methods
+    || user.is_admin != null
+    || user.isAdmin != null
+    || user.admin_role
+    || user.adminRole
+  ) {
+    return normalizeMfaRecord(user);
+  }
+  return null;
+}
+
 export function pickMfaDetailsFromSnapshot(data) {
   if (!data || typeof data !== "object") return [];
   const candidates = [

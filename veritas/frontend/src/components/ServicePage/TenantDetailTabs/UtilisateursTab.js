@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import styles from '../TenantDetailPage.module.css';
 import SmartTooltip from '../../SmartTooltip';
 import { getLicenseDisplayName } from './utils';
-import { getMfaMethods, getMfaUserForUser, normalizeMfaList, userHasMethod, userHasMfa, userIsAdmin } from '../mfaDetailsUtils';
+import { getMfaMethods, getMfaUserFromIndex, buildMfaLookupIndex, userHasMethod, userHasMfa, userIsAdmin } from '../mfaDetailsUtils';
 function getMfaMethodLabel(methodType) {
   const labels = {
     microsoftauthenticatorauthenticationmethod: 'Microsoft Authenticator',
@@ -216,11 +216,12 @@ function isLikelyServiceAccountFromUser(user) {
   const patterns = [/aad_/, /msol_/, /sync_/, /svc_/, /service_/, /\$@/, /_srv/, /_service/, /_sync/, /compte de service|service account|compte service/, /bot\./, /bot@/, /connector/, /automation/, /azure ad sync|ad sync|dirsync|aadconnect|dir sync/, /directory synchronization|synchronization service|on-premises/, /healthmailbox|systemmailbox|federatedemail/];
   return patterns.some(p => p.test(combined));
 }
-function getFilteredUsers(users, filter, mfaDetails = []) {
+function getFilteredUsers(users, filter, mfaIndex) {
   if (!users) return [];
   if (filter === USER_FILTER_ALL) return users;
   const period30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const period90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const mfaOf = u => getMfaUserFromIndex(u, mfaIndex);
   switch (filter) {
     case USER_FILTER_ACTIVE_30:
       return users.filter(u => {
@@ -235,21 +236,19 @@ function getFilteredUsers(users, filter, mfaDetails = []) {
         return !lastLogin || lastLogin < period90;
       });
     case USER_FILTER_MFA_ACTIF:
-      return users.filter(u => userHasMfa(getMfaUserForUser(u, mfaDetails)));
+      return users.filter(u => userHasMfa(mfaOf(u)));
     case USER_FILTER_ADMIN:
-      return users.filter(u => userIsAdmin(getMfaUserForUser(u, mfaDetails)));
+      return users.filter(u => userIsAdmin(mfaOf(u)));
     case USER_FILTER_NON_ADMIN:
       return users.filter(u => {
-        const m = getMfaUserForUser(u, mfaDetails);
+        const m = mfaOf(u);
         return m && !userIsAdmin(m);
       });
     case USER_FILTER_MFA_INACTIF:
       return users.filter(u => {
-        const m = getMfaUserForUser(u, mfaDetails);
+        const m = mfaOf(u);
         return m && !userHasMfa(m);
       });
-    case USER_FILTER_MFA_ACTIF:
-      return users.filter(u => userHasMfa(getMfaUserForUser(u, mfaDetails)));
     default:
       if (filter.startsWith(USER_FILTER_DOMAIN_PREFIX)) {
         const domain = filter.slice(USER_FILTER_DOMAIN_PREFIX.length);
@@ -257,7 +256,7 @@ function getFilteredUsers(users, filter, mfaDetails = []) {
       }
       if (filter.startsWith(USER_FILTER_METHOD_PREFIX)) {
         const methodKey = filter.slice(USER_FILTER_METHOD_PREFIX.length);
-        return users.filter(u => userHasMethod(getMfaUserForUser(u, mfaDetails), methodKey));
+        return users.filter(u => userHasMethod(mfaOf(u), methodKey));
       }
       return users;
   }
@@ -271,7 +270,7 @@ export default function UsersTab({
   theme,
   embedded = false
 }) {
-  const mfaDetails = useMemo(() => normalizeMfaList(mfaDetailsProp), [mfaDetailsProp]);
+  const mfaIndex = useMemo(() => buildMfaLookupIndex(mfaDetailsProp), [mfaDetailsProp]);
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -313,89 +312,6 @@ export default function UsersTab({
       }
     }
   };
-  const getSortedUsers = usersList => {
-    if (!sortColumn) return usersList;
-    const sorted = [...usersList].sort((a, b) => {
-      let aValue, bValue;
-      switch (sortColumn) {
-        case 'nom':
-          aValue = (a.name || a.displayName || '').toLowerCase();
-          bValue = (b.name || b.displayName || '').toLowerCase();
-          break;
-        case 'email':
-          aValue = (a.email || a.userPrincipalName || '').toLowerCase();
-          bValue = (b.email || b.userPrincipalName || '').toLowerCase();
-          break;
-        case 'dateCreation':
-          aValue = a.createdDate ? new Date(a.createdDate).getTime() : 0;
-          bValue = b.createdDate ? new Date(b.createdDate).getTime() : 0;
-          break;
-        case 'statut':
-          const getStatusValue = user => {
-            if (user.accountEnabled === false) return 0;
-            const lastLogin = user.lastLoginDate ? new Date(user.lastLoginDate) : null;
-            const period90Days = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-            const isInactive = !lastLogin || lastLogin < period90Days;
-            const period30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-            const isActive30 = lastLogin && lastLogin >= period30Days;
-            if (isActive30) return 3;
-            if (isInactive) return 1;
-            return 2;
-          };
-          aValue = getStatusValue(a);
-          bValue = getStatusValue(b);
-          break;
-        case 'licence':
-          aValue = (typeof a.licenses === 'string' ? a.licenses : Array.isArray(a.licenses) ? a.licenses.join(', ') : a.licenses || 'None').toString().toLowerCase();
-          bValue = (typeof b.licenses === 'string' ? b.licenses : Array.isArray(b.licenses) ? b.licenses.join(', ') : b.licenses || 'None').toString().toLowerCase();
-          break;
-        case 'mfaActive':
-          aValue = userHasMfa(getMfaUserForUser(a, mfaDetails)) ? 1 : 0;
-          bValue = userHasMfa(getMfaUserForUser(b, mfaDetails)) ? 1 : 0;
-          break;
-        case 'admin':
-          aValue = userIsAdmin(getMfaUserForUser(a, mfaDetails)) ? 1 : 0;
-          bValue = userIsAdmin(getMfaUserForUser(b, mfaDetails)) ? 1 : 0;
-          break;
-        case 'roleAdmin':
-          {
-            const getRoleAdminStats = u => {
-              const mfa = getMfaUserForUser(u, mfaDetails);
-              const raw = (mfa?.admin_role ?? mfa?.adminRole ?? '').toString().trim();
-              if (!raw) return {
-                count: 0,
-                label: ''
-              };
-              const roles = raw.split(',').map(r => r.trim()).filter(Boolean);
-              return {
-                count: roles.length,
-                label: raw.toLowerCase()
-              };
-            };
-            const aStats = getRoleAdminStats(a);
-            const bStats = getRoleAdminStats(b);
-            if (aStats.count !== bStats.count) {
-              aValue = aStats.count;
-              bValue = bStats.count;
-            } else {
-              aValue = aStats.label;
-              bValue = bStats.label;
-            }
-            break;
-          }
-        case 'methodes':
-          aValue = getMfaMethods(getMfaUserForUser(a, mfaDetails)).filter(m => getMfaMethodIcon(m) !== null).length;
-          bValue = getMfaMethods(getMfaUserForUser(b, mfaDetails)).filter(m => getMfaMethodIcon(m) !== null).length;
-          break;
-        default:
-          return 0;
-      }
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  };
   const getSortIcon = columnKey => {
     if (sortColumn !== columnKey) {
       return <FaSort style={{
@@ -430,14 +346,91 @@ export default function UsersTab({
   }, [displayUsers, domainFilter, userSearchQuery]);
   const filteredUsers = useMemo(() => {
     if (!activeFilters || activeFilters.length === 0) return usersForKpi;
-    return activeFilters.reduce((acc, filterKey) => getFilteredUsers(acc, filterKey, mfaDetails), usersForKpi);
-  }, [usersForKpi, activeFilters, mfaDetails]);
+    return activeFilters.reduce((acc, filterKey) => getFilteredUsers(acc, filterKey, mfaIndex), usersForKpi);
+  }, [usersForKpi, activeFilters, mfaIndex]);
+  const sortedUsers = useMemo(() => {
+    if (!sortColumn) return filteredUsers;
+    const mfaOf = u => getMfaUserFromIndex(u, mfaIndex);
+    const period90Days = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const period30Days = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const getStatusValue = user => {
+      if (user.accountEnabled === false) return 0;
+      const lastLoginMs = user.lastLoginDate ? new Date(user.lastLoginDate).getTime() : 0;
+      if (lastLoginMs && lastLoginMs >= period30Days) return 3;
+      if (!lastLoginMs || lastLoginMs < period90Days) return 1;
+      return 2;
+    };
+    const sorted = [...filteredUsers].sort((a, b) => {
+      let aValue;
+      let bValue;
+      switch (sortColumn) {
+        case 'nom':
+          aValue = (a.name || a.displayName || '').toLowerCase();
+          bValue = (b.name || b.displayName || '').toLowerCase();
+          break;
+        case 'email':
+          aValue = (a.email || a.userPrincipalName || '').toLowerCase();
+          bValue = (b.email || b.userPrincipalName || '').toLowerCase();
+          break;
+        case 'dateCreation':
+          aValue = a.createdDate ? new Date(a.createdDate).getTime() : 0;
+          bValue = b.createdDate ? new Date(b.createdDate).getTime() : 0;
+          break;
+        case 'statut':
+          aValue = getStatusValue(a);
+          bValue = getStatusValue(b);
+          break;
+        case 'licence':
+          aValue = (typeof a.licenses === 'string' ? a.licenses : Array.isArray(a.licenses) ? a.licenses.join(', ') : a.licenses || 'None').toString().toLowerCase();
+          bValue = (typeof b.licenses === 'string' ? b.licenses : Array.isArray(b.licenses) ? b.licenses.join(', ') : b.licenses || 'None').toString().toLowerCase();
+          break;
+        case 'mfaActive':
+          aValue = userHasMfa(mfaOf(a)) ? 1 : 0;
+          bValue = userHasMfa(mfaOf(b)) ? 1 : 0;
+          break;
+        case 'admin':
+          aValue = userIsAdmin(mfaOf(a)) ? 1 : 0;
+          bValue = userIsAdmin(mfaOf(b)) ? 1 : 0;
+          break;
+        case 'roleAdmin':
+          {
+            const getRoleAdminStats = u => {
+              const mfa = mfaOf(u);
+              const raw = (mfa?.admin_role ?? mfa?.adminRole ?? '').toString().trim();
+              if (!raw) return { count: 0, label: '' };
+              const roles = raw.split(',').map(r => r.trim()).filter(Boolean);
+              return { count: roles.length, label: raw.toLowerCase() };
+            };
+            const aStats = getRoleAdminStats(a);
+            const bStats = getRoleAdminStats(b);
+            if (aStats.count !== bStats.count) {
+              aValue = aStats.count;
+              bValue = bStats.count;
+            } else {
+              aValue = aStats.label;
+              bValue = bStats.label;
+            }
+            break;
+          }
+        case 'methodes':
+          aValue = getMfaMethods(mfaOf(a)).filter(m => getMfaMethodIcon(m) !== null).length;
+          bValue = getMfaMethods(mfaOf(b)).filter(m => getMfaMethodIcon(m) !== null).length;
+          break;
+        default:
+          return 0;
+      }
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [filteredUsers, sortColumn, sortDirection, mfaIndex]);
   const exportUsersToCSV = () => {
     if (!filteredUsers || filteredUsers.length === 0) {
       toast.error('No users to export');
       return;
     }
-    const usersToExport = getSortedUsers(filteredUsers);
+    const usersToExport = sortedUsers;
     const headers = ['Name', 'Email', 'Created on', 'Status', 'Licenses', 'Admin role', 'Admin', 'MFA active', 'Methods'];
     const methodKeyToLabel = Object.fromEntries(MFA_METHOD_FILTERS.map(m => [m.key, m.label]));
     const rows = usersToExport.map(user => {
@@ -448,7 +441,7 @@ export default function UsersTab({
       const period30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const isActive30 = lastLogin && lastLogin >= period30Days;
       const statusLabel = user.accountEnabled === false ? 'Blocked' : isActive30 ? 'Active' : isInactive ? 'Inactive (>90d)' : 'Inactive';
-      const mfaUser = getMfaUserForUser(user, mfaDetails);
+      const mfaUser = getMfaUserFromIndex(user, mfaIndex);
       const mfaActiveLabel = mfaUser == null ? '-' : userHasMfa(mfaUser) ? 'Yes' : 'No';
       const adminLabel = mfaUser == null ? '-' : mfaUser.is_admin === true ? 'Yes' : 'No';
       const adminRoleLabel = mfaUser == null ? '-' : mfaUser.admin_role || mfaUser.adminRole || '-';
@@ -481,7 +474,6 @@ export default function UsersTab({
     URL.revokeObjectURL(url);
     toast.success(`CSV export successful: ${usersToExport.length} user(s) exported`);
   };
-  const sortedUsers = getSortedUsers(filteredUsers);
   const totalPages = Math.max(1, Math.ceil(sortedUsers.length / usersPerPage));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * usersPerPage;
@@ -493,36 +485,62 @@ export default function UsersTab({
   const handleNextPage = () => {
     setCurrentPage(prev => Math.min(totalPages, prev + 1));
   };
-  const blockedUsers = filteredUsers.filter(u => u.accountEnabled === false).length;
-  const inactiveUsers90 = filteredUsers.filter(u => {
-    const lastLogin = u.lastLoginDate ? new Date(u.lastLoginDate) : null;
-    const period90Days = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    return !lastLogin || lastLogin < period90Days;
-  }).length;
-  const activeUsers30Count = filteredUsers.filter(u => {
-    const lastLogin = u.lastLoginDate ? new Date(u.lastLoginDate) : null;
-    const period30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    return lastLogin && lastLogin >= period30;
-  }).length;
-  const mfaActiveCount = filteredUsers.filter(u => userHasMfa(getMfaUserForUser(u, mfaDetails))).length;
-  const mfaInactiveCount = filteredUsers.filter(u => {
-    const m = getMfaUserForUser(u, mfaDetails);
-    return m && !userHasMfa(m);
-  }).length;
-  const adminCount = filteredUsers.filter(u => userIsAdmin(getMfaUserForUser(u, mfaDetails))).length;
-  const nonAdminCount = filteredUsers.filter(u => {
-    const m = getMfaUserForUser(u, mfaDetails);
-    return m && !userIsAdmin(m);
-  }).length;
+  const {
+    blockedUsers,
+    inactiveUsers90,
+    activeUsers30Count,
+    mfaActiveCount,
+    mfaInactiveCount,
+    adminCount,
+    nonAdminCount
+  } = useMemo(() => {
+    const period90Days = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const period30Days = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    let blocked = 0;
+    let inactive90 = 0;
+    let active30 = 0;
+    let mfaActive = 0;
+    let mfaInactive = 0;
+    let admin = 0;
+    let nonAdmin = 0;
+    for (const u of filteredUsers) {
+      if (u.accountEnabled === false) blocked += 1;
+      const lastLoginMs = u.lastLoginDate ? new Date(u.lastLoginDate).getTime() : 0;
+      if (!lastLoginMs || lastLoginMs < period90Days) inactive90 += 1;
+      if (lastLoginMs && lastLoginMs >= period30Days) active30 += 1;
+      const m = getMfaUserFromIndex(u, mfaIndex);
+      if (userHasMfa(m)) mfaActive += 1;
+      if (m && !userHasMfa(m)) mfaInactive += 1;
+      if (userIsAdmin(m)) admin += 1;
+      if (m && !userIsAdmin(m)) nonAdmin += 1;
+    }
+    return {
+      blockedUsers: blocked,
+      inactiveUsers90: inactive90,
+      activeUsers30Count: active30,
+      mfaActiveCount: mfaActive,
+      mfaInactiveCount: mfaInactive,
+      adminCount: admin,
+      nonAdminCount: nonAdmin
+    };
+  }, [filteredUsers, mfaIndex]);
   const methodCounts = useMemo(() => {
     const counts = {};
     MFA_METHOD_FILTERS.forEach(({
       key
     }) => {
-      counts[key] = filteredUsers.filter(u => userHasMethod(getMfaUserForUser(u, mfaDetails), key)).length;
+      counts[key] = 0;
     });
+    for (const u of filteredUsers) {
+      const m = getMfaUserFromIndex(u, mfaIndex);
+      for (const {
+        key
+      } of MFA_METHOD_FILTERS) {
+        if (userHasMethod(m, key)) counts[key] += 1;
+      }
+    }
     return counts;
-  }, [filteredUsers, mfaDetails]);
+  }, [filteredUsers, mfaIndex]);
   const domainCounts = useMemo(() => {
     const map = new Map();
     (displayUsers || []).forEach(u => {
@@ -893,7 +911,7 @@ export default function UsersTab({
                 const labels = parts.map(lic => getLicenseDisplayName(String(lic).trim())).filter(Boolean);
                 return labels.length ? labels.join(', ') : 'None';
               })();
-              const mfaUser = getMfaUserForUser(user, mfaDetails);
+              const mfaUser = getMfaUserFromIndex(user, mfaIndex);
               const mfaMethods = [...new Set(getMfaMethods(mfaUser).filter(m => getMfaMethodIcon(m) !== null))];
               const hasMfa = userHasMfa(mfaUser);
               const isAdmin = userIsAdmin(mfaUser);

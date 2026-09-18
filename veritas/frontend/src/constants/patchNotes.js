@@ -5,6 +5,13 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.24",
+    date: "2026-09-18",
+    highlights: [
+      "Cloud IT · Tenant Microsoft : pagination et tri de l’onglet Utilisateurs nettement plus rapides sur les gros volumes."
+    ]
+  },
+  {
     version: "1.0.23",
     date: "2026-09-18",
     highlights: [
