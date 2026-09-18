@@ -47,6 +47,16 @@ const en = {
     themeUseLight: "Switch to light mode",
     themeUseDark: "Switch to dark mode"
   },
+  availability: {
+    checking: "Checking installation…",
+    serverTitle: "Veritas server unreachable",
+    serverBody: "The web app cannot reach the Veritas API. Check that the backend container/service is running, then try again.",
+    databaseTitle: "Database unreachable",
+    databaseBody: "The Veritas server is up, but PostgreSQL does not respond. Check that the database is running and that DATABASE_URL is correct.",
+    hint: "Initial setup only opens when the database is reachable and installation is still incomplete.",
+    retry: "Retry",
+    retrying: "Retrying…"
+  },
   env: {
     title: "General settings",
     subtitle: "Default values work for a local install. You can auto-generate security keys.",
@@ -232,6 +242,16 @@ const fr = {
     communityHint: "Aide, doc, actualités et open source — au même endroit.",
     themeUseLight: "Passer en mode clair",
     themeUseDark: "Passer en mode sombre"
+  },
+  availability: {
+    checking: "Vérification de l'installation…",
+    serverTitle: "Serveur Veritas injoignable",
+    serverBody: "L'interface ne peut pas joindre l'API Veritas. Vérifiez que le service backend est démarré, puis réessayez.",
+    databaseTitle: "Base de données injoignable",
+    databaseBody: "Le serveur Veritas répond, mais PostgreSQL ne répond pas. Vérifiez que la base est démarrée et que DATABASE_URL est correct.",
+    hint: "La configuration initiale ne s'affiche que lorsque la base est joignable et que l'installation n'est pas terminée.",
+    retry: "Réessayer",
+    retrying: "Nouvelle tentative…"
   },
   env: {
     title: "Paramètres généraux",
@@ -419,6 +439,16 @@ const de = {
     themeUseLight: "Zum hellen Modus wechseln",
     themeUseDark: "Zum dunklen Modus wechseln"
   },
+  availability: {
+    checking: "Installation wird geprüft…",
+    serverTitle: "Veritas-Server nicht erreichbar",
+    serverBody: "Die Web-App erreicht die Veritas-API nicht. Prüfen Sie, ob der Backend-Dienst läuft, und versuchen Sie es erneut.",
+    databaseTitle: "Datenbank nicht erreichbar",
+    databaseBody: "Der Veritas-Server antwortet, aber PostgreSQL nicht. Prüfen Sie, ob die Datenbank läuft und DATABASE_URL korrekt ist.",
+    hint: "Die Erstinstallation erscheint nur, wenn die Datenbank erreichbar ist und die Installation noch unvollständig ist.",
+    retry: "Erneut versuchen",
+    retrying: "Wird erneut versucht…"
+  },
   env: {
     title: "Allgemeine Einstellungen",
     subtitle: "Standardwerte reichen für eine lokale Installation. Schlüssel können automatisch erzeugt werden.",
@@ -605,6 +635,16 @@ const it = {
     themeUseLight: "Passa alla modalità chiara",
     themeUseDark: "Passa alla modalità scura"
   },
+  availability: {
+    checking: "Verifica dell'installazione…",
+    serverTitle: "Server Veritas non raggiungibile",
+    serverBody: "L'interfaccia non riesce a contattare l'API Veritas. Verificate che il servizio backend sia avviato, poi riprovate.",
+    databaseTitle: "Database non raggiungibile",
+    databaseBody: "Il server Veritas risponde, ma PostgreSQL no. Verificate che il database sia avviato e che DATABASE_URL sia corretto.",
+    hint: "La configurazione iniziale appare solo quando il database è raggiungibile e l'installazione non è ancora completa.",
+    retry: "Riprova",
+    retrying: "Nuovo tentativo…"
+  },
   env: {
     title: "Impostazioni generali",
     subtitle: "I valori predefiniti vanno bene in locale. Potete generare le chiavi automaticamente.",
@@ -790,6 +830,16 @@ const es = {
     communityHint: "Ayuda, documentación, novedades y código abierto — en un solo lugar.",
     themeUseLight: "Cambiar a modo claro",
     themeUseDark: "Cambiar a modo oscuro"
+  },
+  availability: {
+    checking: "Comprobando la instalación…",
+    serverTitle: "Servidor Veritas inaccesible",
+    serverBody: "La interfaz no puede contactar con la API de Veritas. Compruebe que el servicio backend está en marcha e inténtelo de nuevo.",
+    databaseTitle: "Base de datos inaccesible",
+    databaseBody: "El servidor Veritas responde, pero PostgreSQL no. Compruebe que la base está en marcha y que DATABASE_URL es correcto.",
+    hint: "La configuración inicial solo aparece cuando la base es accesible y la instalación aún no ha terminado.",
+    retry: "Reintentar",
+    retrying: "Reintentando…"
   },
   env: {
     title: "Ajustes generales",

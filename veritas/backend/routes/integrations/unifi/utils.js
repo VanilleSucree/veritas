@@ -370,6 +370,16 @@ export function extractDeviceSiteId(device = {}) {
   );
 }
 
+export async function listCarrierSubscribers(apiKey) {
+  const payload = await fetchUiApi("/v1/carrier/subscribers", {
+    apiKey,
+    query: {
+      pageSize: 200
+    }
+  });
+  return extractUiList(payload);
+}
+
 export async function fetchLocalNetworkDevices({
   apiUrl,
   apiKey,

@@ -5,6 +5,15 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.23",
+    date: "2026-09-18",
+    highlights: [
+      "Correctif critique : le backend redémarre (export UniFi listCarrierSubscribers manquant → 502).",
+      "Plus de faux assistant d’installation : écran dédié si API ou base de données injoignable.",
+      "La configuration initiale ne s’affiche que lorsque l’installation est réellement incomplète."
+    ]
+  },
+  {
     version: "1.0.22",
     date: "2026-09-18",
     highlights: [

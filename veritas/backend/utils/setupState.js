@@ -80,8 +80,43 @@ async function getMigrationCount() {
     return 0;
   }
 }
+function emptySteps(env = false) {
+  return {
+    env,
+    database: false,
+    schema: false,
+    admin: false,
+    mfa: false
+  };
+}
 export async function getSetupStatus() {
-  if (isSetupMarkedComplete() && !(await isSetupFullyComplete())) {
+  const envOk = hasRequiredEnv();
+  const marker = isSetupMarkedComplete();
+  const databaseReachable = await canQueryDb();
+
+  // DB down: never force the install wizard (and never clear the marker).
+  // - Already configured env / prior install → explicit outage status
+  // - Brand-new box without secrets/DATABASE_URL → wizard to configure
+  if (!databaseReachable) {
+    if (marker || envOk) {
+      return {
+        needsSetup: false,
+        databaseReachable: false,
+        unavailableReason: "database",
+        steps: emptySteps(envOk),
+        migrationsApplied: null
+      };
+    }
+    return {
+      needsSetup: true,
+      databaseReachable: false,
+      unavailableReason: null,
+      steps: emptySteps(false),
+      migrationsApplied: 0
+    };
+  }
+
+  if (marker && !(await isSetupFullyComplete())) {
     clearSetupCompleteMarker();
   }
   if (await isSetupFullyComplete()) {
@@ -93,6 +128,8 @@ export async function getSetupStatus() {
     }
     return {
       needsSetup: false,
+      databaseReachable: true,
+      unavailableReason: null,
       steps: {
         env: true,
         database: true,
@@ -104,7 +141,7 @@ export async function getSetupStatus() {
     };
   }
   const steps = {
-    env: hasRequiredEnv(),
+    env: envOk,
     database: false,
     schema: false,
     admin: false,
@@ -112,21 +149,21 @@ export async function getSetupStatus() {
   };
   let migrationsApplied = 0;
   if (steps.env) {
-    steps.database = await canQueryDb();
-    if (steps.database) {
-      steps.schema = await hasReferenceSchemaInstalled();
-      migrationsApplied = await getMigrationCount();
-      if (steps.schema) {
-        steps.admin = await hasAdminUser();
-        if (steps.admin) {
-          steps.mfa = await hasAdminMfaEnabled();
-        }
+    steps.database = true;
+    steps.schema = await hasReferenceSchemaInstalled();
+    migrationsApplied = await getMigrationCount();
+    if (steps.schema) {
+      steps.admin = await hasAdminUser();
+      if (steps.admin) {
+        steps.mfa = await hasAdminMfaEnabled();
       }
     }
   }
   const needsSetup = !steps.env || !steps.database || !steps.schema || !steps.admin || !steps.mfa;
   return {
     needsSetup,
+    databaseReachable: true,
+    unavailableReason: null,
     steps,
     migrationsApplied
   };

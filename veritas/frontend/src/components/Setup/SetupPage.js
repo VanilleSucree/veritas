@@ -101,6 +101,13 @@ export default function SetupPage() {
   }], [t]);
   const refreshStatus = useCallback(async () => {
     const status = await getSetupStatus();
+    if (
+      status.unavailableReason === "database" ||
+      (status.databaseReachable === false && !status.needsSetup)
+    ) {
+      navigate("/", { replace: true });
+      return;
+    }
     if (!status.needsSetup) {
       navigate("/login", {
         replace: true
@@ -123,9 +130,10 @@ export default function SetupPage() {
   }, [navigate]);
   useEffect(() => {
     refreshStatus().catch(() => {
-      showError(t.toasts.serverUnreachable);
+      // Gate shows the dedicated unreachable screen; avoid toast noise on /setup.
+      navigate("/", { replace: true });
     });
-  }, [refreshStatus]);
+  }, [refreshStatus, navigate]);
   useEffect(() => {
     if (step !== 4 && step !== 5) return undefined;
     getSetupStatus().then(status => {

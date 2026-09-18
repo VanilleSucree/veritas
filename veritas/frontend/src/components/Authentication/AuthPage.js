@@ -99,7 +99,18 @@ export default function AuthPage() {
     if (showRetrying) setStatusRetrying(false);
   }, []);
   useEffect(() => {
-    getSetupStatus().then(status => setSetupPending(Boolean(status?.needsSetup))).catch(() => setSetupPending(false));
+    getSetupStatus()
+      .then(status => {
+        if (
+          status?.unavailableReason === "database" ||
+          (status?.databaseReachable === false && !status?.needsSetup)
+        ) {
+          setSetupPending(false);
+          return;
+        }
+        setSetupPending(Boolean(status?.needsSetup));
+      })
+      .catch(() => setSetupPending(false));
   }, []);
   useEffect(() => {
     fetchLoginBranding().then(data => setLoginBranding(data)).catch(() => setLoginBranding({
