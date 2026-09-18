@@ -68,6 +68,30 @@ export async function saveClientUnifiLink(clientId, payload) {
   return handleJson(res);
 }
 
+export async function saveClientUnifiDedicated(clientId, payload) {
+  return saveClientUnifiLink(clientId, {
+    mappingMode: "dedicated",
+    ...payload
+  });
+}
+
+export async function testClientUnifiDedicated(payload) {
+  const res = await fetch(`${API_BASE_URL}/client-unifi/test-dedicated`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return handleJson(res);
+}
+
+export async function fetchClientUnifiDedicatedDevices(clientId) {
+  const res = await fetch(`${API_BASE_URL}/client-unifi/${clientId}/devices`, {
+    credentials: "include"
+  });
+  return handleJson(res);
+}
+
 export async function clearClientUnifiLink(clientId) {
   const res = await fetch(`${API_BASE_URL}/client-unifi/${clientId}`, {
     method: "DELETE",

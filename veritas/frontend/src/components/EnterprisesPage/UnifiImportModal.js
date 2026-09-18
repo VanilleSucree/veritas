@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { FaTimes } from "react-icons/fa";
 import { createEquipment } from "../../api/equipment";
-import { fetchUnifiDevices, getClientUnifiLink } from "../../api/unifi";
+import { fetchClientUnifiDedicatedDevices, fetchUnifiDevices, getClientUnifiLink } from "../../api/unifi";
 import { showError, showSuccess } from "../../utils/toast";
 import { useAppLocale } from "../../hooks/useAppGeneralSettings";
 import formStyles from "./EnterpriseFormModal.module.css";
@@ -20,8 +20,10 @@ const COPY = {
     import: "Importer",
     importing: "Import…",
     loading: "Chargement des devices…",
-    noLink: "Aucun site UniFi lié. Configurez d’abord le lien UniFi.",
+    noLink: "Aucune configuration UniFi. Choisissez d’abord un tenant global ou dédié.",
     empty: "Aucun device trouvé sur ce site.",
+    dedicatedBadge: "Tenant dédié · Network API",
+    globalBadge: "Tenant global · Site Manager",
     filterAll: "Tous",
     filterSwitch: "Switch",
     filterAp: "Bornes Wi‑Fi",
@@ -44,8 +46,10 @@ const COPY = {
     import: "Import",
     importing: "Importing…",
     loading: "Loading devices…",
-    noLink: "No UniFi site linked. Configure the UniFi link first.",
+    noLink: "No UniFi configuration. Choose a global or dedicated tenant first.",
     empty: "No devices found on this site.",
+    dedicatedBadge: "Dedicated tenant · Network API",
+    globalBadge: "Global tenant · Site Manager",
     filterAll: "All",
     filterSwitch: "Switches",
     filterAp: "Wi‑Fi APs",
@@ -144,16 +148,26 @@ export default function UnifiImportModal({
         const current = linkRes?.link || null;
         if (cancelled) return;
         setLink(current);
-        if (!current?.hostId || !current?.siteId) {
+        if (!current?.linked) {
           setDevices([]);
           setWarning(null);
           return;
         }
-        const devicesRes = await fetchUnifiDevices({
-          hostId: current.hostId,
-          siteId: current.siteId,
-          siteName: current.siteName || undefined
-        });
+        let devicesRes;
+        if (current.mappingMode === "dedicated") {
+          devicesRes = await fetchClientUnifiDedicatedDevices(clientId);
+        } else {
+          if (!current.hostId || !current.siteId) {
+            setDevices([]);
+            setWarning(null);
+            return;
+          }
+          devicesRes = await fetchUnifiDevices({
+            hostId: current.hostId,
+            siteId: current.siteId,
+            siteName: current.siteName || undefined
+          });
+        }
         if (cancelled) return;
         setDevices(devicesRes.devices || []);
         setWarning(devicesRes.warning || null);
@@ -237,7 +251,11 @@ export default function UnifiImportModal({
               <p className={formStyles.eyebrow}>{copy.eyebrow}</p>
               <h2 className={formStyles.title} id="unifi-import-title">{copy.title}</h2>
               <p className={formStyles.subtitle}>
-                {link?.siteName ? `${copy.subtitle} — ${link.siteName}` : copy.subtitle}
+                {link?.mappingMode === "dedicated"
+                  ? copy.dedicatedBadge
+                  : link?.linked
+                    ? `${copy.globalBadge}${link.siteName ? ` — ${link.siteName}` : ""}`
+                    : copy.subtitle}
               </p>
             </div>
           </div>

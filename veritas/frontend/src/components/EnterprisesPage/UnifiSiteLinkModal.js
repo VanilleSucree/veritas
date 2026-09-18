@@ -9,18 +9,21 @@ import {
   fetchUnifiSites,
   getClientUnifiGlobalStatus,
   getClientUnifiLink,
-  saveClientUnifiLink
+  saveClientUnifiDedicated,
+  saveClientUnifiLink,
+  testClientUnifiDedicated
 } from "../../api/unifi";
 import { showError, showSuccess } from "../../utils/toast";
 import { useAppLocale } from "../../hooks/useAppGeneralSettings";
 import formStyles from "./EnterpriseFormModal.module.css";
 import styles from "../AdminPage/BitdefenderIntegrationModal.module.css";
 import unifiStyles from "../AdminPage/UnifiIntegrationModal.module.css";
+import avStyles from "./AntivirusConfigModal.module.css";
 
 const COPY = {
   fr: {
     title: "Lien UniFi",
-    subtitle: "Associer un site UniFi à cette entreprise",
+    subtitle: "Tenant global Site Manager ou tenant dédié Network API",
     eyebrow: "Intégration",
     closeAria: "Fermer",
     cancel: "Annuler",
@@ -36,15 +39,34 @@ const COPY = {
     loading: "Chargement…",
     notConfigured: "L’intégration UniFi n’est pas active. Configurez-la dans Administration → Intégrations.",
     loadError: "Impossible de charger les sites UniFi.",
-    saveSuccess: "Site UniFi lié.",
+    saveSuccess: "Configuration UniFi enregistrée.",
     unlinkSuccess: "Lien UniFi retiré.",
     saveError: "Enregistrement impossible.",
     current: "Lien actuel",
-    hint: "Tenant global MSP : les devices de ce site pourront être importés dans le matériel."
+    hintGlobal: "Tenant global MSP : clé Site Manager admin, multi-sites.",
+    hintDedicated: "Tenant dédié : URL du contrôleur (UDM) + clé Network API pour ce client uniquement.",
+    modeGlobalTitle: "Tenant global · Site Manager",
+    modeGlobalDesc: "Utiliser la clé MSP multi-sites et lier un host / site UniFi.",
+    modeDedicatedTitle: "Tenant dédié · Network API",
+    modeDedicatedDesc: "Contrôleur local (UDM) avec sa propre clé API Network.",
+    modeGlobalAction: "Choisir un site",
+    modeDedicatedAction: "Configurer",
+    apiUrl: "URL du contrôleur",
+    apiKey: "Clé API Network",
+    apiKeyKeep: "Laisser vide pour conserver la clé actuelle",
+    networkSite: "Site Network (optionnel)",
+    rejectTls: "Vérifier le certificat TLS",
+    label: "Libellé",
+    test: "Tester",
+    testing: "Test…",
+    testOk: "Connexion Network réussie.",
+    needCredentials: "URL et clé API requises.",
+    needGlobalConfig: "Configurez d’abord la clé Site Manager en administration.",
+    changeMode: "Changer de mode"
   },
   en: {
     title: "UniFi link",
-    subtitle: "Associate a UniFi site with this company",
+    subtitle: "Global Site Manager tenant or dedicated Network API tenant",
     eyebrow: "Integration",
     closeAria: "Close",
     cancel: "Cancel",
@@ -60,11 +82,30 @@ const COPY = {
     loading: "Loading…",
     notConfigured: "UniFi integration is not active. Configure it in Administration → Integrations.",
     loadError: "Unable to load UniFi sites.",
-    saveSuccess: "UniFi site linked.",
+    saveSuccess: "UniFi configuration saved.",
     unlinkSuccess: "UniFi link removed.",
     saveError: "Unable to save.",
     current: "Current link",
-    hint: "Global MSP tenant: devices from this site can be imported into hardware."
+    hintGlobal: "Global MSP tenant: admin Site Manager key, multi-site.",
+    hintDedicated: "Dedicated tenant: controller URL (UDM) + Network API key for this client only.",
+    modeGlobalTitle: "Global tenant · Site Manager",
+    modeGlobalDesc: "Use the multi-site MSP key and link a UniFi host / site.",
+    modeDedicatedTitle: "Dedicated tenant · Network API",
+    modeDedicatedDesc: "Local controller (UDM) with its own Network API key.",
+    modeGlobalAction: "Choose a site",
+    modeDedicatedAction: "Configure",
+    apiUrl: "Controller URL",
+    apiKey: "Network API key",
+    apiKeyKeep: "Leave blank to keep the current key",
+    networkSite: "Network site (optional)",
+    rejectTls: "Verify TLS certificate",
+    label: "Label",
+    test: "Test",
+    testing: "Testing…",
+    testOk: "Network connection successful.",
+    needCredentials: "URL and API key are required.",
+    needGlobalConfig: "Configure the Site Manager key in administration first.",
+    changeMode: "Change mode"
   }
 };
 
@@ -77,7 +118,9 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
   const copy = useMemo(() => pickCopy(locale), [locale]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [configured, setConfigured] = useState(false);
+  const [mode, setMode] = useState(null);
   const [hosts, setHosts] = useState([]);
   const [sites, setSites] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
@@ -85,6 +128,13 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
   const [siteId, setSiteId] = useState("");
   const [subscriberId, setSubscriberId] = useState("");
   const [link, setLink] = useState(null);
+  const [dedicatedForm, setDedicatedForm] = useState({
+    label: "",
+    apiUrl: "",
+    apiKey: "",
+    networkSite: "default",
+    rejectUnauthorized: false
+  });
 
   useEffect(() => {
     if (!open || !clientId) return;
@@ -101,9 +151,23 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
         setConfigured(isConfigured);
         const current = linkRes?.link || null;
         setLink(current);
+        const currentMode =
+          current?.mappingMode === "dedicated" || current?.dedicated
+            ? "dedicated"
+            : current?.linked
+              ? "global"
+              : null;
+        setMode(currentMode);
         setHostId(current?.hostId || "");
         setSiteId(current?.siteId || "");
         setSubscriberId(current?.subscriberId || "");
+        setDedicatedForm({
+          label: current?.dedicated?.label || "",
+          apiUrl: current?.dedicated?.apiUrl || "",
+          apiKey: "",
+          networkSite: current?.dedicated?.networkSite || "default",
+          rejectUnauthorized: current?.dedicated?.rejectUnauthorized === true
+        });
         if (isConfigured) {
           const hostsRes = await fetchUnifiHosts();
           if (cancelled) return;
@@ -129,8 +193,8 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
   }, [open, clientId, copy.loadError]);
 
   useEffect(() => {
-    if (!open || !configured || !hostId) {
-      setSites([]);
+    if (!open || !configured || !hostId || mode !== "global") {
+      if (mode !== "global") setSites([]);
       return;
     }
     let cancelled = false;
@@ -149,20 +213,25 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
     return () => {
       cancelled = true;
     };
-  }, [open, configured, hostId, copy.loadError]);
+  }, [open, configured, hostId, mode, copy.loadError]);
 
   if (!open) return null;
 
   const selectedHost = hosts.find(h => String(h.id) === String(hostId));
   const selectedSite = sites.find(s => String(s.id) === String(siteId));
   const selectedSubscriber = subscribers.find(s => String(s.id) === String(subscriberId));
-  const canSave = Boolean(hostId && siteId) && !saving;
+  const canSaveGlobal = Boolean(hostId && siteId) && !saving;
+  const canSaveDedicated =
+    Boolean(dedicatedForm.apiUrl.trim()) &&
+    Boolean(dedicatedForm.apiKey.trim() || link?.dedicated?.hasApiKey) &&
+    !saving;
 
-  const handleSave = async () => {
-    if (!canSave) return;
+  const handleSaveGlobal = async () => {
+    if (!canSaveGlobal) return;
     setSaving(true);
     try {
       const res = await saveClientUnifiLink(clientId, {
+        mappingMode: "global",
         hostId,
         hostName: selectedHost?.name || link?.hostName || null,
         siteId,
@@ -180,6 +249,50 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
     }
   };
 
+  const handleSaveDedicated = async () => {
+    if (!canSaveDedicated) {
+      showError(copy.needCredentials);
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await saveClientUnifiDedicated(clientId, {
+        label: dedicatedForm.label.trim() || null,
+        apiUrl: dedicatedForm.apiUrl.trim(),
+        apiKey: dedicatedForm.apiKey.trim() || undefined,
+        networkSite: dedicatedForm.networkSite.trim() || "default",
+        rejectUnauthorized: dedicatedForm.rejectUnauthorized
+      });
+      showSuccess(copy.saveSuccess);
+      onSaved?.(res.link);
+      onClose?.();
+    } catch (err) {
+      showError(err.message || copy.saveError);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestDedicated = async () => {
+    if (!dedicatedForm.apiUrl.trim() || !dedicatedForm.apiKey.trim()) {
+      showError(copy.needCredentials);
+      return;
+    }
+    setTesting(true);
+    try {
+      await testClientUnifiDedicated({
+        apiUrl: dedicatedForm.apiUrl.trim(),
+        apiKey: dedicatedForm.apiKey.trim(),
+        rejectUnauthorized: dedicatedForm.rejectUnauthorized
+      });
+      showSuccess(copy.testOk);
+    } catch (err) {
+      showError(err.message || copy.saveError);
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const handleUnlink = async () => {
     setSaving(true);
     try {
@@ -194,8 +307,177 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
     }
   };
 
+  const renderModePicker = () => (
+    <div className={avStyles.modeGrid}>
+      <button
+        type="button"
+        className={`${avStyles.modeCard} ${!configured ? avStyles.modeCardDisabled : ""} ${mode === "global" ? avStyles.modeCardActive : ""}`}
+        disabled={!configured}
+        onClick={() => {
+          if (!configured) {
+            showError(copy.needGlobalConfig);
+            return;
+          }
+          setMode("global");
+        }}
+      >
+        <span className={avStyles.modeCardIcon} aria-hidden>
+          <Icon icon="mdi:cloud-outline" />
+        </span>
+        <span className={avStyles.modeCardTitle}>{copy.modeGlobalTitle}</span>
+        <span className={avStyles.modeCardDesc}>
+          {configured ? copy.modeGlobalDesc : copy.needGlobalConfig}
+        </span>
+        <span className={avStyles.modeCardAction}>
+          {copy.modeGlobalAction}
+          <Icon icon="mdi:chevron-right" aria-hidden />
+        </span>
+      </button>
+      <button
+        type="button"
+        className={`${avStyles.modeCard} ${mode === "dedicated" ? avStyles.modeCardActive : ""}`}
+        onClick={() => setMode("dedicated")}
+      >
+        <span className={avStyles.modeCardIcon} aria-hidden>
+          <Icon icon="mdi:router-network" />
+        </span>
+        <span className={avStyles.modeCardTitle}>{copy.modeDedicatedTitle}</span>
+        <span className={avStyles.modeCardDesc}>{copy.modeDedicatedDesc}</span>
+        <span className={avStyles.modeCardAction}>
+          {copy.modeDedicatedAction}
+          <Icon icon="mdi:chevron-right" aria-hidden />
+        </span>
+      </button>
+    </div>
+  );
+
+  const renderGlobal = () => (
+    <>
+      <p className={formStyles.sectionDesc}>{copy.hintGlobal}</p>
+      <div className={formStyles.fieldStack}>
+        <div className={formStyles.field}>
+          <label className={formStyles.label} htmlFor="unifi-link-host">{copy.host}</label>
+          <select
+            id="unifi-link-host"
+            className={formStyles.input}
+            value={hostId}
+            onChange={e => {
+              setHostId(e.target.value);
+              setSiteId("");
+            }}
+            disabled={saving}
+          >
+            <option value="">{copy.selectHost}</option>
+            {hosts.map(h => (
+              <option key={h.id} value={h.id}>{h.name || h.id}</option>
+            ))}
+          </select>
+        </div>
+        <div className={formStyles.field}>
+          <label className={formStyles.label} htmlFor="unifi-link-site">{copy.site}</label>
+          <select
+            id="unifi-link-site"
+            className={formStyles.input}
+            value={siteId}
+            onChange={e => setSiteId(e.target.value)}
+            disabled={saving || !hostId}
+          >
+            <option value="">{copy.selectSite}</option>
+            {sites.map(s => (
+              <option key={s.id} value={s.id}>{s.name || s.id}</option>
+            ))}
+          </select>
+        </div>
+        {subscribers.length > 0 ? (
+          <div className={formStyles.field}>
+            <label className={formStyles.label} htmlFor="unifi-link-sub">{copy.subscriber}</label>
+            <select
+              id="unifi-link-sub"
+              className={formStyles.input}
+              value={subscriberId}
+              onChange={e => setSubscriberId(e.target.value)}
+              disabled={saving}
+            >
+              <option value="">{copy.selectSubscriber}</option>
+              {subscribers.map(s => (
+                <option key={s.id} value={s.id}>{s.name || s.id}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+
+  const renderDedicated = () => (
+    <>
+      <p className={formStyles.sectionDesc}>{copy.hintDedicated}</p>
+      <div className={formStyles.fieldStack}>
+        <div className={formStyles.field}>
+          <label className={formStyles.label}>{copy.label}</label>
+          <input
+            className={formStyles.input}
+            value={dedicatedForm.label}
+            onChange={e => setDedicatedForm(f => ({ ...f, label: e.target.value }))}
+            disabled={saving || testing}
+            autoComplete="off"
+          />
+        </div>
+        <div className={formStyles.field}>
+          <label className={`${formStyles.label} ${formStyles.labelRequired}`}>{copy.apiUrl}</label>
+          <input
+            className={formStyles.input}
+            value={dedicatedForm.apiUrl}
+            placeholder="https://192.168.1.1"
+            onChange={e => setDedicatedForm(f => ({ ...f, apiUrl: e.target.value }))}
+            disabled={saving || testing}
+            autoComplete="off"
+          />
+        </div>
+        <div className={formStyles.field}>
+          <label className={`${formStyles.label} ${link?.dedicated?.hasApiKey ? "" : formStyles.labelRequired}`}>
+            {copy.apiKey}
+          </label>
+          <input
+            type="password"
+            className={formStyles.input}
+            value={dedicatedForm.apiKey}
+            placeholder={link?.dedicated?.hasApiKey ? copy.apiKeyKeep : ""}
+            onChange={e => setDedicatedForm(f => ({ ...f, apiKey: e.target.value }))}
+            disabled={saving || testing}
+            autoComplete="off"
+          />
+        </div>
+        <div className={formStyles.field}>
+          <label className={formStyles.label}>{copy.networkSite}</label>
+          <input
+            className={formStyles.input}
+            value={dedicatedForm.networkSite}
+            placeholder="default"
+            onChange={e => setDedicatedForm(f => ({ ...f, networkSite: e.target.value }))}
+            disabled={saving || testing}
+            autoComplete="off"
+          />
+        </div>
+        <label className={formStyles.switchWrap} style={{ alignSelf: "flex-start" }}>
+          <input
+            type="checkbox"
+            className={formStyles.switchInput}
+            checked={dedicatedForm.rejectUnauthorized}
+            onChange={e => setDedicatedForm(f => ({ ...f, rejectUnauthorized: e.target.checked }))}
+            disabled={saving || testing}
+          />
+          <span className={formStyles.switchTrack} aria-hidden>
+            <span className={formStyles.switchThumb} />
+          </span>
+          <span className={formStyles.sectionDesc} style={{ margin: 0 }}>{copy.rejectTls}</span>
+        </label>
+      </div>
+    </>
+  );
+
   return createPortal(
-    <div className={formStyles.overlay} onClick={saving ? undefined : onClose} role="presentation">
+    <div className={formStyles.overlay} onClick={saving || testing ? undefined : onClose} role="presentation">
       <div className={formStyles.shell} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="unifi-site-link-title">
         <div className={unifiStyles.accentBarUnifi} aria-hidden />
         <header className={formStyles.header}>
@@ -209,7 +491,7 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
               <p className={formStyles.subtitle}>{copy.subtitle}</p>
             </div>
           </div>
-          <button type="button" className={formStyles.closeBtn} onClick={onClose} disabled={saving} aria-label={copy.closeAria}>
+          <button type="button" className={formStyles.closeBtn} onClick={onClose} disabled={saving || testing} aria-label={copy.closeAria}>
             <FaTimes />
           </button>
         </header>
@@ -218,94 +500,61 @@ export default function UnifiSiteLinkModal({ open, clientId, onClose, onSaved })
           <div className={formStyles.content}>
             {loading ? (
               <p className={formStyles.sectionDesc}>{copy.loading}</p>
-            ) : !configured ? (
-              <p className={formStyles.sectionDesc}>{copy.notConfigured}</p>
             ) : (
               <>
                 {link?.linked ? (
                   <p className={formStyles.sectionDesc}>
-                    {copy.current}: {link.siteName || link.siteId}
-                    {link.hostName ? ` · ${link.hostName}` : ""}
+                    {copy.current}:{" "}
+                    {link.mappingMode === "dedicated"
+                      ? link.dedicated?.apiUrl || "Network API"
+                      : `${link.siteName || link.siteId || ""}${link.hostName ? ` · ${link.hostName}` : ""}`}
+                    {link.mappingMode === "dedicated" ? " · dédié" : " · global"}
                   </p>
                 ) : null}
-                <p className={formStyles.sectionDesc}>{copy.hint}</p>
-                <div className={formStyles.fieldStack}>
-                  <div className={formStyles.field}>
-                    <label className={formStyles.label} htmlFor="unifi-link-host">{copy.host}</label>
-                    <select
-                      id="unifi-link-host"
-                      className={formStyles.input}
-                      value={hostId}
-                      onChange={e => {
-                        setHostId(e.target.value);
-                        setSiteId("");
-                      }}
-                      disabled={saving}
-                    >
-                      <option value="">{copy.selectHost}</option>
-                      {hosts.map(host => (
-                        <option key={host.id} value={host.id}>
-                          {host.name || host.id}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={formStyles.field}>
-                    <label className={formStyles.label} htmlFor="unifi-link-site">{copy.site}</label>
-                    <select
-                      id="unifi-link-site"
-                      className={formStyles.input}
-                      value={siteId}
-                      onChange={e => setSiteId(e.target.value)}
-                      disabled={saving || !hostId}
-                    >
-                      <option value="">{copy.selectSite}</option>
-                      {sites.map(site => (
-                        <option key={site.id} value={site.id}>
-                          {site.name || site.id}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {subscribers.length > 0 ? (
-                    <div className={formStyles.field}>
-                      <label className={formStyles.label} htmlFor="unifi-link-sub">{copy.subscriber}</label>
-                      <select
-                        id="unifi-link-sub"
-                        className={formStyles.input}
-                        value={subscriberId}
-                        onChange={e => setSubscriberId(e.target.value)}
-                        disabled={saving}
-                      >
-                        <option value="">{copy.selectSubscriber}</option>
-                        {subscribers.map(sub => (
-                          <option key={sub.id} value={sub.id}>
-                            {sub.name || sub.id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
-                </div>
+                {!mode ? renderModePicker() : null}
+                {mode === "global" ? (
+                  configured ? renderGlobal() : <p className={formStyles.sectionDesc}>{copy.notConfigured}</p>
+                ) : null}
+                {mode === "dedicated" ? renderDedicated() : null}
+                {mode ? (
+                  <button type="button" className={styles.guideLinkBtn} onClick={() => setMode(null)} style={{ marginTop: "1rem" }}>
+                    <Icon icon="mdi:arrow-left" aria-hidden />
+                    {copy.changeMode}
+                  </button>
+                ) : null}
               </>
             )}
           </div>
         </div>
 
         <footer className={formStyles.footer}>
-          <span className={formStyles.footerHint}>{configured ? (link?.linked ? link.siteName : "—") : ""}</span>
+          <span className={formStyles.footerHint}>
+            {mode === "dedicated" ? copy.hintDedicated : mode === "global" ? copy.hintGlobal : copy.subtitle}
+          </span>
           <div className={formStyles.footerActions}>
             {link?.linked ? (
-              <button type="button" className={formStyles.ghostBtn} onClick={handleUnlink} disabled={saving || loading}>
+              <button type="button" className={formStyles.ghostBtn} onClick={handleUnlink} disabled={saving || testing}>
                 {copy.unlink}
               </button>
             ) : null}
-            <button type="button" className={formStyles.ghostBtn} onClick={onClose} disabled={saving}>
+            <button type="button" className={formStyles.ghostBtn} onClick={onClose} disabled={saving || testing}>
               {copy.cancel}
             </button>
-            <button type="button" className={formStyles.primaryBtn} onClick={handleSave} disabled={!canSave || !configured}>
-              {saving ? copy.saving : copy.save}
-            </button>
+            {mode === "dedicated" ? (
+              <>
+                <button type="button" className={formStyles.ghostBtn} onClick={handleTestDedicated} disabled={saving || testing}>
+                  {testing ? copy.testing : copy.test}
+                </button>
+                <button type="button" className={formStyles.primaryBtn} onClick={handleSaveDedicated} disabled={!canSaveDedicated}>
+                  {saving ? copy.saving : copy.save}
+                </button>
+              </>
+            ) : null}
+            {mode === "global" ? (
+              <button type="button" className={formStyles.primaryBtn} onClick={handleSaveGlobal} disabled={!canSaveGlobal}>
+                {saving ? copy.saving : copy.save}
+              </button>
+            ) : null}
           </div>
         </footer>
       </div>

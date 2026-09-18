@@ -5,6 +5,15 @@
  */
 export const PATCH_NOTES = [
   {
+    version: "1.0.22",
+    date: "2026-09-18",
+    highlights: [
+      "UniFi : choix tenant global (Site Manager) ou dédié (Network API / UDM) par entreprise.",
+      "Import matériel UniFi depuis le tenant choisi (fiche entreprise et ajout d’équipement).",
+      "Schéma et API client UniFi étendus pour les credentials Network dédiés (chiffrement)."
+    ]
+  },
+  {
     version: "1.0.21",
     date: "2026-09-17",
     highlights: [

@@ -24,6 +24,11 @@ const MAILINBLACK_AUTH_CLIENT_COLUMN = {
   column: "auth_client_id",
   file: "schema/patches/20260625_mailinblack_auth_client_id.sql"
 };
+const UNIFI_DEDICATED_COLUMNS = {
+  table: "v_b_clients_unifi",
+  column: "mapping_mode",
+  file: "schema/patches/20260918_clients_unifi_dedicated.sql"
+};
 let ensured = false;
 async function tableExists(client, tableName) {
   const {
@@ -66,6 +71,9 @@ export async function ensureIntegrationTenantsSchema() {
     }
     if ((await tableExists(client, MAILINBLACK_AUTH_CLIENT_COLUMN.table)) && !(await columnExists(client, MAILINBLACK_AUTH_CLIENT_COLUMN.table, MAILINBLACK_AUTH_CLIENT_COLUMN.column))) {
       await applyMigrationFile(client, MAILINBLACK_AUTH_CLIENT_COLUMN.file, dbUser);
+    }
+    if ((await tableExists(client, UNIFI_DEDICATED_COLUMNS.table)) && !(await columnExists(client, UNIFI_DEDICATED_COLUMNS.table, UNIFI_DEDICATED_COLUMNS.column))) {
+      await applyMigrationFile(client, UNIFI_DEDICATED_COLUMNS.file, dbUser);
     }
     ensured = true;
   } catch (err) {

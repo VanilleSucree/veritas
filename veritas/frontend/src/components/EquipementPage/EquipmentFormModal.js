@@ -20,6 +20,13 @@ import styles from "../EnterprisesPage/EnterpriseFormModal.module.css";
 import { serializeAssignedSsidsForPersistence, serializeWifiSsidCatalogForPersistence, wifiSsidCatalogsEqual, resolveClientWifiSsidCatalog } from "./wifiApSsidUtils";
 import useSystemFamilyExtensions from "../../hooks/useSystemFamilyExtensions";
 import { buildExtensionFormValues } from "../../utils/systemFamilyExtensions";
+import UnifiSiteLinkModal from "../EnterprisesPage/UnifiSiteLinkModal";
+import UnifiImportModal from "../EnterprisesPage/UnifiImportModal";
+import { getClientUnifiLink } from "../../api/unifi";
+import { mapClientHardwareEquipment } from "../../api/equipment";
+
+const UNIFI_IMPORTABLE_MODULES = new Set(["Switch", "BorneWifi", "Firewalls", "Routeur"]);
+
 export default function EquipmentFormModal({
   open,
   onClose,
@@ -46,6 +53,9 @@ export default function EquipmentFormModal({
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState(null);
+  const [unifiLinkModalOpen, setUnifiLinkModalOpen] = useState(false);
+  const [unifiImportModalOpen, setUnifiImportModalOpen] = useState(false);
+  const [unifiOpening, setUnifiOpening] = useState(false);
   const apiType = getApiType(moduleKey, equipment);
   const { fields: extensionFields } = useSystemFamilyExtensions(apiType || moduleKey);
   const serverType = normalizeServerType(formData.typeServer || equipment?.type || equipment?.typeServer || "");
@@ -325,11 +335,37 @@ export default function EquipmentFormModal({
     }
   };
   useEffect(() => {
-    if (!open) setDeleteConfirmOpen(false);
+    if (!open) {
+      setDeleteConfirmOpen(false);
+      setUnifiLinkModalOpen(false);
+      setUnifiImportModalOpen(false);
+      setUnifiOpening(false);
+    }
   }, [open]);
   const openDeleteConfirm = () => {
     if (isAddMode || !equipment || !client?.id || saving || deleting) return;
     setDeleteConfirmOpen(true);
+  };
+  const canImportFromUnifi = isAddMode && UNIFI_IMPORTABLE_MODULES.has(moduleKey) && Boolean(client?.id);
+  const existingUnifiEquipment = useMemo(
+    () => (client ? mapClientHardwareEquipment(client) : []),
+    [client]
+  );
+  const handleOpenUnifiImport = async () => {
+    if (!canImportFromUnifi || unifiOpening) return;
+    setUnifiOpening(true);
+    try {
+      const linkRes = await getClientUnifiLink(client.id);
+      if (linkRes?.link?.linked) {
+        setUnifiImportModalOpen(true);
+      } else {
+        setUnifiLinkModalOpen(true);
+      }
+    } catch {
+      setUnifiLinkModalOpen(true);
+    } finally {
+      setUnifiOpening(false);
+    }
   };
   const handleConfirmDelete = async () => {
     if (isAddMode || !equipment || !client?.id) return;
@@ -420,6 +456,23 @@ export default function EquipmentFormModal({
             }}>
                 {error}
               </div>}
+            {canImportFromUnifi ? (
+              <button
+                type="button"
+                className={styles.ghostBtn}
+                onClick={handleOpenUnifiImport}
+                disabled={saving || deleting || unifiOpening}
+                style={{ marginBottom: "1rem", width: "100%", justifyContent: "flex-start", gap: "0.65rem" }}
+              >
+                <Icon icon="simple-icons:ubiquiti" aria-hidden />
+                <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", textAlign: "left" }}>
+                  <span>{formCopy.unifiImportBanner || "Importer depuis UniFi"}</span>
+                  <span style={{ fontSize: "0.75rem", opacity: 0.75, fontWeight: 400 }}>
+                    {formCopy.unifiImportHint || ""}
+                  </span>
+                </span>
+              </button>
+            ) : null}
             <EquipmentFormSectionContent activeSection={activeSection} moduleKey={moduleKey} apiType={apiType} formData={formData} setFormData={setFormData} update={update} updateBrandModel={updateBrandModel} availableSites={availableSites} firewallPartnerOptions={firewallPartnerOptions} serverHaPartnerOptions={serverHaPartnerOptions} storageHaPartnerOptions={storageHaPartnerOptions} hostServerOptions={hostServerOptions} isPhysicalServer={isPhysicalServer} serverType={serverType} isSynologyStorageForm={isSynologyStorageForm} brandModelCatalog={brandModelCatalog} storageBrandCatalog={storageBrandCatalog} isAddMode={isAddMode} isRequiredSectionIncomplete={isRequiredSectionIncomplete} formCopy={copy} extensionFields={extensionFields} />
           </div>
         </div>
@@ -458,5 +511,33 @@ export default function EquipmentFormModal({
     })} confirmLabel={formCopy.delete} confirmVariant="dangerSolid" confirmLoading={deleting} onConfirm={handleConfirmDelete} onClose={() => {
       if (!deleting) setDeleteConfirmOpen(false);
     }} />
+      {unifiLinkModalOpen && client?.id ? (
+        <UnifiSiteLinkModal
+          open={unifiLinkModalOpen}
+          clientId={client.id}
+          onClose={() => setUnifiLinkModalOpen(false)}
+          onSaved={link => {
+            if (link?.linked) {
+              setUnifiLinkModalOpen(false);
+              setUnifiImportModalOpen(true);
+            }
+          }}
+        />
+      ) : null}
+      {unifiImportModalOpen && client?.id ? (
+        <UnifiImportModal
+          open={unifiImportModalOpen}
+          clientId={client.id}
+          existingEquipment={existingUnifiEquipment}
+          onClose={() => setUnifiImportModalOpen(false)}
+          onImported={async () => {
+            setUnifiImportModalOpen(false);
+            if (typeof onSaved === "function") {
+              await onSaved(null, { importedFromUnifi: true }, null, moduleKey);
+            }
+            onClose();
+          }}
+        />
+      ) : null}
     </>;
 }

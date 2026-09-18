@@ -370,12 +370,70 @@ export function extractDeviceSiteId(device = {}) {
   );
 }
 
-export async function listCarrierSubscribers(apiKey) {
-  const payload = await fetchUiApi("/v1/carrier/subscribers", {
-    apiKey,
-    query: {
-      pageSize: 200
+export async function fetchLocalNetworkDevices({
+  apiUrl,
+  apiKey,
+  siteId = "default",
+  rejectUnauthorized = false
+}) {
+  let base = String(apiUrl || "").trim();
+  if (!base) throw Object.assign(new Error("Controller URL required"), { status: 400 });
+  if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
+  base = base.replace(/\/+$/, "");
+  const key = String(apiKey || "").trim();
+  if (!key) throw Object.assign(new Error("Network API key required"), { status: 400 });
+  const site = String(siteId || "default").trim() || "default";
+  const https = await import("https");
+  const agent = new https.Agent({ rejectUnauthorized: rejectUnauthorized === true });
+  const response = await fetch(
+    `${base}/proxy/network/api/s/${encodeURIComponent(site)}/stat/device`,
+    {
+      method: "GET",
+      headers: { "X-API-KEY": key, Accept: "application/json" },
+      agent
     }
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(
+      payload?.meta?.msg || payload?.message || `UniFi Network HTTP ${response.status}`
+    );
+    err.status = response.status;
+    err.details = payload;
+    throw err;
+  }
+  const list = Array.isArray(payload?.data) ? payload.data : [];
+  return list.map(device => normalizeUnifiDevice(device, { siteId: site }));
+}
+
+export async function testLocalNetworkConnection({
+  apiUrl,
+  apiKey,
+  rejectUnauthorized = false
+}) {
+  let base = String(apiUrl || "").trim();
+  if (!base) throw Object.assign(new Error("Controller URL required"), { status: 400 });
+  if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
+  base = base.replace(/\/+$/, "");
+  const key = String(apiKey || "").trim();
+  if (!key) throw Object.assign(new Error("Network API key required"), { status: 400 });
+  const https = await import("https");
+  const agent = new https.Agent({ rejectUnauthorized: rejectUnauthorized === true });
+  const response = await fetch(`${base}/proxy/network/api/s/default/self`, {
+    method: "GET",
+    headers: { "X-API-KEY": key, Accept: "application/json" },
+    agent
   });
-  return extractUiList(payload);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(
+      payload?.meta?.msg || payload?.message || `UniFi Network HTTP ${response.status}`
+    );
+    err.status = response.status;
+    throw err;
+  }
+  return {
+    host: base,
+    site: payload?.data?.[0]?.name || payload?.data?.name || "default"
+  };
 }
