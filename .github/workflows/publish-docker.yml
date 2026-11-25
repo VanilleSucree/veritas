@@ -34,7 +34,7 @@ jobs:
       - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
-          context: ./veritas/backend
+          context: ./veritas
           push: true
           tags: |
             ${{ env.BACKEND_IMAGE }}:latest
